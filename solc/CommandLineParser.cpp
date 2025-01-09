@@ -51,6 +51,7 @@ static std::string const g_strEOFVersion = "experimental-eof-version";
 static std::string const g_strViaIR = "via-ir";
 static std::string const g_strExperimentalViaIR = "experimental-via-ir";
 static std::string const g_strExperimental = "experimental";
+static std::string const g_strSSACFGCodegen = "ssa-cfg-codegen";
 static std::string const g_strGas = "gas";
 static std::string const g_strHelp = "help";
 static std::string const g_strImportAst = "import-ast";
@@ -595,6 +596,9 @@ General Information)").c_str(),
 			)
 			(
 				g_strYul.c_str(), "The typed Yul dialect is no longer supported. For regular Yul compilation use --strict-assembly instead."
+			)
+			(
+				g_strSSACFGCodegen.c_str(), "Use SSA CFG Codegen in Yul."
 			)
 		;
 	outputOptions.add_options()
@@ -1302,6 +1306,7 @@ void CommandLineParser::processArgs()
 		m_options.optimizer.yulSteps = m_args[g_strYulOptimizations].as<std::string>();
 	}
 
+	m_options.output.ssaCfgCodegen = m_args.count(g_strSSACFGCodegen) > 0;
 	if (m_options.input.mode == InputMode::Assembler)
 	{
 		std::vector<std::string> const nonAssemblyModeOptions = {
