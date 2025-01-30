@@ -22,9 +22,14 @@
  */
 
 #include <test/libsolidity/SolidityExecutionFramework.h>
+
+#include <test/libsolidity/util/Common.h>
+#include <test/libsolidity/util/SoltestErrors.h>
+
 #include <libevmasm/GasMeter.h>
 #include <libevmasm/KnownState.h>
 #include <libevmasm/PathGasMeter.h>
+
 #include <libsolidity/ast/AST.h>
 #include <libsolidity/interface/GasEstimator.h>
 
@@ -42,25 +47,36 @@ class GasMeterTestFramework: public SolidityExecutionFramework
 public:
 	void compile(std::string const& _sourceCode)
 	{
-		m_compiler.reset();
-		m_compiler.setSources({{"", "pragma solidity >=0.0;\n"
-				"// SPDX-License-Identifier: GPL-3.0\n" + _sourceCode}});
-		m_compiler.setOptimiserSettings(solidity::test::CommonOptions::get().optimize);
-		m_compiler.setEVMVersion(m_evmVersion);
-		BOOST_REQUIRE_MESSAGE(m_compiler.compile(), "Compiling contract failed");
+		m_compilerInput = CompilerInput {
+			.sourceCode = {{"", withPreamble(_sourceCode)}},
+			.evmVersion = m_evmVersion,
+			.optimise = CommonOptions::get().optimize
+		};
+		m_compiler.compile(m_compilerInput);
+
+		BOOST_REQUIRE_MESSAGE(m_compiler.output().success(), "Compiling contract failed");
 	}
 
 	void testCreationTimeGas(std::string const& _sourceCode, u256 const& _tolerance = u256(0))
 	{
 		compileAndRun(_sourceCode);
+
 		auto state = std::make_shared<KnownState>();
-		PathGasMeter meter(*m_compiler.assemblyItems(m_compiler.lastContractName()), solidity::test::CommonOptions::get().evmVersion());
+		auto const* contract = m_compiler.output().contract();
+
+		soltestAssert(contract);
+		soltestAssert(contract->assemblyItems.has_value());
+
+		PathGasMeter meter(
+			contract->assemblyItems.value(),
+			CommonOptions::get().evmVersion()
+		);
 		GasMeter::GasConsumption gas = meter.estimateMax(0, state);
-		u256 bytecodeSize(m_compiler.runtimeObject(m_compiler.lastContractName()).bytecode.size());
+		u256 bytecodeSize(contract->runtimeObject.size());
 		// costs for deployment
 		gas += bytecodeSize * GasCosts::createDataGas;
 		// costs for transaction
-		gas += gasForTransaction(m_compiler.object(m_compiler.lastContractName()).bytecode, true);
+		gas += gasForTransaction(contract->object, true);
 
 		BOOST_REQUIRE(!gas.isInfinite);
 		BOOST_CHECK_LE(m_gasUsed, gas.value);
@@ -71,6 +87,11 @@ public:
 	/// against the actual gas usage computed by the VM on the given set of argument variants.
 	void testRunTimeGas(std::string const& _sig, std::vector<bytes> _argumentVariants, u256 const& _tolerance = u256(0))
 	{
+		auto const* contract = m_compiler.output().contract();
+
+		soltestAssert(contract);
+		soltestAssert(contract->runtimeAssemblyItems.has_value());
+
 		u256 gasUsed = 0;
 		GasMeter::GasConsumption gas;
 		util::FixedHash<4> hash = util::selectorFromSignatureH32(_sig);
@@ -82,8 +103,8 @@ public:
 			gas = std::max(gas, gasForTransaction(hash.asBytes() + arguments, false));
 		}
 
-		gas += GasEstimator(solidity::test::CommonOptions::get().evmVersion()).functionalEstimation(
-			*m_compiler.runtimeAssemblyItems(m_compiler.lastContractName()),
+		gas += GasEstimator(CommonOptions::get().evmVersion()).functionalEstimation(
+			contract->runtimeAssemblyItems.value(),
 			_sig
 		);
 		BOOST_REQUIRE(!gas.isInfinite);
@@ -93,7 +114,7 @@ public:
 
 	static GasMeter::GasConsumption gasForTransaction(bytes const& _data, bool _isCreation)
 	{
-		auto evmVersion = solidity::test::CommonOptions::get().evmVersion();
+		auto evmVersion = CommonOptions::get().evmVersion();
 		GasMeter::GasConsumption gas = _isCreation ? GasCosts::txCreateGas : GasCosts::txGas;
 		for (auto i: _data)
 			gas += i != 0 ? GasCosts::txDataNonZeroGas(evmVersion) : GasCosts::txDataZeroGas;

@@ -12,6 +12,8 @@
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "libsolidity/util/Compiler.h"
+#include <range/v3/algorithm/find_if.hpp>
 #include <test/libsolidity/SemanticTest.h>
 
 #include <libsolutil/Whiskers.h>
@@ -23,6 +25,11 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/throw_exception.hpp>
+
+#include <range/v3/algorithm/find_if.hpp>
+#include <range/v3/view/join.hpp>
+#include <range/v3/view/transform.hpp>
+#include <range/v3/range/conversion.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -118,8 +125,8 @@ SemanticTest::SemanticTest(
 
 	if (m_enforceGasCost)
 	{
-		m_compiler.setMetadataFormat(CompilerStack::MetadataFormat::NoMetadata);
-		m_compiler.setMetadataHash(CompilerStack::MetadataHash::None);
+		m_compilerInput.metadataAppendCBOR = false;
+		m_compilerInput.metadataHash = MetadataHash::None;
 	}
 }
 
@@ -196,7 +203,12 @@ std::vector<SideEffectHook> SemanticTest::makeSideEffectHooks() const
 	};
 }
 
-std::string SemanticTest::formatEventParameter(std::optional<AnnotatedEventSignature> _signature, bool _indexed, size_t _index, bytes const& _data)
+std::string SemanticTest::formatEventParameter(
+	CompiledContract::Event const* _signature,
+	bool _indexed,
+	size_t _index,
+	bytes const& _data
+)
 {
 	auto isPrintableASCII = [](bytes const& s)
 	{
@@ -217,7 +229,7 @@ std::string SemanticTest::formatEventParameter(std::optional<AnnotatedEventSigna
 	ABIType abiType(ABIType::Type::Hex);
 	if (isPrintableASCII(_data))
 		abiType = ABIType(ABIType::Type::String);
-	if (_signature.has_value())
+	if (_signature)
 	{
 		std::vector<std::string> const& types = _indexed ? _signature->indexedTypes : _signature->nonIndexedTypes;
 		if (_index < types.size())
@@ -232,16 +244,29 @@ std::string SemanticTest::formatEventParameter(std::optional<AnnotatedEventSigna
 std::vector<std::string> SemanticTest::eventSideEffectHook(FunctionCall const&) const
 {
 	std::vector<std::string> sideEffects;
-	std::vector<LogRecord> recordedLogs = ExecutionFramework::recordedLogs();
-	for (LogRecord const& log: recordedLogs)
+	for (LogRecord const& log: ExecutionFramework::recordedLogs())
 	{
-		std::optional<AnnotatedEventSignature> eventSignature;
+		auto contracts = m_compiler.output().contracts();
+		auto events = contracts |
+	    	ranges::views::transform([](auto const* contract) {
+	        	return ranges::views::all(contract->events);
+		    }) |
+		    ranges::views::join |
+		    ranges::to<std::vector<CompiledContract::Event>>();
+
+		CompiledContract::Event const* event = nullptr;
 		if (!log.topics.empty())
-			eventSignature = matchEvent(log.topics[0]);
+		{
+			auto e = ranges::find_if(events, [&](auto const& _e) {
+		        return keccak256(_e.signature) == log.topics[0] && !_e.isAnonymous;
+		    });
+			event = (e != events.end()) ? &*e : nullptr;
+		}
+
 		std::stringstream sideEffect;
 		sideEffect << "emit ";
-		if (eventSignature.has_value())
-			sideEffect << eventSignature.value().signature;
+		if (event)
+			sideEffect << event->signature;
 		else
 			sideEffect << "<anonymous>";
 
@@ -252,8 +277,8 @@ std::vector<std::string> SemanticTest::eventSideEffectHook(FunctionCall const&) 
 		size_t index{0};
 		for (h256 const& topic: log.topics)
 		{
-			if (!eventSignature.has_value() || index != 0)
-				eventStrings.push_back("#" + formatEventParameter(eventSignature, true, index, topic.asBytes()));
+			if (!event || index != 0)
+				eventStrings.push_back("#" + formatEventParameter(event, true, index, topic.asBytes()));
 			++index;
 		}
 
@@ -262,7 +287,7 @@ std::vector<std::string> SemanticTest::eventSideEffectHook(FunctionCall const&) 
 		{
 			auto begin = log.data.begin() + static_cast<long>(index * 32);
 			bytes const& data = bytes{begin, begin + 32};
-			eventStrings.emplace_back(formatEventParameter(eventSignature, false, index, data));
+			eventStrings.emplace_back(formatEventParameter(event, false, index, data));
 		}
 
 		if (!eventStrings.empty())
@@ -271,31 +296,6 @@ std::vector<std::string> SemanticTest::eventSideEffectHook(FunctionCall const&) 
 		sideEffects.emplace_back(sideEffect.str());
 	}
 	return sideEffects;
-}
-
-std::optional<AnnotatedEventSignature> SemanticTest::matchEvent(util::h256 const& hash) const
-{
-	std::optional<AnnotatedEventSignature> result;
-	for (std::string& contractName: m_compiler.contractNames())
-	{
-		ContractDefinition const& contract = m_compiler.contractDefinition(contractName);
-		for (EventDefinition const* event: contract.events() + contract.usedInterfaceEvents())
-		{
-			FunctionTypePointer eventFunctionType = event->functionType(true);
-			if (!event->isAnonymous() && keccak256(eventFunctionType->externalSignature()) == hash)
-			{
-				AnnotatedEventSignature eventInfo;
-				eventInfo.signature = eventFunctionType->externalSignature();
-				for (auto const& param: event->parameters())
-					if (param->isIndexed())
-						eventInfo.indexedTypes.emplace_back(param->type()->toString(true));
-					else
-						eventInfo.nonIndexedTypes.emplace_back(param->type()->toString(true));
-				result = eventInfo;
-			}
-		}
-	}
-	return result;
 }
 
 frontend::OptimiserSettings SemanticTest::optimizerSettingsFor(RequiresYulOptimizer _requiresYulOptimizer)
@@ -364,7 +364,7 @@ TestCase::TestResult SemanticTest::runTest(
 	for (TestFunctionCall& test: m_tests)
 		test.reset();
 
-	std::map<std::string, solidity::test::Address> libraries;
+	std::map<std::string, Address> libraries;
 
 	bool constructed = false;
 
@@ -383,13 +383,14 @@ TestCase::TestResult SemanticTest::runTest(
 		}
 		else if (test.call().kind == FunctionCall::Kind::Library)
 		{
+			std::string name = test.call().libraryFile + ":" + test.call().signature;
 			soltestAssert(
-				deploy(test.call().signature, 0, {}, libraries) && m_transactionSuccessful,
+				deploy(name, 0, {}, libraries) && m_transactionSuccessful,
 				"Failed to deploy library " + test.call().signature);
 			// For convenience, in semantic tests we assume that an unqualified name like `L` is equivalent to one
 			// with an empty source unit name (`:L`). This is fine because the compiler never uses unqualified
 			// names in the Yul code it produces and does not allow `linkersymbol()` at all in inline assembly.
-			libraries[test.call().libraryFile + ":" + test.call().signature] = m_contractAddress;
+			libraries[name] = m_contractAddress;
 			continue;
 		}
 		else
@@ -416,7 +417,13 @@ TestCase::TestResult SemanticTest::runTest(
 		}
 		else
 		{
+			ContractName contractName{m_sources.mainSourceFile, ""};
+
+			auto const* contract = m_compiler.output().contract(contractName);
+			soltestAssert(contract);
+
 			bytes output;
+
 			if (test.call().kind == FunctionCall::Kind::LowLevel)
 				output = callLowLevel(test.call().arguments.rawBytes(), test.call().value.value);
 			else if (test.call().kind == FunctionCall::Kind::Builtin)
@@ -434,7 +441,7 @@ TestCase::TestResult SemanticTest::runTest(
 			{
 				soltestAssert(
 					m_allowNonExistingFunctions ||
-					m_compiler.interfaceSymbols(m_compiler.lastContractName(m_sources.mainSourceFile))["methods"].contains(test.call().signature),
+					contract->interfaceSymbols["methods"].contains(test.call().signature),
 					"The function " + test.call().signature + " is not known to the compiler"
 				);
 
@@ -462,7 +469,7 @@ TestCase::TestResult SemanticTest::runTest(
 			test.setFailure(!m_transactionSuccessful);
 			test.setRawBytes(std::move(output));
 			if (test.call().kind != FunctionCall::Kind::LowLevel)
-				test.setContractABI(m_compiler.contractABI(m_compiler.lastContractName(m_sources.mainSourceFile)));
+				test.setContractABI(contract->contractABI);
 		}
 
 		std::vector<std::string> effects;

@@ -105,7 +105,7 @@ BOOST_AUTO_TEST_CASE(creation_code_optimizer)
 		}
 	)";
 
-	m_metadataHash = CompilerStack::MetadataHash::None;
+	m_metadataHash = MetadataHash::None;
 	ALSO_VIA_YUL({
 		bytes bytecodeC = compileContract(codeC);
 		reset();
@@ -2815,9 +2815,17 @@ BOOST_AUTO_TEST_CASE(include_creation_bytecode_only_once)
 		}
 	)";
 	compileAndRun(sourceCode);
+
+	auto const& output = m_compiler.output();
+	auto const* contractDouble = output.contract(std::string_view{"Double"});
+	auto const* contractSingle = output.contract("Single");
+
+	solAssert(contractDouble);
+	solAssert(contractSingle);
+
 	BOOST_CHECK_LE(
-		double(m_compiler.object("Double").bytecode.size()),
-		1.2 * double(m_compiler.object("Single").bytecode.size())
+		static_cast<double>(contractDouble->object.size()),
+		1.2 * static_cast<double>(contractSingle->object.size())
 	);
 }
 

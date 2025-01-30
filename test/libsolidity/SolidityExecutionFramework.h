@@ -25,21 +25,22 @@
 
 #include <functional>
 
-#include <test/ExecutionFramework.h>
-
-#include <libsolidity/interface/CompilerStack.h>
 #include <libsolidity/interface/DebugSettings.h>
-
 #include <libyul/YulStack.h>
+
+#include <test/ExecutionFramework.h>
+#include <test/libsolidity/util/Compiler.h>
 
 namespace solidity::frontend::test
 {
 
-class SolidityExecutionFramework: public solidity::test::ExecutionFramework
+using namespace solidity::test;
+
+class SolidityExecutionFramework: public ExecutionFramework
 {
 
 public:
-	SolidityExecutionFramework(): m_showMetadata(solidity::test::CommonOptions::get().showMetadata) {}
+	SolidityExecutionFramework(): m_showMetadata(CommonOptions::get().showMetadata) {}
 	explicit SolidityExecutionFramework(
 		langutil::EVMVersion _evmVersion,
 		std::optional<uint8_t> _eofVersion,
@@ -48,7 +49,7 @@ public:
 	):
 		ExecutionFramework(_evmVersion, _vmPaths),
 		m_eofVersion(_eofVersion),
-		m_showMetadata(solidity::test::CommonOptions::get().showMetadata),
+		m_showMetadata(CommonOptions::get().showMetadata),
 		m_appendCBORMetadata(_appendCBORMetadata)
 	{}
 
@@ -57,11 +58,11 @@ public:
 		u256 const& _value = 0,
 		std::string const& _contractName = "",
 		bytes const& _arguments = {},
-		std::map<std::string, solidity::test::Address> const& _libraryAddresses = {},
-		std::optional<std::string> const& _sourceName = std::nullopt
+		std::map<std::string, Address> const& _libraryAddresses = {},
+		std::optional<std::string> const& _mainSourceName = std::nullopt
 	) override
 	{
-		bytes bytecode = multiSourceCompileContract(_sourceCode, _sourceName, _contractName, _libraryAddresses);
+		bytes bytecode = multiSourceCompileContract(_sourceCode, _contractName, _libraryAddresses, _mainSourceName);
 		sendMessage(bytecode, _arguments, true, _value);
 		return m_output;
 	}
@@ -69,24 +70,24 @@ public:
 	bytes compileContract(
 		std::string const& _sourceCode,
 		std::string const& _contractName = "",
-		std::map<std::string, solidity::test::Address> const& _libraryAddresses = {}
+		std::map<std::string, Address> const& _libraryAddresses = {}
 	);
 
 	bytes multiSourceCompileContract(
 		std::map<std::string, std::string> const& _sources,
-		std::optional<std::string> const& _mainSourceName = std::nullopt,
 		std::string const& _contractName = "",
-		std::map<std::string, solidity::test::Address> const& _libraryAddresses = {}
+		std::map<std::string, Address> const& _libraryAddresses = {},
+		std::optional<std::string> const& _mainSourceName = std::nullopt
 	);
 
 protected:
-	using CompilerStack = solidity::frontend::CompilerStack;
 	std::optional<uint8_t> m_eofVersion;
-	CompilerStack m_compiler;
+	CompilerInput m_compilerInput;
+	Compiler m_compiler;
 	bool m_compileViaYul = false;
 	bool m_showMetadata = false;
 	bool m_appendCBORMetadata = true;
-	CompilerStack::MetadataHash m_metadataHash = CompilerStack::MetadataHash::IPFS;
+	MetadataHash m_metadataHash = MetadataHash::IPFS;
 	RevertStrings m_revertStrings = RevertStrings::Default;
 };
 
