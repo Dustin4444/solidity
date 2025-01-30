@@ -23,7 +23,10 @@
 using namespace solidity;
 using namespace solidity::frontend;
 
-std::string test::withPreamble(std::string const& _sourceCode, bool _addAbicoderV1Pragma)
+namespace solidity::frontend::test
+{
+
+std::string withPreamble(std::string const& _sourceCode, bool _addAbicoderV1Pragma)
 {
 	static std::string const versionPragma = "pragma solidity >=0.0;\n";
 	static std::string const licenseComment = "// SPDX-License-Identifier: GPL-3.0\n";
@@ -43,7 +46,7 @@ std::string test::withPreamble(std::string const& _sourceCode, bool _addAbicoder
 		_sourceCode;
 }
 
-StringMap test::withPreamble(StringMap _sources, bool _addAbicoderV1Pragma)
+StringMap withPreamble(StringMap _sources, bool _addAbicoderV1Pragma)
 {
 	for (auto&& [sourceName, source]: _sources)
 		source = withPreamble(source, _addAbicoderV1Pragma);
@@ -51,7 +54,7 @@ StringMap test::withPreamble(StringMap _sources, bool _addAbicoderV1Pragma)
 	return _sources;
 }
 
-std::string test::stripPreReleaseWarning(std::string const& _stderrContent)
+std::string stripPreReleaseWarning(std::string const& _stderrContent)
 {
 	static std::regex const preReleaseWarningRegex{
 		R"(Warning( \(3805\))?: This is a pre-release compiler version, please do not use it in production\.\n)"
@@ -64,3 +67,27 @@ std::string test::stripPreReleaseWarning(std::string const& _stderrContent)
 	std::string output = std::regex_replace(_stderrContent, preReleaseWarningRegex, "");
 	return std::regex_replace(std::move(output), noOutputRegex, "");
 }
+
+std::tuple<std::string, std::string, bool> decomposeContractName(std::string_view const _name)
+{
+	std::string source;
+	std::string contract;
+	bool isUnqualified;
+
+	auto const pos = _name.find(':');
+	if (pos != std::string::npos)
+	{
+		isUnqualified = false;
+		source = _name.substr(0, pos);
+		contract = _name.substr(pos + 1);
+	}
+	else
+	{
+		isUnqualified = true;
+		contract = _name;
+	}
+
+	return {source, contract, isUnqualified};
+}
+
+} // namespace solidity::frontend::test

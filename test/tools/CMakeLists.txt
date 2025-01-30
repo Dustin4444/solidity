@@ -22,6 +22,8 @@ add_executable(isoltest
 	../libevmasm/PlainAssemblyParser.cpp
 	../libsolidity/util/BytesUtils.cpp
 	../libsolidity/util/Common.cpp
+	../libsolidity/util/Compiler.h
+    ../libsolidity/util/Compiler.cpp
 	../libsolidity/util/ContractABIUtils.cpp
 	../libsolidity/util/TestFileParser.cpp
 	../libsolidity/util/TestFunctionCall.cpp
