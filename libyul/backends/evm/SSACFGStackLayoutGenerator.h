@@ -26,6 +26,7 @@ namespace solidity::yul {
 struct ControlFlowLiveness;
 struct ControlFlow;
 class SSACFGLiveness;
+class ForwardSSACFGTopologicalSort;
 
 class IsSSACFGLiteral
 {
@@ -44,9 +45,23 @@ private:
 
 class SSACFGStackLayoutGenerator {
 public:
+	using Stack = SSACFGStackLayout::Stack;
+	using Slot = SSACFGStackLayout::Slot;
+
 	static ControlFlowLayout generate(ControlFlowLiveness const& _controlFlowLiveness);
 	static SSACFGStackLayout generate(SSACFGLiveness const& _cfgLiveness);
 private:
+
+	class RevertPaths
+	{
+	public:
+		explicit RevertPaths(SSACFG const& _cfg, ForwardSSACFGTopologicalSort const& _topologicalSort);
+		/// Algorithm 1 of https://arxiv.org/pdf/2108.07346
+		bool blockIsOnRevertPath(SSACFG::BlockId const& _blockId) const;
+	private:
+		std::vector<uint8_t> m_blockIsOnRevertPath;
+	};
+
 	explicit SSACFGStackLayoutGenerator(SSACFGLiveness const& _liveness);
 	~SSACFGStackLayoutGenerator();
 
@@ -54,10 +69,10 @@ private:
 
 	SSACFGStackLayout const& run();
 	void visitBlock(SSACFG::BlockId _blockId);
-	SSACFGStackLayout::Stack visitOperation(
+	Stack visitOperation(
 		SSACFG::BlockId _blockId,
 		size_t _operationIndex,
-		SSACFGStackLayout::Stack const& _inputStack
+		Stack const& _inputStack
 	);
 
 	void populateBlockSuccessorStackIn(SSACFG::BlockId _blockId);
@@ -74,6 +89,8 @@ private:
 
 	SSACFGLiveness const& m_liveness;
 	SSACFG const& m_cfg;
+
+	RevertPaths m_revertPaths;
 
 	/// Keeping track of what blocks were already visited. uses uint8 over bool as there is no need to space-optimize.
 	std::vector<std::uint8_t> m_generatedBlocks;
