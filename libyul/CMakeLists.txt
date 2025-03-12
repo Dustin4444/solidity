@@ -43,7 +43,6 @@ add_library(yul
 	Utilities.cpp
 	Utilities.h
 	YulName.h
-	YulString.h
 	backends/evm/AbstractAssembly.h
 	backends/evm/AsmCodeGen.cpp
 	backends/evm/AsmCodeGen.h
