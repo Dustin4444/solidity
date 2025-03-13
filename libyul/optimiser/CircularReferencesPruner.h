@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include <libyul/ASTForward.h>
 #include <libyul/optimiser/ASTWalker.h>
 #include <libyul/optimiser/CallGraphGenerator.h>
 #include <libyul/optimiser/OptimiserStep.h>

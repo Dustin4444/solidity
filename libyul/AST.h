@@ -117,7 +117,7 @@ public:
 		m_root(std::move(_root))
 	{}
 	/// Creates a new AST instance by generating labels based on the state of the dispenser plus the entered block.
-	/// One could also call `_dispenser.generateNewLabels` beforehand, but then special care has to be taken
+	/// One could also call `_dispenser.consolidateLabels` beforehand, but then special care has to be taken
 	/// to not inline it into one constructor call. The order of evaluation is not defined.
 	AST(Dialect const& _dialect, LabelIDDispenser const& _dispenser, Block _root);
 

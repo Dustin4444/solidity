@@ -34,6 +34,8 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <regex>
 

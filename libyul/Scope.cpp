@@ -19,6 +19,7 @@
  * Scopes for identifiers.
  */
 
+#include <libyul/ASTForward.h>
 #include <libyul/Scope.h>
 
 using namespace solidity;

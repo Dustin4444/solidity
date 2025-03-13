@@ -82,7 +82,7 @@ bool LiteralValue::operator<(solidity::yul::LiteralValue const& _rhs) const
 
 AST::AST(Dialect const& _dialect, LabelIDDispenser const& _dispenser, Block _root):
 	m_dialect(_dialect),
-	m_labels(_dispenser.generateNewLabels(_root, _dialect)),
+	m_labels(_dispenser.consolidateLabels(_root, _dialect)),
 	m_root(std::move(_root))
 {}
 
