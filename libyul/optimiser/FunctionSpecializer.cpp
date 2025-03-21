@@ -25,7 +25,6 @@
 
 #include <libyul/ASTForward.h>
 #include <libyul/AST.h>
-#include <libyul/YulName.h>
 #include <libsolutil/CommonData.h>
 
 #include <range/v3/algorithm/any_of.hpp>

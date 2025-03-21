@@ -24,7 +24,6 @@
 
 using namespace solidity;
 using namespace solidity::yul;
-using namespace solidity::util;
 
 bool Scope::registerVariable(YulName _name)
 {

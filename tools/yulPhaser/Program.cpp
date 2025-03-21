@@ -29,7 +29,6 @@
 #include <libyul/ASTForward.h>
 #include <libyul/AST.h>
 #include <libyul/ObjectParser.h>
-#include <libyul/YulName.h>
 #include <libyul/backends/evm/EVMDialect.h>
 #include <libyul/optimiser/Disambiguator.h>
 #include <libyul/optimiser/ForLoopInitRewriter.h>
