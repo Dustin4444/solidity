@@ -30,66 +30,13 @@
 #include <range/v3/algorithm/none_of.hpp>
 #include <range/v3/range/conversion.hpp>
 #include <range/v3/view/drop_exactly.hpp>
-#include <range/v3/view/enumerate.hpp>
 #include <range/v3/view/iota.hpp>
-#include <range/v3/view/reverse.hpp>
 #include <range/v3/view/take_last.hpp>
 #include <range/v3/view/zip.hpp>
 
-using namespace solidity;
-using namespace solidity::yul;
+#include <variant>
 
-namespace
-{
-
-constexpr bool debugOutput = true;
-
-std::string ssaCfgVarToString(SSACFG const& _cfg, SSACFG::ValueId _var)
-{
-	if (_var.value == std::numeric_limits<size_t>::max())
-		return "INVALID";
-	auto const& info = _cfg.valueInfo(_var);
-	return std::visit(
-		util::GenericVisitor{
-			[&](SSACFG::UnreachableValue const&) -> std::string {
-				return "[unreachable]";
-			},
-			[&](SSACFG::LiteralValue const& _literal) {
-				std::stringstream str;
-				str << _literal.value;
-				return str.str();
-			},
-			[&](auto const&) {
-				return "v" + std::to_string(_var.value);
-			}
-		},
-		info
-	);
-}
-
-std::string stackSlotToStringLoc(SSACFG const& _cfg, SSACFGEVMCodeTransform::Stack::Slot const& _slot)
-{
-	return std::visit(util::GenericVisitor{
-		[&](SSACFG::ValueId _value) {
-			return ssaCfgVarToString(_cfg, _value);
-		},
-		[](AbstractAssembly::LabelID _label) {
-			return "LABEL[" + std::to_string(_label) + "]";
-		},
-		[](SSACFGFunctionReturnLabel const& _functionReturnLabel)
-		{
-			yulAssert(_functionReturnLabel.functionCall, "Function return label was null.");
-			yulAssert(std::holds_alternative<Identifier>(_functionReturnLabel.functionCall->functionName));
-			return fmt::format("ReturnLabel[{}]", std::get<Identifier>(_functionReturnLabel.functionCall->functionName).name.str());
-		}
-	}, _slot);
-}
-std::string stackToStringLoc(SSACFG const& _cfg, std::vector<SSACFGEVMCodeTransform::Slot> const& _stack)
-{
-	return "[" + util::joinHumanReadable(_stack | ranges::views::transform([&](auto const& _slot) { return stackSlotToStringLoc(_cfg, _slot); })) + "]";
-}
-
-SSACFG::LiteralValue resolveLiteralValue(SSACFGEVMCodeTransform::Slot const& _slot, SSACFG const& _cfg)
+/*SSACFG::LiteralValue resolveLiteralValue(SSACFGEVMCodeTransform::Slot const& _slot, SSACFG const& _cfg)
 {
 	yulAssert(std::holds_alternative<SSACFG::ValueId>(_slot));
 	auto const& valueId = std::get<SSACFG::ValueId>(_slot);
@@ -145,7 +92,7 @@ public:
 				if (!m_cfg.isLiteralValue(_value))
 				{
 					auto const depth = slotDepth(_slot);
-					yulAssert(depth, fmt::format("Tried bringing up {}", ssaCfgVarToString(m_cfg, _value)));
+					yulAssert(depth, fmt::format("Tried bringing up {}", m_cfg.valueDescription(_value)));
 					m_assembly.appendInstruction(evmasm::dupInstruction(static_cast<unsigned>(*depth + 1)));
 					m_dataStack.dup(*depth);
 				}
@@ -161,6 +108,15 @@ public:
 				yulAssert(maybeLabel);
 				m_dataStack.push(_label);
 				m_assembly.appendLabelReference(*maybeLabel);
+			},
+			[&](SSACFGJunkSlot const&)
+			{
+				// Note: this will always be popped, so we can push anything.
+				if (m_assembly.evmVersion().hasPush0())
+					m_assembly.appendConstant(0);
+				else
+					m_assembly.appendInstruction(evmasm::Instruction::CODESIZE);
+				m_dataStack.push(SSACFGJunkSlot{});
 			}
 		}, _slot);
 	}
@@ -175,7 +131,13 @@ private:
 };
 static_assert(SSACFGStack<StackWithAssemblyOps>);
 
-}
+}*/
+
+using namespace solidity;
+using namespace solidity::yul;
+using namespace solidity::yul::ssa;
+
+constexpr bool debugOutput = false;
 
 std::vector<StackTooDeepError> SSACFGEVMCodeTransform::run(
 	AbstractAssembly& _assembly,
@@ -268,16 +230,20 @@ SSACFGEVMCodeTransform::SSACFGEVMCodeTransform
 	m_assembly(_assembly),
 	m_builtinContext(_builtinContext),
 	m_cfg(_cfg),
-	m_liveness(_liveness),
 	m_stackLayout(SSACFGStackLayoutGenerator::generate(_liveness)),
+	m_assemblyCallbacks{
+		.cfg = &_cfg,
+		.assembly = &_assembly,
+		.returnLabels = &m_returnLabels
+	},
+	m_stack(m_stackLayout.blockLayouts[m_cfg.entry.value].stackIn, m_assemblyCallbacks, {&_cfg}),
 	m_functionLabels(std::move(_functionLabels)),
 	m_generatedBlocks(_cfg.numBlocks(), false)
 {
 	for (size_t i = 0; i < _cfg.numBlocks(); ++i)
 		m_blockLabels.emplace_back(m_assembly.newLabelId());
-	//m_blockLabels.resize(_cfg.numBlocks());
-	//for (auto const& blockId: m_liveness.topologicalSort().preOrder())
-	//	m_blockLabels[blockId] = m_assembly.newLabelId();
+	if constexpr (debugOutput)
+		std::cout << "Code transform for " << (m_cfg.function ? m_cfg.function->name.str() : "main") << '\n';
 }
 
 void SSACFGEVMCodeTransform::transformFunction(Scope::Function const& _function)
@@ -287,18 +253,8 @@ void SSACFGEVMCodeTransform::transformFunction(Scope::Function const& _function)
 		std::cout << "Generating code for function " << _function.name.str() << ", label=" << label << std::endl;
 	m_assembly.appendLabel(label);
 	m_assembly.setStackHeight(static_cast<int>(_function.numArguments));
-	m_stack = m_stackLayout.blockLayouts[m_cfg.entry.value].stackIn;
+	// m_stackData = m_stackLayout.blockLayouts[m_cfg.entry.value].stackIn;
 	(*this)(m_cfg.entry);
-}
-
-bool SSACFGEVMCodeTransform::requiresCleanStack(SSACFG::BlockId const _block) const
-{
-	util::GenericVisitor constexpr exitVisitor{
-		[&](SSACFG::BasicBlock::MainExit const&) { return false; },
-		[&](SSACFG::BasicBlock::Terminated const&){ return false; },
-		[](auto const&) { return true; }
-	};
-	return std::visit(exitVisitor, m_cfg.block(_block).exit);
 }
 
 void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
@@ -311,7 +267,8 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 		std::cout << "\tGenerating for Block " << _block.value << " with label " << m_blockLabels[_block.value] << std::endl;
 
 	auto const& blockLayout = m_stackLayout[_block];
-	yulAssert(blockLayout.stackIn == m_stack, fmt::format("{} =/= {}", stackToStringLoc(m_cfg, blockLayout.stackIn.stackData()), stackToStringLoc(m_cfg, m_stack.stackData())));
+	assertLayoutCompatibility(m_stack.data(), blockLayout.stackIn);
+	m_stack = Stack(blockLayout.stackIn, m_assemblyCallbacks, {&m_cfg}); // this can set some stuff to junk
 	// todo assert on all exits that the stack height is fine
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 
@@ -327,25 +284,36 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 
 		yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 		// Create required layout for entering the operation.
-		DanielShuffler<StackWithAssemblyOps>::
-			shuffle(StackWithAssemblyOps(m_cfg, m_assembly, m_stack, m_returnLabels), {}, operationStackIn.stackData());
+		if constexpr (debugOutput)
+		{
+			std::string operationName = std::visit(util::GenericVisitor(
+				[](SSACFG::Call const& _call) { return _call.function.get().name.str(); },
+				[](SSACFG::BuiltinCall const& _call) { return _call.builtin.get().name; },
+				[](SSACFG::LiteralAssignment const&) -> std::string { return "assign"; }
+			), operation.kind);
+			std::cout << "\t\t" << operationName << ": " << stackToString(m_stack.data(), m_cfg) << " -> " << stackToString(operationStackIn, m_cfg) << std::endl;
+		}
+		m_stack = DanielShuffler<SSACFGStack>::shuffle(m_stack, {}, operationStackIn);
 
 		// Assert that we have the inputs of the operation on stack top.
-		yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
-		// todo assert that we have return label + inputs on the top of the stack
-
 		yulAssert(m_stack.size() >= operation.inputs.size() + (hasReturnLabel ? 1 : 0));
 		for (auto const& [stackEntry, input]: ranges::zip_view(
 			m_stack | ranges::views::take_last(operation.inputs.size()),
 			operation.inputs
 		))
-			yulAssert(stackEntry == Stack::Slot{input});
+			yulAssert(stackEntry == Slot{input});
 		if (hasReturnLabel)
 		{
 			auto const returnLabelSlot = *(ranges::rbegin(m_stack) + static_cast<std::ptrdiff_t>(operation.inputs.size()));
 			yulAssert(std::holds_alternative<SSACFG::Call>(operation.kind));
-			yulAssert(returnLabelSlot == Slot{SSACFGFunctionReturnLabel{&std::get<SSACFG::Call>(operation.kind).call.get()}});
+			yulAssert(returnLabelSlot == Slot{ssa::FunctionReturnLabel{&std::get<SSACFG::Call>(operation.kind).call.get()}});
 		}
+
+		yulAssert(
+			static_cast<int>(m_stack.size()) == m_assembly.stackHeight(),
+			fmt::format("Stack height mismatch: symbolic = {} =/= {} = assembly", m_stack.size(), m_assembly.stackHeight())
+		);
+
 		size_t const baseHeight = m_stack.size() - operation.inputs.size() - (hasReturnLabel ? 1 : 0);
 
 		// Perform the operation.
@@ -358,7 +326,7 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 			m_stack | ranges::views::take_last(operation.outputs.size()),
 			operation.outputs
 		))
-			yulAssert(stackEntry == Stack::Slot{output});
+			yulAssert(stackEntry == Stack<AssemblyCallbacks>::Slot{output});
 		yulAssert(
 			static_cast<int>(m_stack.size()) == m_assembly.stackHeight(),
 			fmt::format("symbolic stack size = {} =/= {} = assembly stack height", m_stack.size(), m_assembly.stackHeight())
@@ -375,7 +343,7 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 			if constexpr (debugOutput)
 				std::cout << "\t\tJUMP Creating target stack for jump " << _block.value << " -> " << _jump.target.value << std::endl;
 
-			shuffleStack(m_stackLayout[_jump.target].stackIn.stackData(), SSACFG::Edge{_block, _jump.target});
+			shuffleStack(m_stackLayout[_jump.target].stackIn, SSACFG::Edge{_block, _jump.target});
 			m_assembly.appendJumpTo(m_blockLabels[_jump.target.value]);
 			if (!m_generatedBlocks[_jump.target.value])
 				(*this)(_jump.target);
@@ -383,28 +351,27 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 		[&](SSACFG::BasicBlock::ConditionalJump const& _conditionalJump)
 		{
 			{
-				auto stackIn = m_stackLayout[_conditionalJump.nonZero].stackIn.stackData();
+				auto stackIn = m_stackLayout[_conditionalJump.nonZero].stackIn;
 				stackIn.emplace_back(_conditionalJump.condition);
 				if constexpr (debugOutput)
-					std::cout << "\t\tJUMPI Creating stack for nonZero layout " << stackToStringLoc(m_cfg, m_stack.stackData()) << " -> " << stackToStringLoc(m_cfg, stackIn) << std::endl;
+					std::cout << "\t\tJUMPI Creating stack for nonZero layout (to Block " << _conditionalJump.nonZero.value << ") " << stackToString(m_stack.data(), m_cfg) << " -> " << stackToString(stackIn, m_cfg) << std::endl;
 				shuffleStack(stackIn, SSACFG::Edge{_block, _conditionalJump.nonZero});
 			}
-			// std::cout << "Stack after putting cond on top: "<< stackToStringLoc(m_cfg, m_stack.stackData()) << std::endl;
 
 			// Emit the conditional jump to the non-zero label and update the stored stack.
 			{
 				yulAssert(m_stack.top() == Slot{_conditionalJump.condition});
 				m_assembly.appendJumpToIf(m_blockLabels[_conditionalJump.nonZero.value]);
 				// update symbolic stack by popping the condition
-				m_stack.pop();
+				m_stack.pop<false>();
 			}
 			Stack const nonZeroStack = m_stack;
 
 			if constexpr (debugOutput)
-				std::cout << "\t\tJUMPI Creating stack for zero layout " << stackToStringLoc(m_cfg, m_stack.stackData()) << " -> " << stackToStringLoc(m_cfg, m_stackLayout[_conditionalJump.zero].stackIn.stackData()) << std::endl;
+				std::cout << "\t\tJUMPI Creating stack for zero layout (to Block " << _conditionalJump.zero.value << ") " << stackToString(m_stack.data(), m_cfg) << " -> " << ssa::stackToString(m_stackLayout[_conditionalJump.zero].stackIn, m_cfg) << std::endl;
 
 			shuffleStack(
-				m_stackLayout[_conditionalJump.zero].stackIn.stackData(),
+				m_stackLayout[_conditionalJump.zero].stackIn,
 				SSACFG::Edge{_block, _conditionalJump.zero}
 			);
 			m_assembly.appendJumpTo(m_blockLabels[_conditionalJump.zero.value]);
@@ -454,7 +421,7 @@ void SSACFGEVMCodeTransform::performOperation(SSACFG::Operation const& _operatio
 	std::visit(util::GenericVisitor {
 		[&](SSACFG::BuiltinCall const& _builtin) {
 			if constexpr (debugOutput)
-				std::cout << "\t\t\tBuiltin call: " << _builtin.builtin.get().name << ": " << stackToStringLoc(m_cfg, m_stack.stackData());
+				std::cout << "\t\t\tBuiltin call: " << _builtin.builtin.get().name << ": " << stackToString(m_stack.data(), m_cfg);
 			m_assembly.setSourceLocation(originLocationOf(_builtin));
 			static_cast<BuiltinFunctionForEVM const&>(_builtin.builtin.get()).generateCode(
 				_builtin.call,
@@ -467,7 +434,7 @@ void SSACFGEVMCodeTransform::performOperation(SSACFG::Operation const& _operatio
 			yulAssert(!!returnLabel == _call.canContinue);
 			if constexpr (debugOutput)
 			{
-				std::cout << "\t\t\tCall: " << _call.function.get().name.str() << " (label=" << functionLabel(_call.function) << ")" << ": " << stackToStringLoc(m_cfg, m_stack.stackData());
+				std::cout << "\t\t\tCall: " << _call.function.get().name.str() << " (label=" << functionLabel(_call.function) << ")" << ": " << stackToString(m_stack.data(), m_cfg);
 				if (returnLabel)
 					std::cout << ", returnLabel: " << *returnLabel;
 			}
@@ -480,17 +447,44 @@ void SSACFGEVMCodeTransform::performOperation(SSACFG::Operation const& _operatio
 			if (returnLabel)
 			{
 				m_assembly.appendLabel(*returnLabel);
-				m_stack.pop();
+				m_stack.pop<false>();
 			}
 		},
+		[&](SSACFG::LiteralAssignment const&)
+		{
+			if constexpr (debugOutput)
+				std::cout << "\t\t\tLiteral assignment: " << stackToString(m_stack.data(), m_cfg);
+		}
 	}, _operation.kind);
+	// todo do not use callback here
 	for (size_t i = 0; i < _operation.inputs.size(); ++i)
-		m_stack.pop();
+		m_stack.pop<false>();
 	for (auto value: _operation.outputs)
-		m_stack.push(value);
+		m_stack.push<false>(value);
 
 	if constexpr (debugOutput)
-		std::cout << " -> " << stackToStringLoc(m_cfg, m_stack.stackData()) << std::endl;
+		std::cout << " -> " << stackToString(m_stack.data(), m_cfg) << std::endl;
+}
+
+void SSACFGEVMCodeTransform::assertLayoutCompatibility(StackData const& _current, StackData const& _desired) const
+{
+	yulAssert(
+		_current.size() == _desired.size(),
+		fmt::format("size mismatch: {} = len({}) =/= len({}) = {}", _current.size(), ssa::stackToString(_current, m_cfg), ssa::stackToString(_desired, m_cfg), _desired.size())
+	);
+	for (auto&& [index, currentSlot, desiredSlot]: ranges::zip_view(ranges::views::iota(0), _current, _desired))
+		yulAssert(
+			std::holds_alternative<ssa::JunkSlot>(desiredSlot) || currentSlot == desiredSlot,
+			fmt::format(
+				"stack element mismatch: {} = {}[{}] =/= {}[{}] = {}",
+				ssa::slotToString(currentSlot, m_cfg),
+				ssa::stackToString(_current, m_cfg),
+				index,
+				ssa::stackToString(_desired, m_cfg),
+				index,
+				ssa::slotToString(desiredSlot, m_cfg)
+			)
+		);
 }
 
 void SSACFGEVMCodeTransform::shuffleStack(std::vector<Slot> _target, std::optional<SSACFG::Edge> const& _edge)
@@ -502,10 +496,11 @@ void SSACFGEVMCodeTransform::shuffleStack(std::vector<Slot> _target, std::option
 			return _target;
 		return _target | ranges::views::transform(transform) | ranges::to<std::vector>;
 	}();
-	DanielShuffler<StackWithAssemblyOps>::shuffle(
-		StackWithAssemblyOps(m_cfg, m_assembly, m_stack, m_returnLabels),
+	m_stack = DanielShuffler<Stack<AssemblyCallbacks>>::shuffle(
+		m_stack,
 		{}, transformedTarget
 	);
-	yulAssert(transformedTarget == m_stack.stackData());
-	m_stack = Stack(_target);
+	assertLayoutCompatibility(m_stack.data(), transformedTarget);
+	//yulAssert(transformedTarget == m_stack.stackData());
+	m_stack = SSACFGStack(_target, m_assemblyCallbacks, {&m_cfg});
 }

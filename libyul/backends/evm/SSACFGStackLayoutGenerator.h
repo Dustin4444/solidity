@@ -18,8 +18,9 @@
 
 #pragma once
 
-#include <libyul/backends/evm/SSAControlFlowGraph.h>
+#include <libyul/backends/evm/SSACFGJunkBlockFinder.h>
 #include <libyul/backends/evm/SSACFGStackLayout.h>
+#include <libyul/backends/evm/SSAControlFlowGraph.h>
 
 namespace solidity::yul {
 
@@ -34,7 +35,7 @@ public:
 	explicit IsSSACFGLiteral(SSACFG const& _cfg): m_cfg(_cfg) {}
 
 	bool operator()(SSACFG::ValueId const _valueId) const { return m_cfg.isLiteralValue(_valueId); }
-	bool operator()(SSACFGStackLayout::Slot const& _slot) const
+	bool operator()(ssa::SSACFGStackLayout::Slot const& _slot) const
 	{
 		return std::holds_alternative<SSACFG::ValueId>(_slot) && (*this)(std::get<SSACFG::ValueId>(_slot));
 	}
@@ -45,39 +46,31 @@ private:
 
 class SSACFGStackLayoutGenerator {
 public:
-	using Stack = SSACFGStackLayout::Stack;
-	using Slot = SSACFGStackLayout::Slot;
+	using Stack = ssa::Stack<>;
+	using Slot = ssa::SSACFGStackLayout::Slot;
 
-	static ControlFlowLayout generate(ControlFlowLiveness const& _controlFlowLiveness);
-	static SSACFGStackLayout generate(SSACFGLiveness const& _cfgLiveness);
+	static ssa::ControlFlowLayout generate(ControlFlowLiveness const& _controlFlowLiveness);
+	static ssa::SSACFGStackLayout generate(SSACFGLiveness const& _cfgLiveness);
 private:
-
-	class RevertPaths
-	{
-	public:
-		explicit RevertPaths(SSACFG const& _cfg, ForwardSSACFGTopologicalSort const& _topologicalSort);
-		/// Algorithm 1 of https://arxiv.org/pdf/2108.07346
-		bool blockIsOnRevertPath(SSACFG::BlockId const& _blockId) const;
-	private:
-		std::vector<uint8_t> m_blockIsOnRevertPath;
-	};
 
 	explicit SSACFGStackLayoutGenerator(SSACFGLiveness const& _liveness);
 	~SSACFGStackLayoutGenerator();
 
-	bool requiresCleanStack(SSACFG::BlockId _block) const;
+	/// Creates a stack tail by JUNKing everything that isn't in the liveness set of current and popping stuff that is
+	/// in the back of `_newTop`.
+	static std::vector<Slot> prepareStackTail(std::vector<Slot> const& _current, std::vector<Slot> const& _newTop, std::set<SSACFG::ValueId> const& _liveness);
 
-	SSACFGStackLayout const& run();
+	ssa::SSACFGStackLayout const& run();
 	void visitBlock(SSACFG::BlockId _blockId);
-	Stack visitOperation(
+	void propagateStackThroughOperation(
 		SSACFG::BlockId _blockId,
 		size_t _operationIndex,
-		Stack const& _inputStack
+		Stack& _stack
 	);
 
-	void populateBlockSuccessorStackIn(SSACFG::BlockId _blockId);
-	void populateStackInFromJumpExit(SSACFG::BlockId _source, SSACFG::BasicBlock::Jump const& _jump);
-	void populateStackInFromConditionalJumpExit(
+	void handleBlockSuccessorsStackIn(SSACFG::BlockId _blockId);
+	void handleStackInViaJumpExit(SSACFG::BlockId _source, SSACFG::BasicBlock::Jump const& _jump);
+	void handleStackInViaConditionalJumpExit(
 		SSACFG::BlockId _source,
 		SSACFG::BasicBlock::ConditionalJump const& _condJump
 	);
@@ -87,16 +80,21 @@ private:
 	bool blockHasDefinedStackIn(SSACFG::BlockId _blockId) const;
 	void markBlockHasDefinedStackIn(SSACFG::BlockId _blockId);
 
+	static std::size_t junkTailSize(std::vector<Stack::Slot> const& _stackData);
+
+	// todo unify with code transform
+	Stack shuffleStack(Stack const& _source, std::vector<Slot> _target, std::optional<SSACFG::Edge> const& _edge = std::nullopt) const;
+
 	SSACFGLiveness const& m_liveness;
 	SSACFG const& m_cfg;
 
-	RevertPaths m_revertPaths;
+	SSACFGJunkBlockFinder m_junkBlockFinder;
 
 	/// Keeping track of what blocks were already visited. uses uint8 over bool as there is no need to space-optimize.
 	std::vector<std::uint8_t> m_generatedBlocks;
 	/// Keeping track which block has its input layout defined
 	std::vector<std::uint8_t> m_definedStackIn;
-	SSACFGStackLayout m_stackLayout;
+	ssa::SSACFGStackLayout m_stackLayout;
 };
 
 }

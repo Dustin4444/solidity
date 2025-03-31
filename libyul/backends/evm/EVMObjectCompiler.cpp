@@ -100,14 +100,15 @@ void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool const _s
 			std::unique_ptr<ControlFlow> const controlFlow = SSAControlFlowGraphBuilder::build(
 				*_object.analysisInfo,
 				*_object.dialect(),
-				_object.code()->root()
+				_object.code()->root(),
+				false
 			);
 			ControlFlowLiveness const liveness(*controlFlow);
-			stackErrors = SSACFGEVMCodeTransform::run(
+			stackErrors = ssa::SSACFGEVMCodeTransform::run(
 				m_assembly,
 				liveness,
 				context,
-				SSACFGEVMCodeTransform::UseNamedLabels::ForFirstFunctionOfEachName
+				ssa::SSACFGEVMCodeTransform::UseNamedLabels::ForFirstFunctionOfEachName
 			);
 		}
 		if (!stackErrors.empty())

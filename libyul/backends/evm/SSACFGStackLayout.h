@@ -19,19 +19,19 @@
 #pragma once
 
 #include <libyul/backends/evm/AbstractAssembly.h>
+#include <libyul/backends/evm/SSACFGStack.h>
 #include <libyul/backends/evm/SSAControlFlowGraph.h>
 
 #include <libyul/Exceptions.h>
 
-#include <libsolutil/Visitor.h>
-
 #include <range/v3/view/reverse.hpp>
 
 #include <map>
+#include <range/v3/algorithm/count_if.hpp>
 #include <variant>
 #include <vector>
 
-namespace solidity::yul
+namespace solidity::yul::ssa
 {
 /// If Block `_from` -> Block `_to` and `_to` has phi functions `v_k := phi(..., _from => v_i, ...)`, this transform
 /// pulls values `v_k` back to `v_i`.
@@ -60,136 +60,14 @@ private:
 	std::map<SSACFG::ValueId, SSACFG::ValueId> m_reversePhiMap = {};
 };
 
-template<typename Stack>
-concept SSACFGStack = requires(Stack _stack, Stack _otherStack, size_t _depth, typename Stack::Slot _slot)
-{
-	typename Stack::Slot;
-	{ _stack.top() } -> std::convertible_to<typename Stack::Slot>;
-	{ _stack.swap(_depth) } -> std::same_as<void>;
-	{ _stack.pop() } -> std::same_as<void>;
-	{ _stack.push(_slot) } -> std::same_as<void>;
-	{ _stack.pushOrDup(_slot) } -> std::same_as<void>;
-	{ _stack.slotDepth(_slot) } -> std::convertible_to<std::optional<size_t>>;
-	{ _stack.size() } -> std::convertible_to<size_t>;
-	{ _stack[_depth] } -> std::convertible_to<typename Stack::Slot>;
-	// we can iterate over a stack
-	{ ranges::range<ranges::range_value_t<Stack>> };
-	{ ranges::range_value_t<Stack>{} } -> std::convertible_to<typename Stack::Slot>;
-};
 
-
-struct SSACFGFunctionReturnLabel
-{
-	FunctionCall const* functionCall;
-	auto operator<=>(SSACFGFunctionReturnLabel const&) const = default;
-};
-
-class SSACFGStackLayoutStack
-{
-public:
-	using Slot = std::variant<SSACFG::ValueId, AbstractAssembly::LabelID, SSACFGFunctionReturnLabel>;
-
-	SSACFGStackLayoutStack() = default;
-	explicit SSACFGStackLayoutStack(std::vector<Slot> _stack): m_data(std::move(_stack)) {}
-
-	void swap(size_t const _depth)
-	{
-		yulAssert(m_data.size() > _depth);
-		std::swap(m_data[m_data.size() - _depth - 1], m_data.back());
-	}
-
-	void pop()
-	{
-		yulAssert(!m_data.empty());
-		m_data.pop_back();
-	}
-
-	void push(Slot const& _value)
-	{
-		m_data.emplace_back(_value);
-	}
-
-	void dup(size_t const _depth)
-	{
-		yulAssert(m_data.size() >= _depth + 1);
-		m_data.push_back(m_data[m_data.size() - _depth - 1]);
-	}
-
-	bool dup(Slot const& _value)
-	{
-		auto depth = slotDepth(_value);
-		if (depth)
-			dup(*depth);
-		return depth.has_value();
-	}
-
-	std::optional<size_t> slotDepth(Slot const& _value) const
-	{
-		auto const offset = util::findOffset(m_data | ranges::views::reverse, _value);
-		if (offset)
-		{
-			yulAssert(m_data.size() >= *offset + 1);
-			yulAssert(m_data[m_data.size() - *offset - 1] == _value);
-		}
-		return offset;
-	}
-
-	void bringUpSlot(Slot const& _slot)
-	{
-		std::visit(util::GenericVisitor{
-			[&](SSACFG::ValueId _value) {
-				if (!dup(_slot))
-					push(_value);
-			},
-			[&](AbstractAssembly::LabelID _label) {
-				m_data.emplace_back(_label);
-			},
-			[&](SSACFGFunctionReturnLabel const& _label)
-			{
-				m_data.emplace_back(_label);
-			}
-		}, _slot);
-	}
-
-	void pushOrDup(Slot const& _slot)
-	{
-		bringUpSlot(_slot);
-	}
-
-	size_t size() const
-	{
-		return m_data.size();
-	}
-
-	Slot const& operator[](size_t const _index) const
-	{
-		return m_data[_index];
-	}
-
-	Slot const& top() const
-	{
-		yulAssert(!m_data.empty());
-		return m_data.back();
-	}
-
-	auto begin() const { return ranges::begin(m_data); }
-	auto end() const { return ranges::end(m_data); }
-
-	auto operator<=>(SSACFGStackLayoutStack const&) const = default;
-
-	std::vector<Slot> const& stackData() const { return m_data; }
-private:
-	std::vector<Slot> m_data;
-};
-
-static_assert(SSACFGStack<SSACFGStackLayoutStack>);
 
 struct SSACFGStackLayout
 {
 	// each operation has a current stack
-	using Stack = SSACFGStackLayoutStack;
+	using Stack = StackData;
 	// a slot can be some valueId or a labelId
-	using Slot = Stack::Slot;
+	using Slot = Stack::value_type;
 
 	// Each block has its own layout
 	struct BlockLayout

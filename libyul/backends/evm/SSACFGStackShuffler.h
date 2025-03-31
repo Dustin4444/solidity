@@ -33,19 +33,18 @@ concept SSACFGStackShuffler = requires(
 	StackShuffler _shuffler,
 	typename StackShuffler::Stack _sourceStack,
 	std::vector<typename StackShuffler::Stack::Slot> _targetStackTop,
-	std::set<typename StackShuffler::Stack::Slot> _targetStackRest,
-	typename StackShuffler::Stack::Slot _slot
+	std::set<typename StackShuffler::Stack::Slot> _targetStackRest
 )
 {
 	typename StackShuffler::Stack;
 	{ _shuffler.shuffle(_sourceStack, _targetStackRest, _targetStackTop) } -> std::convertible_to<typename StackShuffler::Stack>;
 };
 
-template<SSACFGStack StackType>
+template<typename StackType>
 struct BubbleShuffler
 {
 	using Stack = StackType;
-	using StackSlot = typename Stack::Slot;
+	using StackSlot = ssa::StackSlot;
 	static Stack shuffle(Stack const& _sourceStack, std::set<StackSlot> const& _targetStackRest, std::vector<StackSlot> const& _targetStackTop)
 	{
 		Stack shuffledStack = _sourceStack;
@@ -123,7 +122,7 @@ struct BubbleShuffler
 
 };
 
-template<SSACFGStack StackType>
+template<typename StackType>
 struct DanielShuffler
 {
 	using Stack = StackType;
@@ -143,20 +142,23 @@ struct DanielShuffler
 				std::vector<StackSlot> const& _targetStack
 			): currentStack(_currentStack), targetStack(_targetStack)
 			{
-				auto const histogram = [](auto const& _stack)
-				{
-					std::map<StackSlot, size_t> counts;
-					for (auto const& targetSlot: _stack)
-						++counts[targetSlot];
-					return counts;
-				};
-				targetCounts = histogram(targetStack);
-				sourceCounts = histogram(currentStack);
+				for (auto const x: currentStack)
+					++sourceCounts[x];
+				for (auto const [i, x]: ranges::views::enumerate(targetStack))
+					if (i < currentStack.size() && std::holds_alternative<ssa::JunkSlot>(targetStack[i]))
+						++targetCounts[currentStack[i]];
+					else
+						++targetCounts[x];
 			}
 
 			bool isCompatible(size_t _source, size_t _target) const
 			{
-				return _source < currentStack.size() && _target < targetStack.size() && currentStack[_source] == targetStack[_target];
+				return _source < currentStack.size() &&
+					_target < targetStack.size() &&
+					(
+						std::holds_alternative<ssa::JunkSlot>(targetStack[_target]) ||
+						currentStack[_source] == targetStack[_target]
+					);
 			}
 
 			bool sourceIsSame(size_t _sourceOffset1, size_t _sourceOffset2) const
@@ -176,7 +178,10 @@ struct DanielShuffler
 				return static_cast<int>(targetCounts.at(slot)) - static_cast<int>(util::valueOrDefault(sourceCounts, slot, static_cast<size_t>(0)));
 			}
 
-			bool targetIsArbitrary(size_t) const { return false; }
+			bool targetIsArbitrary(size_t _targetOffset) const
+			{
+				return _targetOffset < targetStack.size() && std::holds_alternative<ssa::JunkSlot>(targetStack.at(_targetOffset));
+			}
 
 			size_t sourceSize() const { return currentStack.size(); }
 			size_t targetSize() const { return targetStack.size(); }
@@ -204,7 +209,7 @@ struct DanielShuffler
 	}
 };
 
-template<SSACFGStack StackType>
+template<typename StackType>
 struct BlockStackInShuffler
 {
 	using Stack = StackType;
