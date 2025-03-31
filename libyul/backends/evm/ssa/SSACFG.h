@@ -21,6 +21,9 @@
 
 #pragma once
 
+#include "libsolidity/ast/Types.h"
+
+
 #include <libyul/AST.h>
 #include <libyul/AsmAnalysisInfo.h>
 #include <libyul/Dialect.h>
@@ -268,6 +271,8 @@ public:
 		yulAssert(idx, fmt::format("Target block {} not found as entry in one of the exits of the current block {}.", _target.value, _source.value));
 		return *idx;
 	}
+
+	std::string valueDescription(ValueId const& _valueId) const;
 
 	std::string toDot(
 		bool _includeDiGraphDefinition=true,
