@@ -4,6 +4,7 @@ Language Features:
 
 
 Compiler Features:
+* Ethdebug: Experimental support for instructions and source locations under EOF.
 * NatSpec: Capture Natspec documentation of `enum` values in the AST.
 
 
