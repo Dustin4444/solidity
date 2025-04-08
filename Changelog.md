@@ -4,7 +4,7 @@ Language Features:
 
 
 Compiler Features:
-
+* Ethdebug: Experimental support for instructions and source locations under EOF.
 
 Bugfixes:
 
