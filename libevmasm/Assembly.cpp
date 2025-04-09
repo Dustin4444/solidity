@@ -53,6 +53,54 @@ using namespace solidity::evmasm;
 using namespace solidity::langutil;
 using namespace solidity::util;
 
+namespace
+{
+
+/// Produces instruction location info in RAII style. When an assembly instruction is added to the bytecode,
+/// this class can be instantiated in that scope. It will record the current bytecode size (before addition)
+/// and, at destruction time, record the new bytecode size. This information is then added to an external
+/// instruction locations vector.
+/// If the instruction decomposes into multiple individual evm instructions, `emit` can be
+/// called for all but the last one (which will be emitted by the destructor).
+class AddInstructionLocation
+{
+public:
+	AddInstructionLocation(
+		std::vector<LinkerObject::InstructionLocation>& _instructionLocations,
+		bytes const& _bytecode,
+		size_t const _assemblyItemIndex
+	):
+		m_instructionLocations(_instructionLocations),
+		m_bytecode(_bytecode),
+		m_assemblyItemIndex(_assemblyItemIndex),
+		m_instructionLocationStart(_bytecode.size())
+	{}
+
+	~AddInstructionLocation()
+	{
+		emit();
+	}
+
+	void emit()
+	{
+		auto const end = m_bytecode.size();
+		m_instructionLocations.emplace_back(LinkerObject::InstructionLocation{
+			.start = m_instructionLocationStart,
+			.end = end,
+			.assemblyItemIndex = m_assemblyItemIndex
+		});
+		m_instructionLocationStart = end;
+	}
+
+private:
+	std::vector<LinkerObject::InstructionLocation>& m_instructionLocations;
+	bytes const& m_bytecode;
+	size_t const m_assemblyItemIndex;
+	size_t m_instructionLocationStart;
+};
+
+}
+
 std::map<std::string, std::shared_ptr<std::string const>> Assembly::s_sharedSourceNames;
 
 AssemblyItem const& Assembly::append(AssemblyItem _i)
@@ -1607,9 +1655,17 @@ LinkerObject const& Assembly::assembleEOF() const
 	for (auto&& [codeSectionIndex, codeSection]: m_codeSections | ranges::views::enumerate)
 	{
 		auto const sectionStart = ret.bytecode.size();
+
+		std::vector<LinkerObject::InstructionLocation> instructionLocations;
+		instructionLocations.reserve(codeSection.items.size());
+
 		solAssert(!codeSection.items.empty(), "Empty code section.");
-		for (AssemblyItem const& item: codeSection.items)
+
+		for (auto const& [assemblyItemIndex, item]: codeSection.items | ranges::views::enumerate)
 		{
+			// collect instruction locations via side effects
+			AddInstructionLocation addInstructionLocation {instructionLocations, ret.bytecode, assemblyItemIndex};
+
 			// store position of the invalid jump destination
 			if (item.type() != Tag && m_tagPositionsInBytecode[0] == std::numeric_limits<size_t>::max())
 				m_tagPositionsInBytecode[0] = ret.bytecode.size();
@@ -1725,6 +1781,12 @@ LinkerObject const& Assembly::assembleEOF() const
 				"Code section too large for EOF."
 			);
 		setBigEndianUint16(ret.bytecode, codeSectionSizePositions[codeSectionIndex], ret.bytecode.size() - sectionStart);
+
+		ret.codeSectionLocations.emplace_back(LinkerObject::CodeSectionLocation{
+			.start = sectionStart,
+			.end = ret.bytecode.size(),
+			.instructionLocations = std::move(instructionLocations)
+		});
 	}
 
 	for (auto const& [refPos, tagId]: tagRef)
