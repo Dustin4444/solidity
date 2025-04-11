@@ -1,7 +1,0 @@
-
-======= input.yul (EVM) =======
-
-Pretty printed source:
-object "object" {
-    code { { revert(0, 0) } }
-}

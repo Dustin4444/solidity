@@ -1,6 +1,0 @@
-Warning: BMC: Condition is always true.
- --> input.sol:6:11:
-  |
-6 | 		require(x >= 0);
-  | 		        ^^^^^^
-Note: Callstack:

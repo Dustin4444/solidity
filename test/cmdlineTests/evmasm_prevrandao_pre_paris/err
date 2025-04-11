@@ -1,5 +1,0 @@
-Warning: "prevrandao" is not supported by the VM version and will be treated as "difficulty".
- --> input.sol:6:21:
-  |
-6 |         uint256 x = block.prevrandao;
-  |                     ^^^^^^^^^^^^^^^^

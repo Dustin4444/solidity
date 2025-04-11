@@ -1,5 +1,0 @@
-Warning: Inline assembly may cause SMTChecker to produce spurious warnings (false positives).
- --> input.sol:5:9:
-  |
-5 |         assembly {}
-  |         ^^^^^^^^^^^
