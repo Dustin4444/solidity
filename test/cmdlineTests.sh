@@ -83,7 +83,7 @@ do
 done
 
 # shellcheck disable=SC2207 # We do not support test names containing spaces.
-all_tests=($(find . -mindepth 1 -maxdepth 2 -type d | \
+all_tests=($(find . -mindepth 1 -type d | \
     while read -r dir; do
         if ! find "$dir" -mindepth 1 -maxdepth 1 -type d | grep -q .; then
             echo "${dir#./}"
