@@ -81,7 +81,7 @@ std::vector<schema::Instruction> programInstructions(Assembly const& _assembly, 
 
 } // anonymous namespace
 
-Json ethdebug::program(std::string_view const _name, unsigned _sourceId, Assembly const* _assembly, LinkerObject const& _linkerObject)
+Json ethdebug::program(std::string_view const _name, unsigned _sourceId, Assembly const& _assembly, LinkerObject const& _linkerObject)
 {
 	return schema::Program{
 		.id = std::nullopt,
@@ -94,9 +94,9 @@ Json ethdebug::program(std::string_view const _name, unsigned _sourceId, Assembl
 				.range = std::nullopt
 			}
 		},
-		.environment = _assembly->isCreation() ? schema::Environment::CREATE : schema::Environment::CALL,
+		.environment = _assembly.isCreation() ? schema::Environment::CREATE : schema::Environment::CALL,
 		.context = std::nullopt,
-		.instructions = programInstructions(*_assembly, _linkerObject, _sourceId)
+		.instructions = programInstructions(_assembly, _linkerObject, _sourceId)
 	};
 }
 
