@@ -107,6 +107,9 @@ private:
 /// Note: @p _testPath can be relative but must include at least the `/test/libsolidity/semanticTests/` part
 bool isValidSemanticTestPath(boost::filesystem::path const& _testPath);
 
+/// Returns a list of file extensions allowed for test files.
+std::set<std::string> testFileExtensions();
+
 /// Helper that can be used to skip tests when the EVM version selected on the command line
 /// is older than @p _minEVMVersion.
 /// @return A predicate (function) that can be passed into @a boost::unit_test::precondition().

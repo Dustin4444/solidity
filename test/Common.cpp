@@ -306,6 +306,17 @@ bool isValidSemanticTestPath(boost::filesystem::path const& _testPath)
 	return true;
 }
 
+std::set<std::string> testFileExtensions()
+{
+	return {
+		".sol",
+		".yul",
+		".asm",
+		".asmjson", // Not .json because JSON files that do not represent test cases exist in some test dirs.
+		".stack",
+	};
+}
+
 boost::unit_test::precondition::predicate_t nonEOF()
 {
 	return [](boost::unit_test::test_unit_id) {

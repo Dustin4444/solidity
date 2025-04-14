@@ -25,8 +25,13 @@
 #include <test/InteractiveTests.h>
 #include <test/EVMHost.h>
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
+
+#include <fmt/format.h>
+
+#include <range/v3/algorithm/all_of.hpp>
 
 #include <cstdlib>
 #include <iostream>
@@ -65,14 +70,17 @@ struct TestStats
 class TestFilter
 {
 public:
-	explicit TestFilter(std::string _filter): m_filter(std::move(_filter))
+	explicit TestFilter(std::string _filter):
+		m_filter(std::move(_filter))
 	{
-		std::string filter{m_filter};
+		auto const startsWithDot = [](std::string const& _extension) { return boost::starts_with(_extension, "."); };
+		soltestAssert(ranges::all_of(testFileExtensions(), startsWithDot));
 
-		boost::replace_all(filter, "/", "\\/");
-		boost::replace_all(filter, "*", ".*");
-
-		m_filterExpression = std::regex{"(" + filter + "(\\.sol|\\.yul|\\.asm|\\.asmjson|\\.stack))"};
+		m_filterExpression = std::regex{fmt::format(
+			"({}({}))",
+			boost::replace_all_copy(boost::replace_all_copy(m_filter, "/", "\\/"), "*", ".*"),
+			boost::replace_all_copy(joinHumanReadable(testFileExtensions(), "|"), ".", "\\.")
+		)};
 	}
 
 	bool matches(fs::path const& _path, std::string const& _name) const
