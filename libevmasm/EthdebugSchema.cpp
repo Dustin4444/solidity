@@ -141,3 +141,27 @@ void schema::to_json(Json& _json, Program::Environment const& _environment)
 		break;
 	}
 }
+
+void schema::materials::to_json(Json& _json, Source const& _source)
+{
+	_json["id"] = _source.id;
+	_json["path"] = _source.path;
+	_json["contents"] = _source.contents;
+	if (_source.encoding)
+		_json["encoding"] = *_source.encoding;
+	_json["language"] = _source.language;
+}
+
+void schema::materials::to_json(Json& _json, Compilation::Compiler const& _compiler)
+{
+	_json["name"] = _compiler.name;
+	_json["version"] = _compiler.version;
+}
+
+
+void schema::materials::to_json(Json& _json, Compilation const& _compilation)
+{
+	_json["id"] = _compilation.id;
+	_json["compiler"] = _compilation.compiler;
+	_json["sources"] = _compilation.sources;
+}
