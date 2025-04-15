@@ -33,6 +33,7 @@ set -eo pipefail
 REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SOLIDITY_BUILD_DIR=${SOLIDITY_BUILD_DIR:-${REPO_ROOT}/build}
 export REPO_ROOT SOLIDITY_BUILD_DIR
+export PYTHONPATH="$PYTHONPATH:$REPO_ROOT/scripts"
 
 # shellcheck source=scripts/common.sh
 source "${REPO_ROOT}/scripts/common.sh"

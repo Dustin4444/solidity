@@ -5,10 +5,6 @@ import sys
 from pathlib import Path
 from textwrap import dedent
 
-# pylint: disable=wrong-import-position
-PROJECT_ROOT = Path(__file__).parents[3]
-sys.path.insert(0, str(PROJECT_ROOT / 'scripts'))
-
 from common.cmdline_helpers import add_preamble
 from common.cmdline_helpers import inside_temporary_dir
 from common.cmdline_helpers import save_bytecode
