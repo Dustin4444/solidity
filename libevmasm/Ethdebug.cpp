@@ -151,19 +151,22 @@ Json ethdebug::program(std::string_view _name, unsigned _sourceID, Assembly cons
 
 Json ethdebug::resources(std::vector<std::string> const& _sources, std::string const& _version)
 {
-	Json sources = Json::array();
+	std::vector<schema::materials::Source> sources;
+	sources.reserve(_sources.size());
 	for (size_t id = 0; id < _sources.size(); ++id)
-	{
-		Json source = Json::object();
-		source["id"] = id;
-		source["path"] = _sources[id];
-		sources.push_back(source);
-	}
-	Json result = Json::object();
-	result["compilation"] = Json::object();
-	result["compilation"]["compiler"] = Json::object();
-	result["compilation"]["compiler"]["name"] = "solc";
-	result["compilation"]["compiler"]["version"] = _version;
-	result["compilation"]["sources"] = sources;
-	return result;
+		sources.emplace_back(schema::materials::Source{
+			.id = id,
+			.path = _sources[id],
+			.contents = "", // todo
+			.encoding = std::nullopt,
+			.language = "" // todo
+		});
+	return schema::materials::Compilation{
+		.id = "", // todo
+		.compiler = {
+			.name = "solc",
+			.version = _version
+		},
+		.sources = sources
+	};
 }
