@@ -46,7 +46,7 @@ class PlainAssemblyParser
 {
 public:
 	/// Parses plain assembly format and returns the equivalent assembly  JSON.
-	/// Errors are reported by throwing runtime_error.
+	/// Errors are reported by throwing ValidationError.
 	Json parse(std::string _sourceName, std::string const& _source);
 
 protected:

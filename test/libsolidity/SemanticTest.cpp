@@ -98,12 +98,13 @@ SemanticTest::SemanticTest(
 		m_shouldRun = false;
 
 	if (m_runWithABIEncoderV1Only && compileViaYul != "false")
-		BOOST_THROW_EXCEPTION(std::runtime_error(
+		solThrow(
+			ValidationError,
 			"ABIEncoderV1Only tests cannot be run via yul, "
-			"so they need to also specify ``compileViaYul: false``"
-		));
+			"so they need to also specify `compileViaYul: false`"
+		);
 	if (!util::contains(compileViaYulAllowedValues, compileViaYul))
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid compileViaYul value: " + compileViaYul + "."));
+		solThrow(ValidationError, "Invalid compileViaYul value: " + compileViaYul + ".");
 	m_testCaseWantsYulRun = util::contains(yulRunTriggers, compileViaYul);
 	m_testCaseWantsLegacyRun = util::contains(legacyRunTriggers, compileViaYul);
 

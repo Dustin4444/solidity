@@ -52,8 +52,7 @@ TestCase::TestResult ABIJsonTest::run(std::ostream& _stream, std::string const& 
 	}});
 	compiler.setEVMVersion(CommonOptions::get().evmVersion());
 	compiler.setOptimiserSettings(CommonOptions::get().optimize);
-	if (!compiler.parseAndAnalyze())
-		BOOST_THROW_EXCEPTION(std::runtime_error("Parsing contract failed"));
+	solRequire(compiler.parseAndAnalyze(), ExecutionError, "Parsing contract failed");
 
 	m_obtainedResult.clear();
 	bool first = true;

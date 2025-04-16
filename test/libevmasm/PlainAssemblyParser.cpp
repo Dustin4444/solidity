@@ -68,7 +68,7 @@ Json PlainAssemblyParser::parse(std::string _sourceName, std::string const& _sou
 				expectNoMoreArguments();
 
 				if (!immediateArgument.starts_with("0x"))
-					BOOST_THROW_EXCEPTION(std::runtime_error(formatError("The immediate argument to PUSH must be a hex number prefixed with '0x'.")));
+					solThrow(ValidationError, formatError("The immediate argument to PUSH must be a hex number prefixed with '0x'."));
 
 				immediateArgument.remove_prefix("0x"s.size());
 				codeJSON.push_back({{"name", "PUSH"}, {"value", immediateArgument}});
@@ -83,7 +83,7 @@ Json PlainAssemblyParser::parse(std::string _sourceName, std::string const& _sou
 			codeJSON.push_back({{"name", "JUMPDEST"}});
 		}
 		else
-			BOOST_THROW_EXCEPTION(std::runtime_error(formatError("Unknown instruction.")));
+			solThrow(ValidationError, formatError("Unknown instruction."));
 	}
 	return {{".code", codeJSON}};
 }
@@ -113,7 +113,7 @@ std::string_view PlainAssemblyParser::expectArgument()
 {
 	bool hasArgument = advanceToken();
 	if (!hasArgument)
-		BOOST_THROW_EXCEPTION(std::runtime_error(formatError("Missing argument(s).")));
+		solThrow(ValidationError, formatError("Missing argument(s)."));
 
 	return currentToken().value;
 }
@@ -122,7 +122,7 @@ void PlainAssemblyParser::expectNoMoreArguments()
 {
 	bool hasArgument = advanceToken();
 	if (hasArgument)
-		BOOST_THROW_EXCEPTION(std::runtime_error(formatError("Too many arguments.")));
+		solThrow(ValidationError, formatError("Too many arguments."));
 }
 
 void PlainAssemblyParser::advanceLine(std::string_view _line)

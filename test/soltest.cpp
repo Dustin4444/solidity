@@ -278,12 +278,7 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[])
 				removeTestSuite(suite);
 		}
 	}
-	catch (solidity::test::ConfigException const& exception)
-	{
-		std::cerr << exception.what() << std::endl;
-		exit(EXIT_FAILURE);
-	}
-	catch (std::runtime_error const& exception)
+	catch (SoltestError const& exception)
 	{
 		std::cerr << exception.what() << std::endl;
 		exit(EXIT_FAILURE);

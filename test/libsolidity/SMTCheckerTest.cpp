@@ -42,13 +42,13 @@ SMTCheckerTest::SMTCheckerTest(std::string const& _filename):
 	else if (isValidContractName(contract))
 		m_modelCheckerSettings.contracts.contracts[""] = {contract};
 	else
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid contract specified in SMTContract setting."));
+		solThrow(ValidationError, "Invalid contract specified in SMTContract setting.");
 
 	auto extCallsMode = ModelCheckerExtCalls::fromString(m_reader.stringSetting("SMTExtCalls", "untrusted"));
 	if (extCallsMode)
 		m_modelCheckerSettings.externalCalls = *extCallsMode;
 	else
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid SMT external calls mode."));
+		solThrow(ValidationError, "Invalid SMT external calls mode.");
 
 	auto const& showProvedSafe = m_reader.stringSetting("SMTShowProvedSafe", "no");
 	if (showProvedSafe == "no")
@@ -56,7 +56,7 @@ SMTCheckerTest::SMTCheckerTest(std::string const& _filename):
 	else if (showProvedSafe == "yes")
 		m_modelCheckerSettings.showProvedSafe = true;
 	else
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid SMT \"show proved safe\" choice."));
+		solThrow(ValidationError, "Invalid SMT \"show proved safe\" choice.");
 
 	auto const& showUnproved = m_reader.stringSetting("SMTShowUnproved", "yes");
 	if (showUnproved == "no")
@@ -64,7 +64,7 @@ SMTCheckerTest::SMTCheckerTest(std::string const& _filename):
 	else if (showUnproved == "yes")
 		m_modelCheckerSettings.showUnproved = true;
 	else
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid SMT \"show unproved\" choice."));
+		solThrow(ValidationError, "Invalid SMT \"show unproved\" choice.");
 
 	auto const& showUnsupported = m_reader.stringSetting("SMTShowUnsupported", "yes");
 	if (showUnsupported == "no")
@@ -72,14 +72,14 @@ SMTCheckerTest::SMTCheckerTest(std::string const& _filename):
 	else if (showUnsupported == "yes")
 		m_modelCheckerSettings.showUnsupported = true;
 	else
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid SMT \"show unsupported\" choice."));
+		solThrow(ValidationError, "Invalid SMT \"show unsupported\" choice.");
 
 	m_modelCheckerSettings.solvers = smtutil::SMTSolverChoice::None();
 	auto const& choice = m_reader.stringSetting("SMTSolvers", "z3");
 	if (choice == "none")
 		m_modelCheckerSettings.solvers = smtutil::SMTSolverChoice::None();
 	else if (!m_modelCheckerSettings.solvers.setSolver(choice))
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid SMT solver choice."));
+		solThrow(ValidationError, "Invalid SMT solver choice.");
 
 	m_modelCheckerSettings.solvers &= ModelChecker::availableSolvers();
 
@@ -90,13 +90,13 @@ SMTCheckerTest::SMTCheckerTest(std::string const& _filename):
 	if (targets)
 		m_modelCheckerSettings.targets = *targets;
 	else
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid SMT targets."));
+		solThrow(ValidationError, "Invalid SMT targets.");
 
 	auto engine = ModelCheckerEngine::fromString(m_reader.stringSetting("SMTEngine", "all"));
 	if (engine)
 		m_modelCheckerSettings.engine = *engine;
 	else
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid SMT engine choice."));
+		solThrow(ValidationError, "Invalid SMT engine choice.");
 
 	if (m_modelCheckerSettings.solvers.none() || m_modelCheckerSettings.engine.none())
 		m_shouldRun = false;
@@ -107,7 +107,7 @@ SMTCheckerTest::SMTCheckerTest(std::string const& _filename):
 	else if (ignoreCex == "yes")
 		m_ignoreCex = true;
 	else
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid SMT counterexample choice."));
+		solThrow(ValidationError, "Invalid SMT counterexample choice.");
 
 	static auto removeInv = [](std::vector<SyntaxTestError>&& errors) {
 		std::vector<SyntaxTestError> filtered;
@@ -123,7 +123,7 @@ SMTCheckerTest::SMTCheckerTest(std::string const& _filename):
 	else if (ignoreInv == "yes")
 		m_modelCheckerSettings.invariants = ModelCheckerInvariants::None();
 	else
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid SMT invariant choice."));
+		solThrow(ValidationError, "Invalid SMT invariant choice.");
 
 	if (m_modelCheckerSettings.invariants.invariants.empty())
 		m_expectations = removeInv(std::move(m_expectations));

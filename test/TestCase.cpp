@@ -20,13 +20,14 @@
 #include <test/TestCase.h>
 
 #include <libsolutil/AnsiColorized.h>
+#include <libsolutil/Exceptions.h>
 #include <libsolutil/StringUtils.h>
 
 #include <boost/algorithm/string/predicate.hpp>
 
 #include <iostream>
-#include <stdexcept>
 
+using namespace std::string_literals;
 using namespace solidity;
 using namespace solidity::frontend;
 using namespace solidity::frontend::test;
@@ -66,7 +67,7 @@ bool TestCase::shouldRun()
 void TestCase::expect(std::string::iterator& _it, std::string::iterator _end, std::string::value_type _c)
 {
 	if (_it == _end || *_it != _c)
-		BOOST_THROW_EXCEPTION(std::runtime_error(std::string("Invalid test expectation. Expected: \"") + _c + "\"."));
+		solThrow(ValidationError, "Invalid test expectation. Expected: \""s + _c + "\".");
 	++_it;
 }
 
@@ -120,8 +121,7 @@ void EVMVersionRestrictedTestCase::processEVMVersionSetting()
 		version = std::make_optional<langutil::EVMVersion>();
 	else
 		version = langutil::EVMVersion::fromString(versionString);
-	if (!version)
-		BOOST_THROW_EXCEPTION(std::runtime_error{"Invalid EVM version: \"" + versionString + "\""});
+	solRequire(version, ValidationError, "Invalid EVM version: \"" + versionString + "\"");
 
 	langutil::EVMVersion evmVersion = CommonOptions::get().evmVersion();
 	bool comparisonResult;
@@ -138,7 +138,7 @@ void EVMVersionRestrictedTestCase::processEVMVersionSetting()
 	else if (comparator == "!")
 		comparisonResult = !(evmVersion == version);
 	else
-		BOOST_THROW_EXCEPTION(std::runtime_error{"Invalid EVM comparator: \"" + comparator + "\""});
+		solThrow(ValidationError, "Invalid EVM comparator: \"" + comparator + "\"");
 
 	if (!comparisonResult)
 		m_shouldRun = false;
@@ -160,7 +160,7 @@ void EVMVersionRestrictedTestCase::processBytecodeFormatSetting()
 	else if (bytecodeFormatString == ">=EOFv1" && !eofVersion.has_value())
 		m_shouldRun = false;
 	else if (bytecodeFormatString != "legacy" && bytecodeFormatString != ">=EOFv1" )
-		BOOST_THROW_EXCEPTION(std::runtime_error{"Invalid bytecodeFormat flag: \"" + bytecodeFormatString + "\""});
+		solThrow(ValidationError, "Invalid bytecodeFormat flag: \"" + bytecodeFormatString + "\"");
 }
 
 EVMVersionRestrictedTestCase::EVMVersionRestrictedTestCase(std::string const& _filename):

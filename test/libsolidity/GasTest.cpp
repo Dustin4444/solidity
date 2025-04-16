@@ -30,11 +30,11 @@
 
 #include <istream>
 #include <ostream>
-#include <stdexcept>
 
 using namespace solidity::langutil;
 using namespace solidity::frontend;
 using namespace solidity::frontend::test;
+using namespace solidity::test;
 using namespace solidity;
 using namespace boost::unit_test;
 
@@ -55,7 +55,7 @@ void GasTest::parseExpectations(std::istream& _stream)
 
 	while (getline(_stream, line))
 		if (!boost::starts_with(line, "// "))
-			BOOST_THROW_EXCEPTION(std::runtime_error("Invalid expectation: expected \"// \"."));
+			solThrow(ValidationError, "Invalid expectation: expected \"// \".");
 		else if (boost::ends_with(line, ":"))
 		{
 			std::string kind = line.substr(3, line.length() - 4);
@@ -63,7 +63,7 @@ void GasTest::parseExpectations(std::istream& _stream)
 			currentKind = &m_expectations[std::move(kind)];
 		}
 		else if (!currentKind)
-			BOOST_THROW_EXCEPTION(std::runtime_error("No function kind specified. Expected \"creation:\", \"external:\" or \"internal:\"."));
+			solThrow(ValidationError, "No function kind specified. Expected \"creation:\", \"external:\" or \"internal:\".");
 		else
 		{
 			auto it = line.begin() + 3;
@@ -76,8 +76,7 @@ void GasTest::parseExpectations(std::istream& _stream)
 				functionName.clear();
 			expect(it, line.end(), ':');
 			skipWhitespace(it, line.end());
-			if (it == line.end())
-				BOOST_THROW_EXCEPTION(std::runtime_error("Invalid expectation: expected gas cost."));
+			solRequire(it != line.end(), ValidationError, "Invalid expectation: expected gas cost.");
 			(*currentKind)[functionName] = std::string(it, line.end());
 		}
 }

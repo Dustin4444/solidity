@@ -196,6 +196,11 @@ TestTool::Result TestTool::process()
 		else
 			return Result::Skipped;
 	}
+	catch (SoltestError const& exception)
+	{
+		AnsiColorized(std::cout, formatted, {BOLD, RED}) << exception.what() << std::endl;
+		return Result::Exception;
+	}
 	catch (...)
 	{
 		AnsiColorized(std::cout, formatted, {BOLD, RED}) <<
@@ -493,12 +498,7 @@ int main(int argc, char const *argv[])
 		std::cerr << exception.what() << std::endl;
 		return 2;
 	}
-	catch (std::runtime_error const& exception)
-	{
-		std::cerr << exception.what() << std::endl;
-		return 2;
-	}
-	catch (ConfigException const& exception)
+	catch (SoltestError const& exception)
 	{
 		std::cerr << exception.what() << std::endl;
 		return 2;

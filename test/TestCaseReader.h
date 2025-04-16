@@ -18,14 +18,18 @@
 
 #pragma once
 
+#include <test/Common.h>
+
 #include <test/libsolidity/util/SoltestErrors.h>
 
 #include <libsolutil/StringUtils.h>
 
-#include <range/v3/view/map.hpp>
-
 #include <boost/filesystem.hpp>
 #include <boost/throw_exception.hpp>
+
+#include <fmt/format.h>
+
+#include <range/v3/view/map.hpp>
 
 #include <fstream>
 #include <map>
@@ -91,10 +95,11 @@ E TestCaseReader::enumSetting(std::string const& _name, std::map<std::string, E>
 
 	std::string value = stringSetting(_name, _defaultChoice);
 
-	if (_choices.count(value) == 0)
-		BOOST_THROW_EXCEPTION(std::runtime_error(
-			"Invalid Enum value: " + value + ". Available choices: " + util::joinHumanReadable(_choices | ranges::views::keys) + "."
-		));
+	solRequire(_choices.count(value) != 0, solidity::test::ValidationError, fmt::format(
+		"Invalid Enum value: {}. Available choices: {}.",
+		value,
+		util::joinHumanReadable(_choices | ranges::views::keys)
+	));
 
 	return _choices.at(value);
 }

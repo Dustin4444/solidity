@@ -48,7 +48,10 @@ static constexpr auto evmoneFilename = "libevmone.so";
 static constexpr auto evmoneDownloadLink = "https://github.com/ethereum/evmone/releases/download/v0.13.0/evmone-0.13.0-linux-x86_64.tar.gz";
 #endif
 
-struct ConfigException: public util::Exception {};
+struct SoltestError: public util::Exception {};
+struct ConfigException: public SoltestError {};
+struct ValidationError: public SoltestError {};
+struct ExecutionError: public SoltestError {};
 
 struct CommonOptions
 {

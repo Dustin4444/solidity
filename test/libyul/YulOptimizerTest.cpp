@@ -44,6 +44,7 @@ using namespace solidity::yul;
 using namespace solidity::yul::test;
 using namespace solidity::frontend;
 using namespace solidity::frontend::test;
+using namespace solidity::test;
 
 YulOptimizerTest::YulOptimizerTest(std::string const& _filename):
 	EVMVersionRestrictedTestCase(_filename)
@@ -51,7 +52,7 @@ YulOptimizerTest::YulOptimizerTest(std::string const& _filename):
 	boost::filesystem::path path(_filename);
 
 	if (path.empty() || std::next(path.begin()) == path.end() || std::next(std::next(path.begin())) == path.end())
-		BOOST_THROW_EXCEPTION(std::runtime_error("Filename path has to contain a directory: \"" + _filename + "\"."));
+		solThrow(ValidationError, "Filename path has to contain a directory: \"" + _filename + "\".");
 	m_optimizerStep = std::prev(std::prev(path.end()))->string();
 
 	m_source = m_reader.source();

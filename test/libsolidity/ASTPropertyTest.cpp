@@ -47,7 +47,7 @@ ASTPropertyTest::ASTPropertyTest(std::string const& _filename):
 	EVMVersionRestrictedTestCase(_filename)
 {
 	if (!boost::algorithm::ends_with(_filename, ".sol"))
-		BOOST_THROW_EXCEPTION(std::runtime_error("Not a Solidity file: \"" + _filename + "\"."));
+		solThrow(ValidationError, "Not a Solidity file: \"" + _filename + "\".");
 
 	m_source = m_reader.source();
 	readExpectations();
@@ -195,10 +195,10 @@ TestCase::TestResult ASTPropertyTest::run(std::ostream& _stream, std::string con
 	compiler.setEVMVersion(CommonOptions::get().evmVersion());
 	compiler.setOptimiserSettings(CommonOptions::get().optimize);
 	if (!compiler.parseAndAnalyze())
-		BOOST_THROW_EXCEPTION(std::runtime_error(
-			"Parsing contract failed" +
-			SourceReferenceFormatter::formatErrorInformation(compiler.errors(), compiler, _formatted)
-		));
+		solThrow(
+			ExecutionError,
+			"Parsing contract failed" + SourceReferenceFormatter::formatErrorInformation(compiler.errors(), compiler, _formatted)
+		);
 
 	Json astJson = ASTJsonExporter(compiler.state()).toJson(compiler.ast("A"));
 	soltestAssert(!astJson.empty());

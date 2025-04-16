@@ -34,7 +34,6 @@
 #include <range/v3/all.hpp>
 
 #include <iostream>
-#include <stdexcept>
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;

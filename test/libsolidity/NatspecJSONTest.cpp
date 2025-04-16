@@ -28,6 +28,7 @@
 #include <fmt/format.h>
 
 using namespace solidity::frontend::test;
+using namespace solidity::test;
 using namespace solidity::util;
 using namespace std::string_literals;
 
@@ -68,7 +69,7 @@ void NatspecJSONTest::parseCustomExpectations(std::istream& _stream)
 		Json parsedJSON;
 		bool jsonParsingSuccessful = jsonParseStrict(rawJSON, parsedJSON, &jsonErrors);
 		if (!jsonParsingSuccessful)
-			BOOST_THROW_EXCEPTION(std::runtime_error(fmt::format(
+			solThrow(ValidationError, fmt::format(
 				"Malformed JSON in {} expectation for contract {}.\n"
 				"Note that JSON expectations must be pretty-printed to be split correctly. "
 				"The object is assumed to and at the first unindented closing brace.\n"
@@ -76,7 +77,7 @@ void NatspecJSONTest::parseCustomExpectations(std::istream& _stream)
 				toString(kind),
 				contractName,
 				rawJSON
-			)));
+			));
 
 		m_expectedNatspecJSON[std::string(contractName)][kind] = parsedJSON;
 	}
@@ -126,9 +127,7 @@ std::tuple<std::string_view, NatspecJSONKind> NatspecJSONTest::parseExpectationH
 			return {_line.substr(0, _line.size() - kindSuffix.size()), kind};
 	}
 
-	BOOST_THROW_EXCEPTION(std::runtime_error(
-		"Natspec kind (devdoc/userdoc) not present in the expectation: "s.append(_line)
-	));
+	solThrow(ValidationError, "Natspec kind (devdoc/userdoc) not present in the expectation: "s.append(_line));
 }
 
 std::string NatspecJSONTest::extractExpectationJSON(std::istream& _stream)
@@ -152,9 +151,7 @@ std::string_view NatspecJSONTest::expectLinePrefix(std::string_view _line)
 {
 	size_t startPosition = 0;
 	if (!boost::algorithm::starts_with(_line, "//"))
-		BOOST_THROW_EXCEPTION(std::runtime_error(
-			"Expectation line is not a comment: "s.append(_line)
-		));
+		solThrow(ValidationError, "Expectation line is not a comment: "s.append(_line));
 
 	startPosition += 2;
 	if (startPosition < _line.size() && _line[startPosition] == ' ')

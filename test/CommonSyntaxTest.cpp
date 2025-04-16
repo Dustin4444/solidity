@@ -32,7 +32,6 @@
 
 #include <istream>
 #include <ostream>
-#include <stdexcept>
 
 using namespace solidity;
 using namespace solidity::util;
@@ -49,7 +48,7 @@ namespace
 int parseUnsignedInteger(std::string::iterator& _it, std::string::iterator _end)
 {
 	if (_it == _end || !util::isDigit(*_it))
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid test expectation. Source location expected."));
+		solThrow(ValidationError, "Invalid test expectation. Source location expected.");
 	int result = 0;
 	while (_it != _end && util::isDigit(*_it))
 	{
@@ -257,8 +256,7 @@ std::vector<SyntaxTestError> CommonSyntaxTest::parseExpectations(std::istream& _
 
 		std::string errorTypeStr(typeBegin, it);
 		std::optional<Error::Type> errorType = Error::parseErrorType(errorTypeStr);
-		if (!errorType.has_value())
-			BOOST_THROW_EXCEPTION(std::runtime_error("Invalid error type: " + errorTypeStr));
+		solRequire(errorType.has_value(), ValidationError, "Invalid error type: " + errorTypeStr);
 
 		skipWhitespace(it, line.end());
 

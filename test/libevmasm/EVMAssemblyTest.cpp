@@ -64,7 +64,7 @@ EVMAssemblyTest::EVMAssemblyTest(std::string const& _filename):
 	else if (boost::algorithm::ends_with(_filename, ".asm"))
 		m_assemblyFormat = AssemblyFormat::Plain;
 	else
-		BOOST_THROW_EXCEPTION(std::runtime_error("Not an assembly test: \"" + _filename + "\". Allowed extensions: .asm, .asmjson."));
+		solThrow(ValidationError, "Not an assembly test: \"" + _filename + "\". Allowed extensions: .asm, .asmjson.");
 
 	m_selectedOutputs = m_reader.stringSetting("outputs", "Assembly,Bytecode,Opcodes,SourceMappings");
 	OptimisationPreset optimizationPreset = m_reader.enumSetting<OptimisationPreset>(

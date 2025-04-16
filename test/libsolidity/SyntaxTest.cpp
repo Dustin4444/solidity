@@ -27,7 +27,6 @@
 #include <range/v3/algorithm/find_if.hpp>
 
 #include <memory>
-#include <stdexcept>
 
 using namespace solidity;
 using namespace solidity::util;
@@ -52,7 +51,7 @@ SyntaxTest::SyntaxTest(
 
 	m_compileViaYul = m_reader.stringSetting("compileViaYul", eofEnabled ? "true" : "false");
 	if (!util::contains(compileViaYulAllowedValues, m_compileViaYul))
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid compileViaYul value: " + m_compileViaYul + "."));
+		solThrow(ValidationError, "Invalid compileViaYul value: " + m_compileViaYul + ".");
 
 	if (m_compileViaYul == "false" && eofEnabled)
 		m_shouldRun = false;
@@ -66,7 +65,7 @@ SyntaxTest::SyntaxTest(
 	};
 	std::string stopAfter = m_reader.stringSetting("stopAfter", "compilation");
 	if (!pipelineStages.count(stopAfter))
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid stopAfter value: " + stopAfter + "."));
+		solThrow(ValidationError, "Invalid stopAfter value: " + stopAfter + ".");
 	m_stopAfter = pipelineStages.at(stopAfter);
 }
 
@@ -105,10 +104,11 @@ void SyntaxTest::parseAndAnalyze()
 			auto error = ranges::find_if(errors, isInternalError);
 			error != ranges::end(errors)
 		)
-			BOOST_THROW_EXCEPTION(std::runtime_error(
+			solThrow(
+				ExecutionError,
 				"Unexpected " + Error::formatErrorType((*error)->type()) + " at compilation stage."
 				" This error should NOT be encoded as expectation and should be fixed instead."
-			));
+			);
 	}
 
 	filterObtainedErrors();

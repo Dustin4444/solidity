@@ -67,11 +67,10 @@ std::string compilerStateToString(CompilerStack::State _state)
 CompilerStack::State stringToCompilerState(const std::string& _state)
 {
 	for (unsigned int i = CompilerStack::State::Empty; i <= CompilerStack::State::CompilationSuccessful; ++i)
-	{
 		if (_state == compilerStateToString(CompilerStack::State(i)))
 			return CompilerStack::State(i);
-	}
-	BOOST_THROW_EXCEPTION(std::runtime_error("Unsupported compiler state (" + _state + ") in test contract file"));
+
+	solThrow(ValidationError, "Unsupported compiler state (" + _state + ") in test contract file");
 }
 
 void replaceVersionWithTag(std::string& _input)
@@ -119,8 +118,7 @@ void ASTJSONTest::generateTestVariants(std::string const& _filename)
 void ASTJSONTest::fillSources(std::string const& _filename)
 {
 	std::ifstream file(_filename);
-	if (!file)
-		BOOST_THROW_EXCEPTION(std::runtime_error("Cannot open test contract: \"" + _filename + "\"."));
+	solRequire(file, ValidationError, "Cannot open test contract: \"" + _filename + "\".");
 	file.exceptions(std::ios::badbit);
 
 	std::string sourceName;
@@ -146,7 +144,7 @@ void ASTJSONTest::fillSources(std::string const& _filename)
 			std::string state = line.substr(failMarker.size());
 			boost::algorithm::trim(state);
 			if (m_expectedFailAfter.has_value())
-				BOOST_THROW_EXCEPTION(std::runtime_error("Duplicated \"failAfter\" directive"));
+				solThrow(ValidationError, "Duplicated \"failAfter\" directive");
 			m_expectedFailAfter = stringToCompilerState(state);
 
 		}
@@ -159,8 +157,7 @@ void ASTJSONTest::fillSources(std::string const& _filename)
 
 void ASTJSONTest::validateTestConfiguration() const
 {
-	if (m_variants.empty())
-		BOOST_THROW_EXCEPTION(std::runtime_error("No file with expected result found."));
+	solRequire(!m_variants.empty(), ValidationError, "No file with expected result found.");
 
 	if (m_expectedFailAfter.has_value())
 	{
@@ -170,13 +167,11 @@ void ASTJSONTest::validateTestConfiguration() const
 		);
 
 		if (unexpectedTestVariant != m_variants.end())
-			BOOST_THROW_EXCEPTION(
-				std::runtime_error(
-					std::string("Unexpected JSON file: ") + unexpectedTestVariant->astFilename() +
-					" in \"failAfter: " +
-					compilerStateToString(m_expectedFailAfter.value()) + "\" scenario."
-				)
-			);
+			solThrow(ValidationError, fmt::format(
+				"Unexpected JSON file: {} in \"failAfter: {}\" scenario.",
+				unexpectedTestVariant->astFilename(),
+				compilerStateToString(m_expectedFailAfter.value())
+			));
 	}
 }
 
@@ -184,7 +179,7 @@ ASTJSONTest::ASTJSONTest(std::string const& _filename):
 	EVMVersionRestrictedTestCase(_filename)
 {
 	if (!boost::algorithm::ends_with(_filename, ".sol"))
-		BOOST_THROW_EXCEPTION(std::runtime_error("Invalid test contract file name: \"" + _filename + "\"."));
+		solThrow(ValidationError, "Invalid test contract file name: \"" + _filename + "\".");
 
 	generateTestVariants(_filename);
 	fillSources(_filename);
@@ -309,7 +304,7 @@ void ASTJSONTest::printUpdatedExpectations(std::ostream&, std::string const&) co
 void ASTJSONTest::updateExpectation(std::string const& _filename, std::string const& _expectation, std::string const& _variant) const
 {
 	std::ofstream file(_filename.c_str());
-	if (!file) BOOST_THROW_EXCEPTION(std::runtime_error("Cannot write " + _variant + "AST expectation to \"" + _filename + "\"."));
+	solRequire(file, ExecutionError, "Cannot write " + _variant + "AST expectation to \"" + _filename + "\".");
 	file.exceptions(std::ios::badbit);
 
 	std::string replacedResult = _expectation;

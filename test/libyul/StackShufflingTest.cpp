@@ -146,8 +146,7 @@ void StackShufflingTest::processSettings()
 {
 	std::string depthString = m_reader.stringSetting("maximumStackDepth", "16");
 	std::optional<unsigned> depth = toUnsignedInt(depthString);
-	if (!depth.has_value())
-		BOOST_THROW_EXCEPTION(std::runtime_error{"Invalid maximum stack depth: \"" + depthString + "\""});
+	solRequire(depth.has_value(), ValidationError, "Invalid maximum stack depth: \"" + depthString + "\"");
 	m_maximumStackDepth = *depth;
 }
 
@@ -182,7 +181,7 @@ TestCase::TestResult StackShufflingTest::run(std::ostream& _stream, std::string 
 				if (auto depth = util::findOffset(m_sourceStack | ranges::views::reverse, _slot))
 					output << "DUP" << *depth + 1 << std::endl;
 				else
-					BOOST_THROW_EXCEPTION(std::runtime_error("Invalid DUP operation."));
+					solThrow(ExecutionError, "Invalid DUP operation.");
 			}
 		},
 		[&](){ // pop

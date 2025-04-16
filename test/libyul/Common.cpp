@@ -117,13 +117,11 @@ std::map<std::string const, yul::Dialect const& (*)(langutil::EVMVersion, std::o
 yul::Dialect const& yul::test::dialect(std::string const& _name, langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion)
 {
 	if (!validDialects.count(_name))
-		BOOST_THROW_EXCEPTION(std::runtime_error{
-			"Invalid Dialect \"" +
-			_name +
-			"\". Valid dialects are " +
-			util::joinHumanReadable(validDialectNames(), ", ", " and ") +
-			"."
-		});
+		solThrow(ValidationError, fmt::format(
+			"Invalid Dialect \"{}\". Valid dialects are {}.",
+			_name,
+			util::joinHumanReadable(validDialectNames(), ", ", " and ")
+		));
 
 	return validDialects.at(_name)(_evmVersion, _eofVersion);
 }

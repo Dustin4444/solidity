@@ -63,7 +63,7 @@ ObjectCompilerTest::ObjectCompilerTest(std::string const& _filename):
 	boost::split(m_outputSetting, m_reader.stringSetting("outputs", "Assembly,Bytecode,Opcodes,SourceMappings"), boost::is_any_of(","));
 	for (auto const& output: m_outputSetting)
 		if (std::find(allowedOutputs.begin(), allowedOutputs.end(), output) == allowedOutputs.end())
-			BOOST_THROW_EXCEPTION(std::runtime_error{"Invalid output type: \"" + output + "\""});
+			solThrow(ValidationError, "Invalid output type: \"" + output + "\"");
 
 	m_expectation = m_reader.simpleExpectations();
 }

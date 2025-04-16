@@ -24,13 +24,15 @@
 #include <boost/filesystem.hpp>
 
 using namespace solidity::frontend::test;
+using namespace solidity::test;
 
 namespace fs = boost::filesystem;
 
-TestCaseReader::TestCaseReader(std::string const& _filename): m_fileStream(_filename), m_fileName(_filename)
+TestCaseReader::TestCaseReader(std::string const& _filename):
+	m_fileStream(_filename),
+	m_fileName(_filename)
 {
-	if (!m_fileStream)
-		BOOST_THROW_EXCEPTION(std::runtime_error("Cannot open file: \"" + _filename + "\"."));
+	solRequire(m_fileStream, ValidationError, "Cannot open file: \"" + _filename + "\".");
 	m_fileStream.exceptions(std::ios::badbit);
 
 	std::tie(m_sources, m_lineNumber) = parseSourcesAndSettingsWithLineNumber(m_fileStream);
@@ -47,7 +49,7 @@ TestCaseReader::TestCaseReader(std::istringstream const& _str)
 std::string const& TestCaseReader::source() const
 {
 	if (m_sources.sources.size() != 1)
-		BOOST_THROW_EXCEPTION(std::runtime_error("Expected single source definition, but got multiple sources."));
+		solThrow(ValidationError, "Expected single source definition, but got multiple sources.");
 	return m_sources.sources.at(m_sources.mainSourceFile);
 }
 
@@ -68,7 +70,7 @@ bool TestCaseReader::boolSetting(std::string const& _name, bool _defaultValue)
 	if (value == "true")
 		return true;
 
-	BOOST_THROW_EXCEPTION(std::runtime_error("Invalid Boolean value: " + value + "."));
+	solThrow(ValidationError, "Invalid Boolean value: " + value + ".");
 }
 
 size_t TestCaseReader::sizetSetting(std::string const& _name, size_t _defaultValue)
@@ -94,10 +96,10 @@ std::string TestCaseReader::stringSetting(std::string const& _name, std::string 
 void TestCaseReader::ensureAllSettingsRead() const
 {
 	if (!m_unreadSettings.empty())
-		BOOST_THROW_EXCEPTION(std::runtime_error(
-			"Unknown setting(s): " +
-			util::joinHumanReadable(m_unreadSettings | ranges::views::keys)
-		));
+		solThrow(
+			ValidationError,
+			"Unknown setting(s): " + util::joinHumanReadable(m_unreadSettings | ranges::views::keys)
+		);
 }
 
 std::pair<SourceMap, size_t> TestCaseReader::parseSourcesAndSettingsWithLineNumber(std::istream& _stream)
@@ -137,7 +139,7 @@ std::pair<SourceMap, size_t> TestCaseReader::parseSourcesAndSettingsWithLineNumb
 					line.size() - sourceDelimiterEnd.size() - sourceDelimiterStart.size()
 				));
 				if (sources.count(currentSourceName))
-					BOOST_THROW_EXCEPTION(std::runtime_error("Multiple definitions of test source \"" + currentSourceName + "\"."));
+					solThrow(ValidationError, "Multiple definitions of test source \"" + currentSourceName + "\".");
 			}
 			else if (boost::algorithm::starts_with(line, externalSourceDelimiterStart) && boost::algorithm::ends_with(line, sourceDelimiterEnd))
 			{
@@ -163,16 +165,16 @@ std::pair<SourceMap, size_t> TestCaseReader::parseSourcesAndSettingsWithLineNumb
 				if (!externalSourceTarget.is_relative() || !externalSourceTarget.root_path().empty())
 					// NOTE: UNC paths (ones starting with // or \\) are considered relative by Boost
 					// since they have an empty root directory (but non-empty root name).
-					BOOST_THROW_EXCEPTION(std::runtime_error("External Source paths need to be relative to the location of the test case."));
+					solThrow(ValidationError, "External Source paths need to be relative to the location of the test case.");
 				fs::path externalSourceFullPath = testCaseParentDir / externalSourceTarget;
 				std::string externalSourceContent;
 				if (!fs::exists(externalSourceFullPath))
-					BOOST_THROW_EXCEPTION(std::runtime_error("External Source '" + externalSourceTarget.string() + "' not found."));
+					solThrow(ValidationError, "External Source '" + externalSourceTarget.string() + "' not found.");
 				else
 					externalSourceContent = util::readFileAsString(externalSourceFullPath);
 
 				if (sources.count(externalSourceName))
-					BOOST_THROW_EXCEPTION(std::runtime_error("Multiple definitions of test source \"" + externalSourceName + "\"."));
+					solThrow(ValidationError, "Multiple definitions of test source \"" + externalSourceName + "\".");
 				sources[externalSourceName] = externalSourceContent;
 				externalSources[externalSourceName] = externalSourceTarget;
 			}
@@ -183,7 +185,7 @@ std::pair<SourceMap, size_t> TestCaseReader::parseSourcesAndSettingsWithLineNumb
 		{
 			size_t colon = line.find(':');
 			if (colon == std::string::npos)
-				BOOST_THROW_EXCEPTION(std::runtime_error(std::string("Expected \":\" inside setting.")));
+				solThrow(ValidationError, "Expected \":\" inside setting.");
 			std::string key = line.substr(comment.size(), colon - comment.size());
 			std::string value = line.substr(colon + 1);
 			boost::algorithm::trim(key);
@@ -191,7 +193,7 @@ std::pair<SourceMap, size_t> TestCaseReader::parseSourcesAndSettingsWithLineNumb
 			m_settings[key] = value;
 		}
 		else
-			BOOST_THROW_EXCEPTION(std::runtime_error(std::string("Expected \"//\" or \"// ---\" to terminate settings and source.")));
+			solThrow(ValidationError, "Expected \"//\" or \"// ---\" to terminate settings and source.");
 	}
 	// Register the last source as the main one
 	sources[currentSourceName] = currentSource;
@@ -208,6 +210,6 @@ std::string TestCaseReader::parseSimpleExpectations(std::istream& _file)
 		else if (line == "//")
 			result += "\n";
 		else
-			BOOST_THROW_EXCEPTION(std::runtime_error("Test expectations must start with \"// \"."));
+			solThrow(ValidationError, "Test expectations must start with \"// \".");
 	return result;
 }

@@ -18,7 +18,11 @@
 
 #include <test/FilesystemUtils.h>
 
+#include <test/Common.h>
+
 #include <test/libsolidity/util/SoltestErrors.h>
+
+#include <fmt/format.h>
 
 #include <fstream>
 
@@ -37,19 +41,19 @@ void solidity::test::createFilesWithParentDirs(std::set<boost::filesystem::path>
 		newFile << _content;
 
 		if (newFile.fail() || !boost::filesystem::exists(path))
-			BOOST_THROW_EXCEPTION(std::runtime_error("Failed to create an empty file: \"" + path.string() + "\"."));
+			solThrow(ExecutionError, "Failed to create an empty file: \"" + path.string() + "\".");
 	}
 }
 
 void solidity::test::createFileWithContent(boost::filesystem::path const& _path, std::string const& _content)
 {
 	if (boost::filesystem::is_regular_file(_path))
-		BOOST_THROW_EXCEPTION(std::runtime_error("File already exists: \"" + _path.string() + "\"."));
+		solThrow(ExecutionError, "File already exists: \"" + _path.string() + "\".");
 
 	// Use binary mode to avoid line ending conversion on Windows.
 	std::ofstream newFile(_path.string(), std::ofstream::binary);
 	if (newFile.fail() || !boost::filesystem::is_regular_file(_path))
-		BOOST_THROW_EXCEPTION(std::runtime_error("Failed to create a file: \"" + _path.string() + "\"."));
+		solThrow(ExecutionError, "Failed to create a file: \"" + _path.string() + "\".");
 
 	newFile << _content;
 }
@@ -79,9 +83,10 @@ bool solidity::test::createSymlinkIfSupportedByFilesystem(
 	)
 		return false;
 	else
-		BOOST_THROW_EXCEPTION(std::runtime_error(
-			"Failed to create a symbolic link: \"" + _linkName.string() + "\""
-			" -> " + _targetPath.string() + "\"."
-			" " + symlinkCreationError.message() + "."
+		solThrow(ExecutionError, fmt::format(
+			"Failed to create a symbolic link: \"{}\" -> {}\". {}.",
+			_linkName.string(),
+			_targetPath.string(),
+			symlinkCreationError.message()
 		));
 }
