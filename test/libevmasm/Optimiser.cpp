@@ -36,7 +36,6 @@
 #include <range/v3/algorithm/any_of.hpp>
 
 #include <string>
-#include <tuple>
 #include <memory>
 
 using namespace solidity::langutil;

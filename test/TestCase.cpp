@@ -31,6 +31,7 @@ using namespace solidity;
 using namespace solidity::frontend;
 using namespace solidity::frontend::test;
 using namespace solidity::util;
+using namespace solidity::test;
 
 void TestCase::printSettings(std::ostream& _stream, const std::string& _linePrefix, const bool)
 {
@@ -123,7 +124,7 @@ void EVMVersionRestrictedTestCase::processEVMVersionSetting()
 	if (!version)
 		BOOST_THROW_EXCEPTION(std::runtime_error{"Invalid EVM version: \"" + versionString + "\""});
 
-	langutil::EVMVersion evmVersion = solidity::test::CommonOptions::get().evmVersion();
+	langutil::EVMVersion evmVersion = CommonOptions::get().evmVersion();
 	bool comparisonResult;
 	if (comparator == ">")
 		comparisonResult = evmVersion > version;
@@ -146,9 +147,9 @@ void EVMVersionRestrictedTestCase::processEVMVersionSetting()
 
 void EVMVersionRestrictedTestCase::processBytecodeFormatSetting()
 {
-	std::optional<uint8_t> eofVersion = solidity::test::CommonOptions::get().eofVersion();
+	std::optional<uint8_t> eofVersion = CommonOptions::get().eofVersion();
 	// EOF only available since Osaka
-	solAssert(!eofVersion.has_value() || solidity::test::CommonOptions::get().evmVersion().supportsEOF());
+	solAssert(!eofVersion.has_value() || CommonOptions::get().evmVersion().supportsEOF());
 
 	std::string bytecodeFormatString = m_reader.stringSetting("bytecodeFormat", "legacy,>=EOFv1");
 	if (bytecodeFormatString == "legacy,>=EOFv1" || bytecodeFormatString == ">=EOFv1,legacy")
