@@ -97,7 +97,7 @@ protected:
 	boost::program_options::options_description options;
 
 private:
-	std::string evmVersionString;
+	std::string m_evmVersionString;
 	std::optional<uint8_t> m_eofVersion;
 	static std::unique_ptr<CommonOptions const> m_singleton;
 };

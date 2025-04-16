@@ -110,7 +110,7 @@ CommonOptions::CommonOptions(std::string _caption):
 void CommonOptions::addOptions()
 {
 	options.add_options()
-		("evm-version", po::value(&evmVersionString), "which EVM version to use")
+		("evm-version", po::value(&m_evmVersionString), "which EVM version to use")
 		// "eof-version" is declared as uint64_t, since uint8_t will be parsed as character by boost.
 		("eof-version", po::value<uint64_t>()->implicit_value(1u), "which EOF version to use")
 		("testpath", po::value<fs::path>(&this->testPath)->default_value(test::testPath()), "path to test files")
@@ -259,11 +259,11 @@ void CommonOptions::printSelectedOptions(std::ostream& _stream, std::string cons
 
 langutil::EVMVersion CommonOptions::evmVersion() const
 {
-	if (!evmVersionString.empty())
+	if (!m_evmVersionString.empty())
 	{
-		auto version = langutil::EVMVersion::fromString(evmVersionString);
+		auto version = langutil::EVMVersion::fromString(m_evmVersionString);
 		if (!version)
-			BOOST_THROW_EXCEPTION(std::runtime_error("Invalid EVM version: " + evmVersionString));
+			BOOST_THROW_EXCEPTION(std::runtime_error("Invalid EVM version: " + m_evmVersionString));
 		return *version;
 	}
 	else
