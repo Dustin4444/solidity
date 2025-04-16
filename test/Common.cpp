@@ -24,6 +24,7 @@
 #include <libyul/backends/evm/EVMDialect.h>
 
 #include <libsolutil/Assertions.h>
+#include <libsolutil/Exceptions.h>
 #include <libsolutil/StringUtils.h>
 
 #include <boost/algorithm/string.hpp>
@@ -185,8 +186,7 @@ bool CommonOptions::parse(int argc, char const* const* argv)
 		{
 			// Request as uint64_t, since uint8_t will be parsed as character by boost.
 			uint64_t eofVersion = arguments["eof-version"].as<uint64_t>();
-			if (eofVersion != 1)
-				BOOST_THROW_EXCEPTION(std::runtime_error("Invalid EOF version: " + std::to_string(eofVersion)));
+			solRequire(eofVersion == 1, ConfigException, "Invalid EOF version: " + std::to_string(eofVersion));
 			m_eofVersion = 1;
 		}
 
@@ -198,11 +198,7 @@ bool CommonOptions::parse(int argc, char const* const* argv)
 					(parsedOption.original_tokens.size() == 1 && parsedOption.original_tokens.front().empty())
 				)
 					continue; // ignore empty options
-				std::stringstream errorMessage;
-				errorMessage << "Unrecognized option: ";
-				for (auto const& token: parsedOption.original_tokens)
-					errorMessage << token;
-				BOOST_THROW_EXCEPTION(std::runtime_error(errorMessage.str()));
+				solThrow(ConfigException, "Unrecognized option: " + util::joinHumanReadable(parsedOption.original_tokens, ""));
 			}
 	}
 	catch (po::error const& exception)
@@ -262,8 +258,7 @@ langutil::EVMVersion CommonOptions::evmVersion() const
 	if (!m_evmVersionString.empty())
 	{
 		auto version = langutil::EVMVersion::fromString(m_evmVersionString);
-		if (!version)
-			BOOST_THROW_EXCEPTION(std::runtime_error("Invalid EVM version: " + m_evmVersionString));
+		solRequire(version, ConfigException, "Invalid EVM version: " + m_evmVersionString);
 		return *version;
 	}
 	else
@@ -279,7 +274,7 @@ yul::EVMDialect const& CommonOptions::evmDialect() const
 CommonOptions const& CommonOptions::get()
 {
 	if (!m_singleton)
-		BOOST_THROW_EXCEPTION(std::runtime_error("Options not yet constructed!"));
+		soltestAssert(false, "Options not yet constructed!");
 
 	return *m_singleton;
 }

@@ -29,6 +29,8 @@
 #endif
 
 #include <test/EVMHost.h>
+
+#include <test/Common.h>
 #include <test/libsolidity/util/SoltestErrors.h>
 
 #if defined(__GNUC__) && !defined(__clang__) // GCC-specific pragma
@@ -91,8 +93,7 @@ bool EVMHost::checkVmPaths(std::vector<boost::filesystem::path> const& _vmPaths)
 
 		if (vm.has_capability(EVMC_CAPABILITY_EVM1))
 		{
-			if (evmVmFound)
-				BOOST_THROW_EXCEPTION(std::runtime_error("Multiple evm1 evmc vms defined. Please only define one evm1 evmc vm."));
+			solRequire(!evmVmFound, ConfigException, "Multiple evm1 evmc vms defined. Please only define one evm1 evmc vm.");
 			evmVmFound = true;
 		}
 	}
