@@ -24,6 +24,7 @@
 #include <libsolutil/StringUtils.h>
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/trim_all.hpp>
 
 #include <iostream>
 
@@ -93,6 +94,13 @@ TestCase::TestResult TestCase::checkResult(std::ostream& _stream, const std::str
 		util::AnsiColorized(_stream, _formatted, {util::formatting::BOLD, util::formatting::CYAN})
 			<< _linePrefix << "Obtained result:" << std::endl;
 		printPrefixed(_stream, m_obtainedResult, nextIndentLevel);
+
+		if (boost::trim_all_copy(m_expectation) == boost::trim_all_copy(m_obtainedResult))
+			// NOTE: This will catch `a b` vs `a  b` and ` ab ` vs `ab` but not `ab` vs `a b`.
+			util::AnsiColorized(_stream, _formatted, {util::formatting::BOLD, util::formatting::YELLOW})
+				<< "\n"
+				<< _linePrefix << "NOTE: Results differ only in the amount of whitespace." << std::endl;
+
 		return TestResult::Failure;
 	}
 	return TestResult::Success;
