@@ -118,7 +118,7 @@ yul::Dialect const& yul::test::dialect(std::string const& _name, langutil::EVMVe
 {
 	if (!validDialects.count(_name))
 		solThrow(ValidationError, fmt::format(
-			"Invalid Dialect \"{}\". Valid dialects are {}.",
+			"Invalid Dialect \"{}\". Valid dialects: {}.",
 			_name,
 			util::joinHumanReadable(validDialectNames(), ", ", " and ")
 		));

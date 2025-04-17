@@ -84,7 +84,7 @@ bool solidity::test::createSymlinkIfSupportedByFilesystem(
 		return false;
 	else
 		solThrow(ExecutionError, fmt::format(
-			"Failed to create a symbolic link: \"{}\" -> {}\". {}.",
+			"Failed to create a symbolic link: \"{}\" -> \"{}\". {}.",
 			_linkName.string(),
 			_targetPath.string(),
 			symlinkCreationError.message()

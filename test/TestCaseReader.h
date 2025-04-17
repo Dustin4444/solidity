@@ -96,7 +96,8 @@ E TestCaseReader::enumSetting(std::string const& _name, std::map<std::string, E>
 	std::string value = stringSetting(_name, _defaultChoice);
 
 	solRequire(_choices.count(value) != 0, solidity::test::ValidationError, fmt::format(
-		"Invalid Enum value: {}. Available choices: {}.",
+		"Invalid choice in '{}' setting: {}.\nAvailable choices: {}.",
+		_name,
 		value,
 		util::joinHumanReadable(_choices | ranges::views::keys)
 	));
