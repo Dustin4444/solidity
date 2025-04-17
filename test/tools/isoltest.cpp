@@ -198,12 +198,12 @@ TestTool::Result TestTool::process()
 	}
 	catch (SoltestError const& exception)
 	{
-		AnsiColorized(std::cout, formatted, {BOLD, RED}) << exception.what() << std::endl;
+		AnsiColorized(std::cerr, formatted, {BOLD, RED}) << exception.what() << std::endl;
 		return Result::Exception;
 	}
 	catch (...)
 	{
-		AnsiColorized(std::cout, formatted, {BOLD, RED}) <<
+		AnsiColorized(std::cerr, formatted, {BOLD, RED}) <<
 			"Unhandled exception during test: " << boost::current_exception_diagnostic_information() << std::endl;
 		return Result::Exception;
 	}
