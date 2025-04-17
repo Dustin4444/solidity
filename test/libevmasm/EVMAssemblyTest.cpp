@@ -174,8 +174,6 @@ TestCase::TestResult EVMAssemblyTest::run(std::ostream& _stream, std::string con
 			std::string separator = (content.empty() ? "" : (output == "Assembly" ? "\n" : " "));
 			m_obtainedResult += output + ":" + separator + content;
 		}
-	if (!m_obtainedResult.empty() && m_obtainedResult.back() != '\n')
-		m_obtainedResult += "\n";
 
 	return checkResult(_stream, _linePrefix, _formatted);
 }

@@ -84,7 +84,9 @@ void TestCase::printUpdatedExpectations(std::ostream& _stream, std::string const
 
 TestCase::TestResult TestCase::checkResult(std::ostream& _stream, const std::string& _linePrefix, bool const _formatted)
 {
-	if (m_expectation != m_obtainedResult)
+	// NOTE: Test cases usually use parseSimpleExpectations(), which ensures that m_expectations ends
+	// with a newline, so count m_obtainedResult as a match even if it does not.
+	if (m_expectation != m_obtainedResult && m_expectation != m_obtainedResult + '\n')
 	{
 		std::string nextIndentLevel = _linePrefix + "  ";
 		util::AnsiColorized(_stream, _formatted, {util::formatting::BOLD, util::formatting::CYAN})
