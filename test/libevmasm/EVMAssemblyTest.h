@@ -42,8 +42,15 @@ public:
 	TestResult run(std::ostream& _stream, std::string const& _linePrefix = "", bool const _formatted = false) override;
 
 private:
+	enum class AssemblyFormat
+	{
+		JSON,
+		Plain,
+	};
+
 	static std::vector<std::string> const c_outputLabels;
 
+	AssemblyFormat m_assemblyFormat{};
 	std::string m_selectedOutputs;
 	evmasm::Assembly::OptimiserSettings m_optimizerSettings;
 };
