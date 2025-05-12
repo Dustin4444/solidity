@@ -5,9 +5,12 @@
             "name": "solc",
             "version": "<VERSION REMOVED>"
         },
+        "id": "0x1220a5451e57fefae301cb773787fc38d855d065067f1d80a2cf38ea4e8117f914f8",
         "sources": [
             {
+                "contents": "// SPDX-License-Identifier: GPL-2.0\npragma solidity >=0.0;\n\ncontract C {\n    function f() public {}\n}\n",
                 "id": 0,
+                "language": "Solidity",
                 "path": "input.sol"
             }
         ]

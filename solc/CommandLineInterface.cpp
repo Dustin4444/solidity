@@ -44,6 +44,7 @@
 #include <libyul/YulStack.h>
 
 #include <libevmasm/Ethdebug.h>
+#include <libevmasm/EthdebugSchema.h>
 #include <libevmasm/Disassemble.h>
 
 #include <liblangutil/Exceptions.h>
@@ -1359,8 +1360,25 @@ void CommandLineInterface::assembleYul(yul::YulStack::Language _language, yul::Y
 		{
 			sout() << "======= Debug Data (ethdebug/format/info/resources) =======" << std::endl;
 			sout() << util::jsonPrint(
-					evmasm::ethdebug::resources({{sourceUnitName}}, VersionString),
-					m_options.formatting.json
+				evmasm::ethdebug::schema::info::Resources{
+					.compilation = evmasm::ethdebug::schema::materials::Compilation {
+						.id = {""},
+						.compiler = evmasm::ethdebug::schema::materials::Compilation::Compiler {
+							.name = "solc",
+							.version = VersionString
+						},
+						.sources = {
+							evmasm::ethdebug::schema::materials::Source {
+								.id = evmasm::ethdebug::schema::materials::ID{std::uint64_t{0}},
+								.path = sourceUnitName,
+								.contents = yulSource,
+								.encoding = std::nullopt,
+								.language = "Yul"
+							}
+						}
+					}
+				},
+				m_options.formatting.json
 			) << std::endl;
 		}
 

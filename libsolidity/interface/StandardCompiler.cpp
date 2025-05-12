@@ -37,13 +37,15 @@
 
 #include <liblangutil/SourceReferenceFormatter.h>
 
+#include <libsolutil/CommonData.h>
+#include <libsolutil/IpfsHash.h>
 #include <libsolutil/JSON.h>
 #include <libsolutil/Keccak256.h>
-#include <libsolutil/CommonData.h>
 
 #include <boost/algorithm/string/predicate.hpp>
 
 #include <algorithm>
+#include <libevmasm/EthdebugSchema.h>
 #include <optional>
 
 using namespace solidity;
@@ -1637,7 +1639,7 @@ Json StandardCompiler::compileSolidity(StandardCompiler::InputsAndSettings _inpu
 }
 
 
-Json StandardCompiler::compileYul(InputsAndSettings _inputsAndSettings)
+Json StandardCompiler::compileYul(InputsAndSettings _inputsAndSettings, Json const& _rawInput)
 {
 	solAssert(_inputsAndSettings.jsonSources.empty());
 
@@ -1787,7 +1789,27 @@ Json StandardCompiler::compileYul(InputsAndSettings _inputsAndSettings)
 		output["contracts"][sourceName][contractName]["yulCFGJson"] = stack.cfgJson();
 
 	if (isEthdebugRequested(_inputsAndSettings.outputSelection))
-		output["ethdebug"] = evmasm::ethdebug::resources({sourceName}, VersionString);
+	{
+		std::string const id = util::toHex(ipfsHash(jsonCompactPrint(jsonCompactPrint(_rawInput) + jsonCompactPrint(_inputsAndSettings.sources))), HexPrefix::Add);
+		output["ethdebug"] = evmasm::ethdebug::schema::info::Resources {
+			.compilation = evmasm::ethdebug::schema::materials::Compilation {
+				.id = {id},
+				.compiler = evmasm::ethdebug::schema::materials::Compilation::Compiler{
+					.name = "solc",
+					.version = VersionString
+				},
+				.sources = {
+					evmasm::ethdebug::schema::materials::Source {
+						.id = evmasm::ethdebug::schema::materials::ID{std::uint64_t{0}},
+						.path = sourceName,
+						.contents = sourceContents,
+						.encoding = std::nullopt,
+						.language = "Yul"
+					}
+				}
+			}
+		};
+	}
 
 	return output;
 }
@@ -1805,7 +1827,7 @@ Json StandardCompiler::compile(Json const& _input) noexcept
 		if (settings.language == "Solidity")
 			return compileSolidity(std::move(settings));
 		else if (settings.language == "Yul")
-			return compileYul(std::move(settings));
+			return compileYul(std::move(settings), _input);
 		else if (settings.language == "SolidityAST")
 			return compileSolidity(std::move(settings));
 		else if (settings.language == "EVMAssembly")

@@ -31,13 +31,30 @@
                 "name": "solc",
                 "version": "<VERSION REMOVED>"
             },
+            "id": "0x1220c96176b836fdd259516a205e7c0ca275f5fe488c02adfe5a324380bdaef43da6",
             "sources": [
                 {
+                    "contents": "// SPDX-License-Identifier: GPL-2.0
+pragma solidity >=0.0;
+
+abstract contract C {
+    function f() public virtual returns (bytes32);
+}
+",
                     "id": 0,
+                    "language": "Solidity",
                     "path": "a.sol"
                 },
                 {
+                    "contents": "// SPDX-License-Identifier: GPL-2.0
+pragma solidity >=0.0;
+
+interface C {
+    function f() external;
+}
+",
                     "id": 1,
+                    "language": "Solidity",
                     "path": "b.sol"
                 }
             ]

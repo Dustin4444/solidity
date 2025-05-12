@@ -58,6 +58,23 @@ void schema::materials::to_json(Json& _json, SourceRange::Range const& _range)
 	_json["offset"] = _range.offset;
 }
 
+void schema::materials::to_json(Json& _json, Source const& _source)
+{
+	_json["id"] = _source.id;
+	_json["path"] = _source.path;
+	_json["contents"] = _source.contents;
+	if (_source.encoding)
+		_json["encoding"] = *_source.encoding;
+	_json["language"] = _source.language;
+}
+
+void schema::materials::to_json(Json& _json, Compilation const& _compilation)
+{
+	_json["id"] = _compilation.id;
+	_json["compiler"]["name"] = _compilation.compiler.name;
+	_json["compiler"]["version"] = _compilation.compiler.version;
+	_json["sources"] = _compilation.sources;
+}
 
 void schema::materials::to_json(Json& _json, SourceRange const& _sourceRange)
 {
@@ -72,6 +89,13 @@ void schema::to_json(Json& _json, Program::Contract const& _contract)
 		_json["name"] = *_contract.name;
 	_json["definition"] = _contract.definition;
 }
+
+void schema::info::to_json(Json& _json, Resources const& _resources)
+{
+	if (_resources.compilation)
+		_json["compilation"] = *_resources.compilation;
+}
+
 
 void schema::program::to_json(Json& _json, Context::Variable const& _contextVariable)
 {

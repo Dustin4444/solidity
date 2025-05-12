@@ -85,6 +85,7 @@
 #include <libsolutil/FunctionSelector.h>
 
 #include <libevmasm/Ethdebug.h>
+#include <libevmasm/EthdebugSchema.h>
 
 #include <boost/algorithm/string/replace.hpp>
 
@@ -1196,7 +1197,38 @@ Json CompilerStack::ethdebug() const
 {
 	solAssert(m_stackState >= AnalysisSuccessful, "Analysis was not successful.");
 	solAssert(!m_contracts.empty());
-	return evmasm::ethdebug::resources(sourceNames(), VersionString);
+
+	std::vector<std::string> const paths = sourceNames();
+
+	std::vector<evmasm::ethdebug::schema::materials::Source> sources;
+	sources.reserve(paths.size());
+
+	for (auto const& sourcePath: paths)
+		sources.push_back(
+			evmasm::ethdebug::schema::materials::Source{
+				.id = {sourceIndices()[sourcePath]},
+				.path = sourcePath,
+				.contents = source(sourcePath).charStream->source(),
+				.encoding = std::nullopt,
+				.language = "Solidity"
+			}
+		);
+
+	std::stringstream concatenatedMetadata;
+	for (auto const& contract: m_contracts | ranges::views::values)
+		concatenatedMetadata << metadata(contract);
+	evmasm::ethdebug::schema::info::Resources resources {
+		.compilation = evmasm::ethdebug::schema::materials::Compilation {
+			.id = {util::toHex(util::ipfsHash(concatenatedMetadata.str()), util::HexPrefix::Add)},
+			.compiler = evmasm::ethdebug::schema::materials::Compilation::Compiler {
+				.name = "solc",
+				.version = VersionString
+			},
+			.sources = sources
+		}
+	};
+
+	return resources;
 }
 
 Json CompilerStack::ethdebug(std::string const& _contractName) const
@@ -1931,7 +1963,15 @@ bytes CompilerStack::createCBORMetadata(Contract const& _contract, bool _forIR) 
 		_contract.contract->sourceUnit().annotation().experimentalFeatures
 	);
 
-	std::string meta = (_forIR == m_viaIR ? metadata(_contract) : createMetadata(_contract, _forIR));
+	std::string otherMeta;
+	std::string_view meta;
+	if (_forIR == m_viaIR)
+		meta = metadata(_contract);
+	else
+	{
+		otherMeta = createMetadata(_contract, _forIR);
+		meta = otherMeta;
+	}
 
 	MetadataCBOREncoder encoder;
 

@@ -454,18 +454,6 @@ BOOST_AUTO_TEST_CASE(ethdebug_program_last_instruction_with_immediate_arguments)
 	}
 }
 
-BOOST_AUTO_TEST_CASE(ethdebug_resources)
-{
-	Json const resources = ethdebug::resources({"sourceA", "sourceB"}, "version1");
-	BOOST_REQUIRE(resources["compilation"]["compiler"]["name"] == "solc");
-	BOOST_REQUIRE(resources["compilation"]["compiler"]["version"] == "version1");
-	BOOST_REQUIRE(resources["compilation"]["sources"].size() == 2);
-	BOOST_REQUIRE(resources["compilation"]["sources"][0]["id"] == 0);
-	BOOST_REQUIRE(resources["compilation"]["sources"][0]["path"] == "sourceA");
-	BOOST_REQUIRE(resources["compilation"]["sources"][1]["id"] == 1);
-	BOOST_REQUIRE(resources["compilation"]["sources"][1]["path"] == "sourceB");
-}
-
 BOOST_AUTO_TEST_SUITE_END()
 
 } // end namespaces

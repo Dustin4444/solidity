@@ -98,7 +98,7 @@ private:
 	std::map<std::string, Json> parseAstFromInput(StringMap const& _sources);
 	Json importEVMAssembly(InputsAndSettings _inputsAndSettings);
 	Json compileSolidity(InputsAndSettings _inputsAndSettings);
-	Json compileYul(InputsAndSettings _inputsAndSettings);
+	Json compileYul(InputsAndSettings _inputsAndSettings, Json const& _rawInput);
 
 	ReadCallback::Callback m_readFile;
 

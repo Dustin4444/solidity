@@ -49,3 +49,14 @@ def test_program_schema(
             source_output = contract_output[source]
             ethdebug_data = get_nested_value(source_output, *(output_selection.split(".")))
             validator.validate(ethdebug_data)
+
+def test_resource_schema(
+    ethdebug_schema_repository,
+    solc_output
+):
+    validator = jsonschema.Draft202012Validator(
+        schema={"$ref": "schema:ethdebug/format/info/resources"},
+        registry=ethdebug_schema_repository
+    )
+    assert "ethdebug" in solc_output
+    validator.validate(solc_output["ethdebug"])

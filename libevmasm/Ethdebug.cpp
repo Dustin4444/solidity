@@ -148,22 +148,3 @@ Json ethdebug::program(std::string_view _name, unsigned _sourceID, Assembly cons
 		.instructions = programInstructions(_assembly, _linkerObject, _sourceID)
 	};
 }
-
-Json ethdebug::resources(std::vector<std::string> const& _sources, std::string const& _version)
-{
-	Json sources = Json::array();
-	for (size_t id = 0; id < _sources.size(); ++id)
-	{
-		Json source = Json::object();
-		source["id"] = id;
-		source["path"] = _sources[id];
-		sources.push_back(source);
-	}
-	Json result = Json::object();
-	result["compilation"] = Json::object();
-	result["compilation"]["compiler"] = Json::object();
-	result["compilation"]["compiler"]["name"] = "solc";
-	result["compilation"]["compiler"]["version"] = _version;
-	result["compilation"]["sources"] = sources;
-	return result;
-}
