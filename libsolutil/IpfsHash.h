@@ -21,6 +21,7 @@
 #include <libsolutil/Common.h>
 
 #include <string>
+#include <string_view>
 
 namespace solidity::util
 {
@@ -30,9 +31,9 @@ namespace solidity::util
 /// As hash function it will use sha2-256.
 /// The effect is that the hash should be identical to the one produced by
 /// the command `ipfs add <filename>`.
-bytes ipfsHash(std::string _data);
+bytes ipfsHash(std::string_view _data);
 
 /// Compute the "ipfs hash" as above, but encoded in base58 as used by ipfs / bitcoin.
-std::string ipfsHashBase58(std::string _data);
+std::string ipfsHashBase58(std::string_view _data);
 
 }
