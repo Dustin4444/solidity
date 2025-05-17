@@ -39,6 +39,7 @@ Language Features:
 
 
 Compiler Features:
+* Constant Evaluator: Support for constants referenced by member access expressions.
 * ethdebug: Experimental support for instructions and source locations under EOF.
 * EVM: Set default EVM Version to `osaka`.
 
