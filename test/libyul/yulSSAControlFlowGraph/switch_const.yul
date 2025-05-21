@@ -45,10 +45,14 @@
 // Entry0 -> Block0_0;
 // Block0_0 [label="\
 // Block 0; (0, max 0)\nLiveIn: \l\
-// LiveOut: \l\nv1 := calldataload(3)\l\
-// v4 := calldataload(88)\l\
-// v7 := calldataload(99)\l\
-// sstore(0, v7)\l\
+// LiveOut: \l\nv1 := 3\l\
+// v2 := calldataload(v1)\l\
+// v5 := 88\l\
+// v6 := calldataload(v5)\l\
+// v9 := 99\l\
+// v10 := calldataload(v9)\l\
+// v13 := 0\l\
+// sstore(v13, v10)\l\
 // "];
 // Block0_0Exit [label="MainExit"];
 // Block0_0 -> Block0_0Exit;
