@@ -20,10 +20,10 @@
 
 #include <libyul/AST.h>
 #include <libyul/Scope.h>
-#include <libyul/backends/evm/SSACFGLiveness.h>
-#include <libyul/backends/evm/SSAControlFlowGraph.h>
+#include <libyul/backends/evm/ssa/SSACFGLiveness.h>
+#include <libyul/backends/evm/ssa/SSAControlFlowGraph.h>
 
-namespace solidity::yul
+namespace solidity::yul::ssa
 {
 
 struct ControlFlow;

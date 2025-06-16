@@ -19,9 +19,10 @@
  * Transformation of a Yul AST into a control flow graph.
  */
 
-#include <libyul/backends/evm/SSAControlFlowGraphBuilder.h>
+#include <libyul/backends/evm/ssa/SSAControlFlowGraphBuilder.h>
 
-#include <libyul/backends/evm/ControlFlow.h>
+#include <libyul/backends/evm/ssa/ControlFlow.h>
+
 #include <libyul/AST.h>
 #include <libyul/ControlFlowSideEffectsCollector.h>
 #include <libyul/Exceptions.h>
@@ -42,8 +43,9 @@
 
 using namespace solidity;
 using namespace solidity::yul;
+using namespace solidity::yul::ssa;
 
-namespace solidity::yul
+namespace solidity::yul::ssa
 {
 
 SSAControlFlowGraphBuilder::SSAControlFlowGraphBuilder(

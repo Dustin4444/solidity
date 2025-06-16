@@ -30,6 +30,7 @@ using namespace solidity;
 using namespace solidity::langutil;
 using namespace solidity::util;
 using namespace solidity::yul;
+using namespace solidity::yul::ssa;
 
 YulControlFlowGraphExporter::YulControlFlowGraphExporter(ControlFlow const& _controlFlow, ControlFlowLiveness const* _liveness): m_controlFlow(_controlFlow), m_liveness(_liveness)
 {

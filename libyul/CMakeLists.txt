@@ -51,8 +51,6 @@ add_library(yul
 	backends/evm/AsmCodeGen.h
 	backends/evm/ConstantOptimiser.cpp
 	backends/evm/ConstantOptimiser.h
-	backends/evm/ControlFlow.cpp
-	backends/evm/ControlFlow.h
 	backends/evm/ControlFlowGraph.h
 	backends/evm/ControlFlowGraphBuilder.cpp
 	backends/evm/ControlFlowGraphBuilder.h
@@ -70,21 +68,23 @@ add_library(yul
 	backends/evm/NoOutputAssembly.cpp
 	backends/evm/OptimizedEVMCodeTransform.cpp
 	backends/evm/OptimizedEVMCodeTransform.h
-	backends/evm/SSACFGLiveness.cpp
-	backends/evm/SSACFGLiveness.h
-	backends/evm/SSACFGLoopNestingForest.cpp
-	backends/evm/SSACFGLoopNestingForest.h
-	backends/evm/SSACFGTopologicalSort.cpp
-	backends/evm/SSACFGTopologicalSort.h
-	backends/evm/SSAControlFlowGraph.cpp
-	backends/evm/SSAControlFlowGraph.h
-	backends/evm/SSAControlFlowGraphBuilder.cpp
-	backends/evm/SSAControlFlowGraphBuilder.h
 	backends/evm/StackHelpers.h
 	backends/evm/StackLayoutGenerator.cpp
 	backends/evm/StackLayoutGenerator.h
 	backends/evm/VariableReferenceCounter.h
 	backends/evm/VariableReferenceCounter.cpp
+	backends/evm/ssa/ControlFlow.cpp
+	backends/evm/ssa/ControlFlow.h
+	backends/evm/ssa/SSACFGLiveness.cpp
+	backends/evm/ssa/SSACFGLiveness.h
+	backends/evm/ssa/SSACFGLoopNestingForest.cpp
+	backends/evm/ssa/SSACFGLoopNestingForest.h
+	backends/evm/ssa/SSACFGTopologicalSort.cpp
+	backends/evm/ssa/SSACFGTopologicalSort.h
+	backends/evm/ssa/SSAControlFlowGraph.cpp
+	backends/evm/ssa/SSAControlFlowGraph.h
+	backends/evm/ssa/SSAControlFlowGraphBuilder.cpp
+	backends/evm/ssa/SSAControlFlowGraphBuilder.h
 	optimiser/ASTCopier.cpp
 	optimiser/ASTCopier.h
 	optimiser/ASTWalker.cpp

@@ -35,7 +35,7 @@
 #include <list>
 #include <vector>
 
-namespace solidity::yul
+namespace solidity::yul::ssa
 {
 class SSACFGLiveness;
 

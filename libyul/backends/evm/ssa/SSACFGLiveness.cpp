@@ -16,7 +16,7 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
-#include <libyul/backends/evm/SSACFGLiveness.h>
+#include <libyul/backends/evm/ssa/SSACFGLiveness.h>
 
 #include <libsolutil/Visitor.h>
 
@@ -25,6 +25,7 @@
 #include <range/v3/view/reverse.hpp>
 
 using namespace solidity::yul;
+using namespace solidity::yul::ssa;
 
 namespace
 {

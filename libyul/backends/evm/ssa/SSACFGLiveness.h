@@ -18,15 +18,15 @@
 
 #pragma once
 
-#include <libyul/backends/evm/SSACFGLoopNestingForest.h>
-#include <libyul/backends/evm/SSACFGTopologicalSort.h>
-#include <libyul/backends/evm/SSAControlFlowGraph.h>
+#include <libyul/backends/evm/ssa/SSACFGLoopNestingForest.h>
+#include <libyul/backends/evm/ssa/SSACFGTopologicalSort.h>
+#include <libyul/backends/evm/ssa/SSAControlFlowGraph.h>
 
 #include <cstddef>
 #include <set>
 #include <vector>
 
-namespace solidity::yul
+namespace solidity::yul::ssa
 {
 
 /// Performs liveness analysis on a reducible SSA CFG following Algorithm 9.1 in [1].

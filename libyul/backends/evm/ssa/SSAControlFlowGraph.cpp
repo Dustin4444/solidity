@@ -16,9 +16,9 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
-#include <libyul/backends/evm/SSAControlFlowGraph.h>
+#include <libyul/backends/evm/ssa/SSAControlFlowGraph.h>
 
-#include <libyul/backends/evm/SSACFGLiveness.h>
+#include <libyul/backends/evm/ssa/SSACFGLiveness.h>
 
 #include <libsolutil/StringUtils.h>
 #include <libsolutil/Visitor.h>
@@ -33,6 +33,7 @@
 using namespace solidity;
 using namespace solidity::util;
 using namespace solidity::yul;
+using namespace solidity::yul::ssa;
 
 namespace
 {

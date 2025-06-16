@@ -16,10 +16,11 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
-#include <libyul/backends/evm/ControlFlow.h>
+#include <libyul/backends/evm/ssa/ControlFlow.h>
 #include <range/v3/range/conversion.hpp>
 
 using namespace solidity::yul;
+using namespace solidity::yul::ssa;
 
 ControlFlowLiveness::ControlFlowLiveness(ControlFlow const& _controlFlow):
 	controlFlow(_controlFlow),

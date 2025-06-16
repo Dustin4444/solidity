@@ -29,12 +29,14 @@
 */
 #pragma once
 
+#include <libyul/backends/evm/ssa/ControlFlow.h>
+#include <libyul/backends/evm/ssa/SSAControlFlowGraph.h>
+
 #include <libyul/ControlFlowSideEffectsCollector.h>
-#include <libyul/backends/evm/ControlFlow.h>
-#include <libyul/backends/evm/SSAControlFlowGraph.h>
+
 #include <stack>
 
-namespace solidity::yul
+namespace solidity::yul::ssa
 {
 
 class SSAControlFlowGraphBuilder

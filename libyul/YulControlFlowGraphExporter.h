@@ -18,26 +18,26 @@
 
 #pragma once
 
-#include <libyul/backends/evm/ControlFlow.h>
+#include <libyul/backends/evm/ssa/ControlFlow.h>
 #include <libsolutil/JSON.h>
 #include <libsolutil/Visitor.h>
 
-using namespace solidity;
-using namespace yul;
-
+namespace solidity::yul
+{
 class YulControlFlowGraphExporter
 {
 public:
-	YulControlFlowGraphExporter(ControlFlow const& _controlFlow, ControlFlowLiveness const* _liveness=nullptr);
+	YulControlFlowGraphExporter(ssa::ControlFlow const& _controlFlow, ssa::ControlFlowLiveness const* _liveness=nullptr);
 	Json run();
-	Json exportBlock(SSACFG const& _cfg, SSACFG::BlockId _blockId, SSACFGLiveness const* _liveness);
-	Json exportFunction(SSACFG const& _cfg, SSACFGLiveness const* _liveness);
-	std::string varToString(SSACFG const& _cfg, SSACFG::ValueId _var);
+	Json exportBlock(ssa::SSACFG const& _cfg, ssa::SSACFG::BlockId _blockId, ssa::SSACFGLiveness const* _liveness);
+	Json exportFunction(ssa::SSACFG const& _cfg, ssa::SSACFGLiveness const* _liveness);
+	std::string varToString(ssa::SSACFG const& _cfg, ssa::SSACFG::ValueId _var);
 
 private:
-	ControlFlow const& m_controlFlow;
-	ControlFlowLiveness const* m_liveness;
-	Json toJson(SSACFG const& _cfg, SSACFG::BlockId _blockId, SSACFGLiveness const* _liveness);
-	Json toJson(Json& _ret, SSACFG const& _cfg, SSACFG::Operation const& _operation);
-	Json toJson(SSACFG const& _cfg, std::vector<SSACFG::ValueId> const& _values);
+	ssa::ControlFlow const& m_controlFlow;
+	ssa::ControlFlowLiveness const* m_liveness;
+	Json toJson(ssa::SSACFG const& _cfg, ssa::SSACFG::BlockId _blockId, ssa::SSACFGLiveness const* _liveness);
+	Json toJson(Json& _ret, ssa::SSACFG const& _cfg, ssa::SSACFG::Operation const& _operation);
+	Json toJson(ssa::SSACFG const& _cfg, std::vector<ssa::SSACFG::ValueId> const& _values);
 };
+}
