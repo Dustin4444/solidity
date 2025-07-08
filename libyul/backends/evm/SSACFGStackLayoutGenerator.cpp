@@ -246,14 +246,22 @@ void SSACFGStackLayoutGenerator::propagateStackThroughOperation(
 	yulAssert(ranges::none_of(operationLiveOut, IsSSACFGLiteral(m_cfg)));
 
 	auto const liveOutWithoutOutputsSet = operationLiveOut - operation.outputs;
-	auto const liveOutWithoutOutputs = std::set<Slot>(liveOutWithoutOutputsSet.begin(), liveOutWithoutOutputsSet.end());
+	auto const liveOutWithoutOutputs = std::vector<Slot>(liveOutWithoutOutputsSet.begin(), liveOutWithoutOutputsSet.end());
 	std::vector<Slot> requiredStackTop;
 	if (auto const* call = std::get_if<SSACFG::Call>(&operation.kind))
 		if (call->canContinue)
 			requiredStackTop.emplace_back(ssa::FunctionReturnLabel{&call->call.get()});
 	requiredStackTop += operation.inputs;
 
-	auto stack = [&]
+	if constexpr(debugOutput)
+		std::cout << "{ " << stackToString(stackToLayout(std::vector(liveOutWithoutOutputs.begin(), liveOutWithoutOutputs.end()), _blockId), m_cfg) << " } + " << stackToString(stackToLayout(requiredStackTop, _blockId), m_cfg) << ")\n";
+	static auto constexpr slotIsCompatible = [](Slot const& _source, Slot const& _target)
+	{
+		return std::holds_alternative<ssa::JunkSlot>(_target) || _source == _target;
+	};
+	BlockForwardShuffler<Stack, slotIsCompatible>::shuffle(_stack, liveOutWithoutOutputs, requiredStackTop);
+	// auto stack = GreedyForwardShuffler<Stack>::shuffle(_stack, liveOutWithoutOutputs, requiredStackTop);
+	/*auto stack = [&]
 	{
 		if (!m_junkBlockFinder.blockAllowsAdditionOfJunk(_blockId))
 		{
@@ -271,32 +279,33 @@ void SSACFGStackLayoutGenerator::propagateStackThroughOperation(
 				return DanielShuffler<Stack>::shuffle(_stack, liveOutWithoutOutputs, requiredStackTop);
 		}
 
-		/*return DanielShuffler<Stack>::shuffle(
-			_stack,
-			{},
-			_stack.data() + requiredStackTop
-		);*/
+		// return DanielShuffler<Stack>::shuffle(
+		// 	_stack,
+		// 	{},
+		// 	_stack.data() + requiredStackTop
+		// );
 
 		// todo!!
 		if constexpr(debugOutput)
 			std::cout << "{ " << stackToString(stackToLayout(pileOfJunk(junkTailSize(_stack.data())), _blockId), m_cfg) << " } + " << stackToString(stackToLayout(requiredStackTop, _blockId), m_cfg) << ")\n";
 		auto const v = _stack.data() | ranges::views::transform([&](auto const& _slot) -> Slot { return liveOutWithoutOutputs.contains(_slot) ? _slot : ssa::JunkSlot{}; }) | ranges::to<std::vector<Slot>>;
 		return DanielShuffler<Stack>::shuffle(_stack, {}, v + requiredStackTop);
-		/*
+
 		// todo this can be done more efficiently by using a sorting algo or similar, at least keeping track of junks in the initial transform
 		//		also we generate 2% codebloat by artificially shuffling the junk to the back :-(
 		//		OTOH we get stack to deep if not doing it
-		auto v = _stack.data() | ranges::views::transform([&](auto const& _slot) -> Slot { return liveOutWithoutOutputs.contains(_slot) ? _slot : ssa::JunkSlot{}; }) | ranges::to<std::vector<Slot>>;
-		static auto constexpr isJunk = [](Slot const& _slot) { return std::holds_alternative<ssa::JunkSlot>(_slot); };
-		auto const numJunk = ranges::count_if(v, isJunk);
-		v = v | ranges::views::filter(std::not_fn(isJunk)) | ranges::to<std::vector<Slot>>;
-		v = pileOfJunk(static_cast<std::size_t>(numJunk)) + v;
-		*/
+		// auto v = _stack.data() | ranges::views::transform([&](auto const& _slot) -> Slot { return liveOutWithoutOutputs.contains(_slot) ? _slot : ssa::JunkSlot{}; }) | ranges::to<std::vector<Slot>>;
+		// static auto constexpr isJunk = [](Slot const& _slot) { return std::holds_alternative<ssa::JunkSlot>(_slot); };
+		// auto const numJunk = ranges::count_if(v, isJunk);
+		// v = v | ranges::views::filter(std::not_fn(isJunk)) | ranges::to<std::vector<Slot>>;
+		// v = pileOfJunk(static_cast<std::size_t>(numJunk)) + v;
+
 
 		// return Stack(v + requiredStackTop, {}, {&m_cfg});
 		// return DanielShuffler<Stack>::shuffle(_stack, {}, pileOfJunk(junkTailSize(_stack.data())) + std::vector(liveOutWithoutOutputs.begin(), liveOutWithoutOutputs.end()) + requiredStackTop);
 		// return Stack{_stack.data() + requiredStackTop, {}, {&m_cfg}};
-	}();
+	}();*/
+	auto stack = _stack;
 	m_stackLayout[_blockId].operationIn[_operationIndex] = stackToLayout(stack.data(), _blockId);
 
 	for (size_t i = 0; i < requiredStackTop.size(); ++i)
@@ -413,12 +422,12 @@ void SSACFGStackLayoutGenerator::handleStackInViaConditionalJumpExit(
 
 		// pop everything not in the combined pre image
 		// we can ignore the phi function pre-image slots because they are definitely in the combined liveness
-		reduceStackToLiveness(conditionalJumpState, combinedPreImage, false);
+		reduceStackToLiveness(conditionalJumpState, combinedPreImage, m_junkBlockFinder.blockAllowsAdditionOfJunk(_condJump.zero) && m_junkBlockFinder.blockAllowsAdditionOfJunk(_condJump.nonZero));
 
 		// add any phi function values here that are not already contained in the stack
 		{
 			auto stackInData = conditionalJumpState.data();
-			ReversePhiFunctionTransform nonZeroPreImage(m_cfg, _source, _condJump.nonZero);
+			ReversePhiFunctionTransform const nonZeroPreImage(m_cfg, _source, _condJump.nonZero);
 			handlePhiFunctions(stackInData, nonZeroPreImage, nonZeroLiveIn);
 			m_stackLayout[_condJump.nonZero].stackIn = stackToLayout(pileOfJunk(sourceJunkTailSize) + stackInData, _condJump.nonZero);
 		}
@@ -433,7 +442,7 @@ void SSACFGStackLayoutGenerator::handleStackInViaConditionalJumpExit(
 		// add any phi function values here that are not already contained in the stack
 		{
 			auto stackInData = conditionalJumpState.data();
-			ReversePhiFunctionTransform zeroPreImage(m_cfg, _source, _condJump.zero);
+			ReversePhiFunctionTransform const zeroPreImage(m_cfg, _source, _condJump.zero);
 			handlePhiFunctions(stackInData, zeroPreImage, zeroLiveIn);
 			m_stackLayout[_condJump.zero].stackIn = stackToLayout(pileOfJunk(sourceJunkTailSize) + stackInData, _condJump.zero);
 		}
@@ -498,8 +507,25 @@ SSACFGStackLayoutGenerator::Stack SSACFGStackLayoutGenerator::shuffleStack(
 	return Stack(_target, {}, {&m_cfg});
 }
 
-void SSACFGStackLayoutGenerator::reduceStackToLiveness(Stack& _stack, std::set<SSACFG::ValueId> const& _livenessPreImage, bool _introduceJunk)
+void SSACFGStackLayoutGenerator::reduceStackToLiveness(Stack& _stack, std::set<SSACFG::ValueId> const& _livenessPreImage, bool const _introduceJunk)
 {
+	// if we are allowed to introduce junk, we'll just declare everything in the stack tail that is not part of the liveness
+	// set as junk until we find something that has relevance. That way the stack closer to the top is kept compact
+	// and the end part can be safely discarded
+	if (_introduceJunk)
+		for (size_t i = 0; i < _stack.size(); ++i)
+		{
+			if (!std::holds_alternative<SSACFG::ValueId>(_stack[i]) && !std::holds_alternative<ssa::JunkSlot>(_stack[i]))
+				break;
+
+			if (auto const* valueSlot = std::get_if<SSACFG::ValueId>(&_stack[i]))
+			{
+				if (_livenessPreImage.contains(*valueSlot))
+					break;
+				_stack.declareJunk(_stack.size() - i - 1);
+			}
+		}
+
 	// pop everything not in the combined pre image
 	// we can ignore the phi function pre-image slots because they are definitely in the combined liveness
 	while (
@@ -512,17 +538,11 @@ void SSACFGStackLayoutGenerator::reduceStackToLiveness(Stack& _stack, std::set<S
 	{
 		if (std::holds_alternative<SSACFG::ValueId>(*it) && !_livenessPreImage.contains(std::get<SSACFG::ValueId>(*it)))
 		{
-			yulAssert(
-				it != _stack.data().rbegin()); // this shouldn't happen as we have already popped everything up front
+			yulAssert(it != _stack.data().rbegin()); // this shouldn't happen as we have already popped everything up front
 			auto const depth = static_cast<std::size_t>(std::distance(_stack.data().rbegin(), it));
-			if (_introduceJunk)
-				_stack.declareJunk(depth);
-			else
-			{
-				if (depth > 0)
-					_stack.swap(depth);
-				_stack.pop();
-			}
+			if (depth > 0)
+				_stack.swap(depth);
+			_stack.pop();
 		}
 	}
 }
@@ -542,11 +562,11 @@ void SSACFGStackLayoutGenerator::handlePhiFunctions(
 		auto it = ranges::find(_stackData, Slot{preImage});
 		if (_liveness.contains(preImage))
 		{
-			// both the phi function and the pre image are part of the live in set
-			// we check if there is more than one v
-			// if so, one of them is symbolically replaced by the phi function
-			// otherwise, we push the phi function value
-			// we must have the pre image here at least once, otherwise it's an invalid dup
+			// Both the phi function and the pre image are part of the live in set.
+			// We check if there is more than one v.
+			// If so, one of them is symbolically replaced by the phi function;
+			// otherwise, we push the phi function value.
+			// We must have the pre image here at least once, otherwise it's an invalid dup
 			yulAssert(it != _stackData.end());
 			auto it2 = ranges::find(it + 1, _stackData.end(), Slot{preImage});
 			if(it2 != _stackData.end())
@@ -558,7 +578,7 @@ void SSACFGStackLayoutGenerator::handlePhiFunctions(
 		{
 			// replace all v with phi
 			ranges::replace(_stackData, Slot{preImage}, Slot{phi});
-			// if its not contained, push it
+			// if its not contained, push it (could be derived from a literal)
 			if (it == _stackData.end())
 				_stackData.emplace_back(phi);
 		}
