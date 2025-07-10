@@ -103,6 +103,8 @@ add_library(yul
 	backends/evm/ssa/SSACFGJsonExporter.cpp
 	backends/evm/ssa/TerminationPathAnalysis.cpp
 	backends/evm/ssa/TerminationPathAnalysis.h
+	backends/evm/ssa/AStarShuffler.cpp
+	backends/evm/ssa/AStarShuffler.h
 	optimiser/ASTCopier.cpp
 	optimiser/ASTCopier.h
 	optimiser/ASTWalker.cpp
