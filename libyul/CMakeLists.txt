@@ -115,6 +115,8 @@ add_library(yul
 	backends/evm/ssa/io/JSONExporter.h
 	backends/evm/ssa/traversal/ForwardTopologicalSort.cpp
 	backends/evm/ssa/traversal/ForwardTopologicalSort.h
+	backends/evm/ssa/AStarShuffler.cpp
+	backends/evm/ssa/AStarShuffler.h
 	optimiser/ASTCopier.cpp
 	optimiser/ASTCopier.h
 	optimiser/ASTWalker.cpp
