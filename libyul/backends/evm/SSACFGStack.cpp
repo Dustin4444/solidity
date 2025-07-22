@@ -20,9 +20,33 @@
 
 #include <libsolutil/Visitor.h>
 
+#include <range/v3/view/drop.hpp>
+
 using namespace solidity;
 using namespace solidity::yul;
 using namespace solidity::yul::ssa;
+
+std::string ssa::slotToString(StackSlot const& _slot)
+{
+	return std::visit(util::GenericVisitor{
+		[&](SSACFG::ValueId const _value) {
+			return "v" + std::to_string(_value.value());
+		},
+		[](AbstractAssembly::LabelID const _label) {
+			return "LABEL[" + std::to_string(_label) + "]";
+		},
+		[](FunctionReturnLabel const& _functionReturnLabel)
+		{
+			yulAssert(_functionReturnLabel.functionCall, "Function return label was null.");
+			yulAssert(std::holds_alternative<Identifier>(_functionReturnLabel.functionCall->functionName));
+			return fmt::format("ReturnLabel[{}]", std::get<Identifier>(_functionReturnLabel.functionCall->functionName).name.str());
+		},
+		[](JunkSlot const&) -> std::string
+		{
+			return "JUNK";
+		}
+	}, _slot);
+}
 
 std::string ssa::slotToString(StackSlot const& _slot, SSACFG const& _cfg)
 {
@@ -46,10 +70,34 @@ std::string ssa::slotToString(StackSlot const& _slot, SSACFG const& _cfg)
 	}, _slot);
 }
 
+std::string ssa::stackToString(StackData const& _stackData)
+{
+	auto const numJunk = junkTailSize(_stackData);
+	if (numJunk > 0)
+		return fmt::format(
+			"[JUNK x {}, {}]",
+			numJunk,
+			fmt::join(_stackData | ranges::views::drop(numJunk) | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot); }), ", ")
+		);
+	else
+		return fmt::format(
+			"[{}]",
+			fmt::join(_stackData | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot); }), ", ")
+		);
+}
+
 std::string ssa::stackToString(StackData const& _stackData, SSACFG const& _cfg)
 {
-	return format(
-		"[{}]",
-		fmt::join(_stackData | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot, _cfg); }), ", ")
-	);
+	auto const numJunk = junkTailSize(_stackData);
+	if (numJunk > 0)
+		return fmt::format(
+			"[JUNK x {}, {}]",
+			numJunk,
+			fmt::join(_stackData | ranges::views::drop(numJunk) | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot, _cfg); }), ", ")
+		);
+	else
+		return fmt::format(
+			"[{}]",
+			fmt::join(_stackData | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot, _cfg); }), ", ")
+		);
 }

@@ -26,7 +26,6 @@
 
 #include <test/Common.h>
 
-#include <libyul/backends/evm/SSACFGStack.h>
 #include <libyul/backends/evm/SSACFGStackLayout.h>
 
 #include <liblangutil/Scanner.h>
@@ -54,11 +53,17 @@ SSAStackShufflingTest::Stack::Data SSAStackShufflingTest::parse(std::string cons
 	{
 		std::string literal = scanner.currentLiteral();
 		if (literal.find("0x") != std::string::npos || scanner.currentToken() == Token::Number)
-			stackData.emplace_back(m_cfg->newLiteral(DebugData::create(), u256(literal)));
+		{
+			auto const valueID = m_cfg->newLiteral(DebugData::create(), u256(literal));
+			stackData.emplace_back(ssa::StackSlot::makeValueID(valueID));
+		}
 		else if (literal == "JUNK")
-			stackData.emplace_back(ssa::JunkSlot{});
+			stackData.emplace_back(ssa::StackSlot::makeJunk());
 		else
-			stackData.emplace_back(m_cfg->newVariable({0}));
+		{
+			auto const valueID = m_cfg->newLiteral(DebugData::create(), u256(0));
+			stackData.emplace_back(ssa::StackSlot::makeValueID(valueID));
+		}
 		scanner.next();
 	}
 	if (scanner.currentToken() != Token::RBrack)
@@ -73,16 +78,16 @@ SSAStackShufflingTest::SSAStackShufflingTest(std::string const& _filename):
 	TestCase(_filename),
 	m_cfg([]
 	{
-		auto cfg = std::make_unique<SSACFG>();
+		auto cfg = std::make_unique<ssa::SSACFG>();
 		cfg->debugData = DebugData::create();
 		cfg->entry = cfg->makeBlock(DebugData::create());
-		cfg->block(cfg->entry).exit = SSACFG::BasicBlock::MainExit{};
+		cfg->block(cfg->entry).exit = ssa::SSACFG::BasicBlock::MainExit{};
 		return cfg;
 	}()),
 	m_sourceData(parse(m_reader.source())),
-	m_sourceStack(m_sourceData, {}, {&*m_cfg}),
+	m_sourceStack(m_sourceData, {}),
 	m_targetData(parse(m_reader.source())),
-	m_targetStack(m_targetData, {}, {&*m_cfg})
+	m_targetStack(m_targetData, {})
 {
 	processSettings();
 	m_source = m_reader.source();

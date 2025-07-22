@@ -34,7 +34,10 @@
 #include <libyul/backends/evm/ssa/SSACFG.h>
 #include <stack>
 
-namespace solidity::yul::ssa
+namespace solidity::yul
+{
+struct AsmAnalysisInfo;
+namespace ssa
 {
 
 class SSACFGBuilder
@@ -152,4 +155,5 @@ private:
 	FunctionDefinition const* findFunctionDefinition(Scope::Function const* _function) const;
 };
 
+}
 }

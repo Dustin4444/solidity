@@ -19,8 +19,8 @@
 #pragma once
 
 #include <libyul/backends/evm/AbstractAssembly.h>
-#include <libyul/backends/evm/SSACFGStack.h>
-#include <libyul/backends/evm/SSAControlFlowGraph.h>
+#include <libyul/backends/evm/ssa/SSACFG.h>
+#include <libyul/backends/evm/ssa/Stack.h>
 
 #include <libyul/Exceptions.h>
 
@@ -33,56 +33,18 @@
 
 namespace solidity::yul::ssa
 {
-/// If Block `_from` -> Block `_to` and `_to` has phi functions `v_k := phi(..., _from => v_i, ...)`, this transform
-/// pulls values `v_k` back to `v_i`.
-class ReversePhiFunctionTransform
-{
-public:
-	ReversePhiFunctionTransform() = default;
-	ReversePhiFunctionTransform(SSACFG const& _cfg, SSACFG::BlockId _from, SSACFG::BlockId _to);
-
-	/// whether the transform is guaranteed to be a no-op, ie, there is no phi function in `_to`
-	bool noOp() const;
-	SSACFG::ValueId operator()(SSACFG::ValueId _valueId) const;
-
-	// if we have a variant with value id contained in the type union
-	template<typename... T>
-	std::variant<T...> operator()(std::variant<T...> const& _someSlot) const
-	{
-		static bool constexpr variantContainsValueId = std::disjunction_v<std::is_same<SSACFG::ValueId, T>...>;
-		static_assert(variantContainsValueId);
-		if (auto valueId = std::get_if<SSACFG::ValueId>(&_someSlot))
-			return (*this)(*valueId);
-		return _someSlot;
-	}
-
-	std::map<SSACFG::ValueId, SSACFG::ValueId> const& data() const
-	{
-		return m_reversePhiMap;
-	}
-
-private:
-	std::map<SSACFG::ValueId, SSACFG::ValueId> m_reversePhiMap = {};
-};
-
-
 
 struct SSACFGStackLayout
 {
-	// each operation has a current stack
-	using Stack = StackData;
-	// a slot can be some valueId or a labelId
-	using Slot = Stack::value_type;
-
 	// Each block has its own layout
 	struct BlockLayout
 	{
 		// stack layout required to enter the block
-		Stack stackIn;
+		StackData stackIn;
 		// stack layout required to execute the i-th operation in the block
-		std::vector<Stack> operationIn;
+		std::vector<StackData> operationIn;
 		// stack after the block was executed
-		Stack stackOut;
+		StackData stackOut;
 	};
 
 	// each block has a fixed list of operations
@@ -100,6 +62,7 @@ struct SSACFGStackLayout
 		return blockLayouts[_blockId.value];
 	}
 
+	CallSites callSites;
 	BlockLayouts blockLayouts;
 };
 
