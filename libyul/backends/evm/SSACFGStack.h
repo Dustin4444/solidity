@@ -19,7 +19,7 @@
 #pragma once
 
 #include <libyul/backends/evm/AbstractAssembly.h>
-#include <libyul/backends/evm/SSAControlFlowGraph.h>
+#include <libyul/backends/evm/ssa/SSACFG.h>
 
 #include <libyul/Exceptions.h>
 
@@ -69,7 +69,7 @@ struct SlotCanBeFreelyGenerated
 	bool operator()(Slot const& _slot) const
 	{
 		if (std::holds_alternative<SSACFG::ValueId>(_slot))
-			return m_cfg->isLiteralValue(std::get<SSACFG::ValueId>(_slot));
+			return std::get<SSACFG::ValueId>(_slot).isLiteral();
 		return std::holds_alternative<JunkSlot>(_slot) || std::holds_alternative<FunctionReturnLabel>(_slot);
 	}
 
@@ -101,9 +101,22 @@ struct NoOpStackManipulationCallbacks
 };
 static_assert(StackManipulationCallbackConcept<NoOpStackManipulationCallbacks<StackSlot>, StackSlot>);
 
-
+template<typename StackData>
+size_t junkTailSize(StackData const& _stackData)
+{
+	std::size_t numJunk = 0;
+	auto it = _stackData.begin();
+	while (it != _stackData.end() && std::holds_alternative<JunkSlot>(*it))
+	{
+		++numJunk;
+		++it;
+	}
+	return numJunk;
+}
+std::string slotToString(StackSlot const& _slot);
 std::string slotToString(StackSlot const& _slot, SSACFG const& _cfg);
 std::string stackToString(StackData const& _stackData, SSACFG const& _cfg);
+std::string stackToString(StackData const& _stackData);
 
 template<
 	typename StackSlot,
@@ -165,6 +178,12 @@ public:
 		(*m_data)[m_data->size() - _depth - 1] = JunkSlot{};
 	}
 
+	Slot const& slot(size_t const _depth) const
+	{
+		yulAssert(_depth < m_data->size());
+		return (*m_data)[m_data->size() - _depth - 1];
+	}
+
 	void dup(Slot const& _slot)
 	{
 		std::optional<size_t> const depth = slotDepth(_slot);
@@ -177,11 +196,15 @@ public:
 
 	void pushOrDup(Slot const& _slot)
 	{
-		if (canBeFreelyGenerated(_slot))
+		// todo this is not optimal: sometimes i want to dup even if i could push
+		auto const maybeSlot = slotDepth(_slot);
+		if (!(maybeSlot && maybeSlot.value() < reachableStackDepth) && canBeFreelyGenerated(_slot))
 			push(_slot);
 		else
 			dup(_slot);
 	}
+
+	bool empty() const { return size() == 0; }
 
 	size_t size() const
 	{
@@ -229,6 +252,8 @@ public:
 	{
 		return m_canBeFreelyGenerated;
 	}
+
+	Callbacks const& callbacks() const { return m_callbacks; }
 
 private:
 	Data* m_data;

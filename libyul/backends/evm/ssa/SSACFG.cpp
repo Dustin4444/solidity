@@ -18,6 +18,7 @@
 
 #include <libyul/backends/evm/ssa/SSACFG.h>
 
+#include <libyul/backends/evm/ssa/JunkAdmittingBlocksFinder.h>
 #include <libyul/backends/evm/ssa/LivenessAnalysis.h>
 #include <libyul/backends/evm/ssa/JunkAdmittingBlocksFinder.h>
 #include <libyul/backends/evm/ssa/io/DotExporterBase.h>

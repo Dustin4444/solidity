@@ -25,8 +25,6 @@
 #include "range/v3/algorithm/equal.hpp"
 #include "range/v3/view/concat.hpp"
 
-#include <libyul/backends/evm/SSACFGStack.h>
-
 #include <algorithm>
 #include <queue>
 #include <unordered_set>
@@ -70,14 +68,13 @@ private:
 				_stack.pop();
 				break;
 			case Type::SWAP:
-				_stack.swap(arg);
+				_stack.swap(typename Stack::Depth{arg});
 				break;
 			case Type::DUP:
-				yulAssert(pushValue);
-				_stack.dup(*pushValue);
+				_stack.dup(typename Stack::Depth{arg});
 				break;
 			case Type::JUNK:
-				_stack.declareJunk(arg);
+				_stack.declareJunk(typename Stack::Depth{arg});
 				break;
 			}
 		}
@@ -266,7 +263,7 @@ private:
 	static Cost heuristicCost(State const& _from, State const& _to)
 	{
 		Cost cost{};
-		
+
 		// 1. Histogram difference (count constraints)
 		auto it_a = _from.histogram.begin();
 		auto it_b = _to.histogram.begin();
@@ -301,7 +298,7 @@ private:
 		// 2. Head accessibility penalty
 		/*for (size_t i = 0; i < _to.numHead; ++i) {
 			auto targetSlot = _to.stackData[_to.stackData.size() - 1 - i];
-			
+
 			// Find the first occurrence of this slot in the current stack
 			auto it = std::find(_from.stackData.rbegin(), _from.stackData.rend(), targetSlot);
 			if (it != _from.stackData.rend()) {
@@ -311,7 +308,7 @@ private:
 				}
 			}
 		}*/
-		
+
 		return cost;
 	}
 
@@ -329,12 +326,12 @@ private:
 					auto const& elementToSwap = _state.stackData[_state.stackData.size() - i - 1];
 
 					// Only generate SWAP if this element is needed in the head
-					if (_targetState.headContains(elementToSwap) || (!_targetState.headContains(elementToSwap) && _state.headContains(elementToSwap)))
+					if (true || _targetState.headContains(elementToSwap) || (!_targetState.headContains(elementToSwap) && _state.headContains(elementToSwap)))
 					{
 						result.emplace_back(_state, Operation{Operation::Type::SWAP, i, std::nullopt});
 						auto& state = std::get<0>(result.back());
-						Stack stack(state.stackData, {}, _stack.canBeFreelyGeneratedFunction());
-						stack.swap(i);
+						Stack stack(state.stackData, {});
+						stack.swap(typename Stack::Depth{i});
 					}
 				}
 			}
@@ -344,14 +341,8 @@ private:
 				std::vector<std::pair<size_t, Slot>> candidates;
 				for (size_t i = 1; i <= std::min(_state.stackData.size(), static_cast<size_t>(16)); ++i)
 				{
-					if (i <= _state.stackData.size())
-					{
-						auto const& slotToDup = _state.stackData[_state.stackData.size() - i];
-						if (_state.numSlot(slotToDup) < _targetState.numSlot(slotToDup))
-						{
-							candidates.emplace_back(i, slotToDup);
-						}
-					}
+					auto const& slotToDup = _state.stackData[_state.stackData.size() - i];
+					candidates.emplace_back(i, slotToDup);
 				}
 
 				// Sort by depth (deepest first) and only generate top 3 DUP operations
@@ -359,14 +350,14 @@ private:
 					return a.first > b.first; // Deeper elements first
 				});
 
-				size_t const maxDups = std::min(candidates.size(), static_cast<size_t>(2));
-				for (size_t j = 0; j < maxDups; ++j)
+				// size_t const maxDups = std::min(candidates.size(), static_cast<size_t>(2));
+				for (size_t j = 0; j < candidates.size(); ++j)
 				{
 					auto const& [depth, slotToDup] = candidates[j];
 					result.emplace_back(_state, Operation{Operation::Type::DUP, depth, slotToDup});
 					State& state = std::get<0>(result.back());
-					Stack stack(state.stackData, {}, _stack.canBeFreelyGeneratedFunction());
-					stack.dup(slotToDup);
+					Stack stack(state.stackData, {});
+					stack.dup(typename Stack::Depth{depth});
 					state.histogram[state.stackData.back()] += 1;
 				}
 			}
@@ -383,20 +374,22 @@ private:
 				state.stackData.pop_back();
 			}
 
-			if (_targetState.numSlot(JunkSlot{}) > _state.numSlot(JunkSlot{}))
+			if (_targetState.numSlot(Slot::makeJunk()) > _state.numSlot(Slot::makeJunk()))
+			{
 				for (size_t i = 0; i < _state.stackData.size(); ++i)
 				{
 					// if we have too much of it, we may declare it junk
-					if (_targetState.numSlot(_state.stackData[i]) < _state.numSlot(_state.stackData[i]))
+					if (_state.stackData[i].isValueID() && _targetState.numSlot(_state.stackData[i]) < _state.numSlot(_state.stackData[i]))
 					{
 						result.emplace_back(_state, Operation{Operation::Type::JUNK, _state.stackData.size() - i - 1});
 						State& state = std::get<0>(result.back());
-						Stack stack(state.stackData, {}, _stack.canBeFreelyGeneratedFunction());
+						Stack stack(state.stackData, {});
 						state.histogram[_state.stackData[i]] -= 1;
 						std::get<1>(result.back()).apply(stack);
-						state.histogram[JunkSlot{}] += 1;
+						state.histogram[Slot::makeJunk()] += 1;
 					}
 				}
+			}
 			// todo dup deep slot if needed
 		}
 
@@ -422,6 +415,7 @@ private:
 		Stack const& _inputStack
 	)
 	{
+		// std::cout << "Running A* on: " << ssa::stackToString(_initial) << " -> " << ssa::stackToString(_target) << std::endl;
 		yulAssert(_target.size() >= _numHead);
 		State const targetState (_target, _numHead);
 		State start (_initial, _numHead);
@@ -513,7 +507,7 @@ public:
 	static void shuffle(Stack& _stack, std::vector<Slot> const& _targetTail, std::vector<Slot> const& _targetHead)
 	{
 		// Check for common pattern: tail histogram identical, need to build head via DUPs
-		if (_stack.data().size() >= _targetTail.size())
+		if (false && _stack.data().size() >= _targetTail.size())
 		{
 			// Compare histograms of current stack and target tail
 			std::map<Slot, size_t> currentHistogram, targetHistogram;
@@ -531,9 +525,12 @@ public:
 		}
 
 		// Fall back to A* for complex cases
-		auto const ops = shuffle(_stack.data(), _targetTail + _targetHead, _targetHead.size(), 1000000, 1000000, _stack);
+		Stack cpy(_stack);
+		auto const ops = shuffle(_stack.data(), _targetTail + _targetHead, _targetHead.size(), 100000000, 100000000, cpy);
 		for (auto const& op: ops)
+		{
 			op.apply(_stack);
+		}
 	}
 
 };

@@ -24,6 +24,7 @@
 #include <libyul/backends/evm/ssa/ControlFlow.h>
 
 #include <libyul/AST.h>
+#include <libyul/AsmAnalysisInfo.h>
 #include <libyul/ControlFlowSideEffectsCollector.h>
 #include <libyul/Exceptions.h>
 #include <libyul/Utilities.h>
@@ -82,6 +83,7 @@ std::unique_ptr<ControlFlow> SSACFGBuilder::build(
 	if (!builder.blockInfo(builder.m_currentBlock).sealed)
 		builder.sealBlock(builder.m_currentBlock);
 	mainGraph.block(builder.m_currentBlock).exit = SSACFG::BasicBlock::MainExit{};
+	controlFlow->functionGraphs.at(0)->block(builder.m_currentBlock).exit = SSACFG::BasicBlock::MainExit{};
 	builder.cleanUnreachable();
 	return controlFlow;
 }
@@ -683,17 +685,6 @@ void SSACFGBuilder::writeVariable(
 	Scope::Variable const& _variable, SSACFG::BlockId _block, SSACFG::ValueId _value)
 {
 	currentDef(_variable, _block) = _value;
-}
-void SSAControlFlowGraphBuilder::eraseEmptyJumpBlocks(SSACFG& _cfg)
-{
-	for (SSACFG::BlockId blockId {0}; blockId.value < _cfg.numBlocks(); ++blockId.value)
-	{
-		auto const& block = _cfg.block(blockId);
-		if (block.operations.empty() && block.isJumpBlock())
-		{
-
-		}
-	}
 }
 
 Scope::Function const& SSACFGBuilder::lookupFunction(YulName _name) const

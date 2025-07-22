@@ -25,7 +25,6 @@
 
 
 #include <libyul/AST.h>
-#include <libyul/AsmAnalysisInfo.h>
 #include <libyul/Dialect.h>
 #include <libyul/Exceptions.h>
 #include <libyul/Scope.h>
@@ -33,6 +32,7 @@
 #include <libsolutil/Numeric.h>
 
 #include <range/v3/view/map.hpp>
+#include <fmt/format.h>
 #include <deque>
 #include <functional>
 #include <list>
@@ -40,6 +40,7 @@
 
 namespace solidity::yul::ssa
 {
+struct SSACFGStackLayout;
 class LivenessAnalysis;
 
 class SSACFG
@@ -58,6 +59,12 @@ public:
 		ValueType value = std::numeric_limits<ValueType>::max();
 		bool hasValue() const { return value != std::numeric_limits<ValueType>::max(); }
 		auto operator<=>(BlockId const&) const = default;
+	};
+	struct Edge
+	{
+		BlockId from;
+		BlockId to;
+		auto operator<=>(Edge const&) const = default;
 	};
 	class ValueId
 	{
@@ -271,8 +278,6 @@ public:
 		yulAssert(idx, fmt::format("Target block {} not found as entry in one of the exits of the current block {}.", _target.value, _source.value));
 		return *idx;
 	}
-
-	std::string valueDescription(ValueId const& _valueId) const;
 
 	std::string toDot(
 		bool _includeDiGraphDefinition=true,

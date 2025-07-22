@@ -68,13 +68,7 @@ add_library(yul
 	backends/evm/NoOutputAssembly.cpp
 	backends/evm/OptimizedEVMCodeTransform.cpp
 	backends/evm/OptimizedEVMCodeTransform.h
-    backends/evm/SSACFGBridgeFinder.h
-
-	backends/evm/SSACFGJunkBlockFinder.cpp
-	backends/evm/SSACFGJunkBlockFinder.h
 	backends/evm/SSACFGStackShuffler.h
-	backends/evm/SSACFGStack.cpp
-	backends/evm/SSACFGStack.h
 	backends/evm/SSACFGStackLayout.cpp
 	backends/evm/SSACFGStackLayout.h
 	backends/evm/SSACFGEVMCodeTransform.cpp
@@ -98,6 +92,8 @@ add_library(yul
 	backends/evm/ssa/SSACFG.cpp
 	backends/evm/ssa/SSACFG.h
 	backends/evm/ssa/SSACFGBuilder.cpp
+	backends/evm/ssa/Stack.h
+	backends/evm/ssa/Stack.cpp
 	backends/evm/ssa/SSACFGBuilder.h
 	backends/evm/ssa/Stack.cpp
 	backends/evm/ssa/Stack.h
@@ -117,6 +113,11 @@ add_library(yul
 	backends/evm/ssa/traversal/ForwardTopologicalSort.h
 	backends/evm/ssa/AStarShuffler.cpp
 	backends/evm/ssa/AStarShuffler.h
+		backends/evm/ssa/ExactShuffler.cpp
+	backends/evm/ssa/ExactShuffler.h
+	backends/evm/ssa/OperationForwardShuffler.h
+	backends/evm/ssa/StackLayoutGenerator.cpp
+	backends/evm/ssa/StackLayoutGenerator.h
 	optimiser/ASTCopier.cpp
 	optimiser/ASTCopier.h
 	optimiser/ASTWalker.cpp
