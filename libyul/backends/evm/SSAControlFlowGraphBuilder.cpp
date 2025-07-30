@@ -129,15 +129,10 @@ SSACFG::ValueId SSAControlFlowGraphBuilder::tryRemoveTrivialPhi(SSACFG::ValueId 
 				phiUses.emplace(blockPhi);
 		}
 		for (auto& op: block.operations)
-			std::replace(op.inputs.begin(), op.inputs.end(), _phi, same);
+			ranges::replace(op.inputs, _phi, same);
 		std::visit(util::GenericVisitor{
 			[_phi, same](SSACFG::BasicBlock::FunctionReturn& _functionReturn) {
-				std::replace(
-					_functionReturn.returnValues.begin(),
-					_functionReturn.returnValues.end(),
-					_phi,
-					same
-				);
+				ranges::replace(_functionReturn.returnValues, _phi, same);
 			},
 			[_phi, same](SSACFG::BasicBlock::ConditionalJump& _condJump) {
 				if (_condJump.condition == _phi)
