@@ -50,6 +50,7 @@ static std::string const g_strEVMVersion = "evm-version";
 static std::string const g_strEOFVersion = "experimental-eof-version";
 static std::string const g_strViaIR = "via-ir";
 static std::string const g_strExperimentalViaIR = "experimental-via-ir";
+static std::string const g_strExperimental = "experimental";
 static std::string const g_strGas = "gas";
 static std::string const g_strHelp = "help";
 static std::string const g_strImportAst = "import-ast";
@@ -155,6 +156,26 @@ void CommandLineParser::checkMutuallyExclusive(std::vector<std::string> const& _
 			"Select at most one."
 		);
 	}
+}
+
+void CommandLineParser::checkExperimental(std::vector<std::string> const& _optionNames)
+{
+	if (!m_args.contains(g_strExperimental) && countEnabledOptions(_optionNames) > 0)
+	{
+		solThrow(
+			CommandLineValidationError,
+			"The following options are only available in experimental mode: " + joinOptionNames(_optionNames) + ". " +
+			"To toggle experimental mode, use the --experimental flag."
+		);
+	}
+}
+
+bool CompilerOutputs::operator==(CompilerOutputs const& _other) const noexcept
+{
+	for (bool CompilerOutputs::* member: componentMap() | ranges::views::values)
+		if (this->*member != _other.*member)
+			return false;
+	return true;
 }
 
 std::ostream& operator<<(std::ostream& _out, CompilerOutputs const& _selection)
@@ -879,6 +900,17 @@ General Information)").c_str(),
 	;
 	desc.add(smtCheckerOptions);
 
+	po::options_description experimentalOptions("Experimental options");
+	experimentalOptions.add_options()
+		(
+			g_strExperimental.c_str(),
+			"Toggle experimental mode. Note that toggling experimental mode by itself will not "
+			"enable any experimental features, but will simply allow for such features to be enabled in the "
+			"usual manner, whether by using specific flags or pragmas."
+		)
+	;
+	desc.add(experimentalOptions);
+
 	desc.add_options()(g_strInputFile.c_str(), po::value<std::vector<std::string>>(), "input file");
 	return desc;
 }
@@ -922,6 +954,9 @@ void CommandLineParser::processArgs()
 	else if (m_args.count(g_strColor) > 0)
 		m_options.formatting.coloredOutput = true;
 
+	if (m_args.contains(g_strExperimental))
+		m_options.experimental = true;
+
 	checkMutuallyExclusive({
 		g_strHelp,
 		g_strLicense,
@@ -933,6 +968,18 @@ void CommandLineParser::processArgs()
 		g_strImportAst,
 		g_strLSP,
 		g_strImportEvmAssemblerJson,
+	});
+
+	checkExperimental({
+		g_strLSP,
+		g_strImportAst,
+		g_strImportEvmAssemblerJson,
+		"ir-ast-json",
+		"ir-optimized-ast-json",
+		"yul-cfg-json",
+		"ethdebug",
+		"ethdebug-runtime",
+		g_strEOFVersion,
 	});
 
 	if (m_args.count(g_strHelp) > 0)
@@ -962,6 +1009,14 @@ void CommandLineParser::processArgs()
 		m_options.input.mode == InputMode::Version
 	)
 		return;
+
+	if (m_options.experimental && m_options.input.mode == InputMode::StandardJson)
+		solThrow(
+			CommandLineValidationError,
+			"Standard JSON input mode is incompatible with the --" + g_strExperimental + " flag. "
+			"Please use the appropriate experimental option in your Standard JSON input file to "
+			"enable experimental mode."
+		);
 
 	if (m_args.count(g_strYul) > 0)
 		solThrow(
@@ -1035,6 +1090,7 @@ void CommandLineParser::processArgs()
 			g_strPrettyJson,
 			"srcmap",
 			"srcmap-runtime",
+			g_strExperimental,
 		};
 
 		for (auto const& [optionName, optionValue]: m_args)
@@ -1101,6 +1157,12 @@ void CommandLineParser::processArgs()
 		m_options.output.debugInfoSelection = DebugInfoSelection::fromString(optionValue);
 		if (!m_options.output.debugInfoSelection.has_value())
 			solThrow(CommandLineValidationError, "Invalid value for --" + g_strDebugInfo + " option: " + optionValue);
+
+		if (!m_options.experimental && m_options.output.debugInfoSelection->ethdebug)
+			solThrow(
+				CommandLineValidationError,
+				"--" + g_strDebugInfo + " ethdebug can only be used by toggling the --" + g_strExperimental + " flag."
+			);
 
 		if (m_options.output.debugInfoSelection->snippet && !m_options.output.debugInfoSelection->location)
 			solThrow(CommandLineValidationError, "To use 'snippet' with --" + g_strDebugInfo + " you must select also 'location'.");
