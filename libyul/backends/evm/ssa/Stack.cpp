@@ -44,12 +44,12 @@ std::string slotToString(StackSlot const& _slot)
 std::string slotToString(StackSlot const& _slot, SSACFG const& _cfg)
 {
 	if (_slot.kind() == StackSlot::Kind::ValueID)
-		return _cfg.valueDescription(_slot.valueID());
+		return _slot.valueID().str(_cfg);
 
 	return slotToString(_slot);
 }
 
-std::string stackToString(Stack<>::Data const& _stackData)
+std::string stackToString(StackData const& _stackData)
 {
 	auto const numJunk = junkTailSize(_stackData);
 	if (numJunk > 0)
@@ -65,7 +65,7 @@ std::string stackToString(Stack<>::Data const& _stackData)
 	);
 }
 
-std::string stackToString(Stack<>::Data const& _stackData, SSACFG const& _cfg)
+std::string stackToString(StackData const& _stackData, SSACFG const& _cfg)
 {
 	auto const numJunk = junkTailSize(_stackData);
 	if (numJunk > 0)
