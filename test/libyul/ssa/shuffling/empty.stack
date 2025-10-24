@@ -1,0 +1,13 @@
+initial: []
+targetStackTop: [] //miau
+targetStackTailSet: {}
+targetStackSize: 3
+// ----
+//             |      0      1      2
+//             +---------------------
+//    (initial)|                     
+//    PUSH JUNK|      *              
+//    PUSH JUNK|      *      *       
+//    PUSH JUNK|      *      *      *
+//             +---------------------
+//     (target)|                     

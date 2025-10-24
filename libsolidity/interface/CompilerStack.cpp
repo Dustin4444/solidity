@@ -73,6 +73,11 @@
 #include <libyul/AST.h>
 #include <libyul/AsmParser.h>
 #include <libyul/optimiser/Suite.h>
+#include <libyul/backends/evm/ssa/ControlFlow.h>
+#include <libyul/backends/evm/ssa/SSACFGBuilder.h>
+#include <libyul/backends/evm/ssa/LivenessAnalysis.h>
+#include <libyul/backends/evm/ssa/TerminationPathAnalysis.h>
+#include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
 
 #include <liblangutil/Scanner.h>
 #include <liblangutil/SemVerHandler.h>
@@ -235,9 +240,12 @@ void CompilerStack::setExperimental(bool _experimental)
 	m_experimental = _experimental;
 }
 
+struct CLIException: virtual util::Exception {};
+
 void CompilerStack::setSSACFGCodegen(bool _ssaCfgCodegen)
 {
 	solAssert(m_stackState < CompilationSuccessful, "Must set SSA CFG Codegen path before compilation.");
+	//solRequire(m_experimental, CLIException, "SSA-CFG Codegen requires experimental mode.");
 	m_ssaCfgCodegen = _ssaCfgCodegen;
 }
 
@@ -1028,6 +1036,88 @@ std::optional<Json> CompilerStack::yulCFGJson(std::string const& _contractName) 
 	if (!currentContract.yulIROptimized)
 		return std::nullopt;
 	return loadGeneratedIR(*currentContract.yulIROptimized).cfgJson();
+}
+
+std::optional<std::string> CompilerStack::ssaCfgDot(std::string const& _contractName, std::string const& _mode) const
+{
+	solAssert(m_stackState == CompilationSuccessful, "Compilation was not successful.");
+	solUnimplementedAssert(!isExperimentalSolidity());
+
+	// NOTE: Intentionally not using LazyInit. The artifact can get very large and we don't want to
+	// keep it around when compiling a large project containing many contracts.
+	Contract const& currentContract = contract(_contractName);
+	yulAssert(currentContract.contract);
+	yulAssert(currentContract.yulIROptimized.has_value() == currentContract.contract->canBeDeployed());
+	if (!currentContract.yulIROptimized)
+		return std::nullopt;
+
+	std::stringstream ss;
+
+	YulStack stack = loadGeneratedIR(*currentContract.yulIROptimized);
+
+	std::vector<Object const*> objects{stack.parserResult().get()};
+	while (!objects.empty())
+	{
+		auto const& obj = *objects.back();
+		objects.pop_back();
+		for (auto const& subObj: obj.subObjects)
+			if (auto const* subObjPtr = dynamic_cast<Object const*>(subObj.get()))
+				objects.push_back(subObjPtr);
+
+		std::unique_ptr<ssa::ControlFlow> controlFlow = ssa::SSACFGBuilder::build(
+			*obj.analysisInfo,
+			*obj.dialect(),
+			obj.code()->root(),
+			true
+		);
+
+		if (_mode == "cfg")
+		{
+			ss << controlFlow->toDot() << '\n';
+		}
+		else if (_mode == "liveness")
+		{
+			ssa::ControlFlowLiveness liveness(*controlFlow);
+			ss << controlFlow->toDot(&liveness) << '\n';
+		}
+		else if (_mode == "stacklayout")
+		{
+			// Stack layout mode includes liveness
+			ssa::ControlFlowLiveness liveness(*controlFlow);
+
+			// Generate stack layouts for all function graphs
+			std::vector<ssa::SSACFGStackLayout> stackLayouts;
+			for (size_t index = 0; index < controlFlow->functionGraphs.size(); ++index)
+			{
+				ssa::TerminationPathAnalysis terminationAnalysis(*controlFlow->functionGraphs[index], liveness.cfgLiveness[index]->topologicalSort());
+				stackLayouts.push_back(ssa::StackLayoutGenerator::generate(
+					*liveness.cfgLiveness[index],
+					terminationAnalysis
+				));
+			}
+
+			// Build combined DOT output for all graphs
+			std::ostringstream output;
+			output << "digraph SSACFG {\nnodesep=0.7;\ngraph[fontname=\"DejaVu Sans\", rankdir=LR]\nnode[shape=box,fontname=\"DejaVu Sans\"];\n\n";
+			for (size_t index = 0; index < controlFlow->functionGraphs.size(); ++index)
+				output << controlFlow->functionGraphs[index]->toDot(
+					false,
+					index,
+					liveness.cfgLiveness[index].get(),
+					&stackLayouts[index]
+				);
+			output << "}\n";
+			ss << output.str() << '\n';
+		}
+		else
+		{
+			// Default to cfg mode for unknown modes
+			ss << controlFlow->toDot() << '\n';
+		}
+	}
+
+	return ss.str();
+
 }
 
 std::optional<std::string> const& CompilerStack::yulIROptimized(std::string const& _contractName) const

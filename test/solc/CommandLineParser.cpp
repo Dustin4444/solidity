@@ -194,7 +194,7 @@ BOOST_AUTO_TEST_CASE(cli_mode_options)
 		expectedOptions.compiler.outputs = {
 			true, true, true, true, true,
 			true, true, true, true, true,
-			true, true, true, true, true,
+			"cfg", true, true, true, true, true,
 			true, true, true,
 		};
 		expectedOptions.compiler.estimateGas = true;

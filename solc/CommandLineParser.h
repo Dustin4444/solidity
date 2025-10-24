@@ -104,6 +104,7 @@ struct CompilerOutputs
 	bool ir = false;
 	bool irAstJson = false;
 	bool yulCFGJson = false;
+	std::string ssaCfgDot;  // Can be "cfg", "liveness", or "stacklayout"
 	bool irOptimized = false;
 	bool irOptimizedAstJson = false;
 	bool signatureHashes = false;

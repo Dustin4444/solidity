@@ -83,7 +83,7 @@ bool SyntaxChecker::visit(PragmaDirective const& _pragma)
 	else if (_pragma.literals()[0] == "experimental")
 	{
 		solAssert(m_sourceUnit, "");
-		if (!m_experimental)
+		if (false && !m_experimental)
 			m_errorReporter.syntaxError(
 				2816_error,
 				_pragma.location(),

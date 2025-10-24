@@ -25,6 +25,11 @@
 
 #include <solc/Exceptions.h>
 
+#include "libyul/backends/evm/ssa/ControlFlow.h"
+#include "libyul/backends/evm/ssa/SSACFGBuilder.h"
+#include "libyul/backends/evm/ssa/LivenessAnalysis.h"
+#include "libyul/backends/evm/ssa/TerminationPathAnalysis.h"
+#include "libyul/backends/evm/ssa/StackLayoutGenerator.h"
 #include "license.h"
 #include "solidity/BuildInfo.h"
 
@@ -319,6 +324,26 @@ void CommandLineInterface::handleYulCFGExport(std::string const& _contractName)
 			yulCFGJson.value_or(Json{}),
 			m_options.formatting.json
 		) << std::endl;
+	}
+}
+
+void CommandLineInterface::handleSSACFGDot(std::string const& _contractName)
+{
+	solAssert(CompilerInputModes.count(m_options.input.mode) == 1);
+
+	if (m_options.compiler.outputs.ssaCfgDot.empty())
+		return;
+
+	std::optional<std::string> const& ssaCfgDot = m_compiler->ssaCfgDot(_contractName, m_options.compiler.outputs.ssaCfgDot);
+	if (!m_options.output.dir.empty())
+		createFile(
+			m_compiler->filesystemFriendlyName(_contractName) + "_ssa_cfg.dot",
+			ssaCfgDot.value_or("")
+		);
+	else
+	{
+		sout() << "SSA-CFG DOT:" << std::endl;
+		sout() << ssaCfgDot.value_or("") << std::endl;
 	}
 }
 
@@ -948,7 +973,8 @@ void CommandLineInterface::compile()
 		pipelineConfig.irOptimization =
 			m_options.compiler.outputs.irOptimized ||
 			m_options.compiler.outputs.irOptimizedAstJson ||
-			m_options.compiler.outputs.yulCFGJson;
+			m_options.compiler.outputs.yulCFGJson ||
+			!m_options.compiler.outputs.ssaCfgDot.empty();
 		pipelineConfig.irCodegen =
 			pipelineConfig.irOptimization ||
 			m_options.compiler.outputs.ir ||
@@ -1396,6 +1422,65 @@ void CommandLineInterface::assembleYul(yul::YulStack::Language _language, yul::Y
 			sout() << "Yul Control Flow Graph:" << std::endl << std::endl;
 			sout() << util::jsonPrint(stack.cfgJson(), m_options.formatting.json) << std::endl;
 		}
+		if (!m_options.compiler.outputs.ssaCfgDot.empty())
+		{
+			auto const& obj = *stack.parserResult();
+			std::unique_ptr<yul::ssa::ControlFlow> controlFlow = yul::ssa::SSACFGBuilder::build(
+				*obj.analysisInfo,
+				*obj.dialect(),
+				obj.code()->root(),
+				true
+			);
+
+			std::string mode = m_options.compiler.outputs.ssaCfgDot;
+			std::string dotOutput;
+
+			if (mode == "cfg")
+			{
+				dotOutput = controlFlow->toDot();
+			}
+			else if (mode == "liveness")
+			{
+				yul::ssa::ControlFlowLiveness liveness(*controlFlow);
+				dotOutput = controlFlow->toDot(&liveness);
+			}
+			else if (mode == "stacklayout")
+			{
+				// Stack layout mode includes liveness
+				yul::ssa::ControlFlowLiveness liveness(*controlFlow);
+
+				// Generate stack layouts for all function graphs
+				std::vector<yul::ssa::SSACFGStackLayout> stackLayouts;
+				for (size_t index = 0; index < controlFlow->functionGraphs.size(); ++index)
+				{
+					yul::ssa::TerminationPathAnalysis terminationAnalysis(*controlFlow->functionGraphs[index], liveness.cfgLiveness[index]->topologicalSort());
+					stackLayouts.push_back(yul::ssa::StackLayoutGenerator::generate(
+						*liveness.cfgLiveness[index],
+						terminationAnalysis
+					));
+				}
+
+				// Build combined DOT output for all graphs
+				std::ostringstream output;
+				output << "digraph SSACFG {\nnodesep=0.7;\ngraph[fontname=\"DejaVu Sans\", rankdir=LR]\nnode[shape=box,fontname=\"DejaVu Sans\"];\n\n";
+				for (size_t index = 0; index < controlFlow->functionGraphs.size(); ++index)
+					output << controlFlow->functionGraphs[index]->toDot(
+						false,
+						index,
+						liveness.cfgLiveness[index].get(),
+						&stackLayouts[index]
+					);
+				output << "}\n";
+				dotOutput = output.str();
+			}
+			else
+			{
+				sout() << "Unknown SSA-CFG mode: " << mode << ". Using 'cfg' mode." << std::endl;
+				dotOutput = controlFlow->toDot();
+			}
+
+			sout() << fmt::format("SSA-CFG Dot:\n\n{}\n", dotOutput);
+		}
 		solAssert(_targetMachine == yul::YulStack::Machine::EVM, "");
 		if (m_options.compiler.outputs.asm_)
 		{
@@ -1462,6 +1547,7 @@ void CommandLineInterface::outputCompilationResults()
 			handleIROptimized(contract);
 			handleIROptimizedAst(contract);
 			handleYulCFGExport(contract);
+			handleSSACFGDot(contract);
 			handleSignatureHashes(contract);
 			handleMetadata(contract);
 			handleABI(contract);

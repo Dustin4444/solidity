@@ -22,6 +22,8 @@
 #include <libyul/backends/evm/ssa/LivenessAnalysis.h>
 #include <libyul/backends/evm/ssa/JunkAdmittingBlocksFinder.h>
 #include <libyul/backends/evm/ssa/io/DotExporterBase.h>
+#include <libyul/backends/evm/ssa/Stack.h>
+#include <libyul/backends/evm/SSACFGStackLayout.h>
 
 #include <libsolutil/StringUtils.h>
 #include <libsolutil/Visitor.h>
@@ -57,9 +59,10 @@ std::string formatPhi(SSACFG const& _cfg, SSACFG::PhiValue const& _phiValue)
 class SSACFGDotExporter: public io::DotExporterBase
 {
 public:
-	SSACFGDotExporter(SSACFG const& _cfg, size_t _functionIndex, LivenessAnalysis const* _liveness):
+	SSACFGDotExporter(SSACFG const& _cfg, size_t _functionIndex, LivenessAnalysis const* _liveness, SSACFGStackLayout const* _stackLayout):
 		DotExporterBase(_cfg, _functionIndex),
-		m_liveness(_liveness)
+		m_liveness(_liveness),
+		m_stackLayout(_stackLayout)
 	{
 		if (_liveness)
 			m_junkAdmittingBlocks = std::make_unique<JunkAdmittingBlocksFinder>(_cfg, _liveness->topologicalSort());
@@ -96,7 +99,20 @@ protected:
 		else
 			_out << fmt::format("\\\nBlock {}\\n", _blockId.value);
 
-		for (auto const& phi: block.phis)
+		if (m_stackLayout)
+			{
+				auto const& blockLayout = (*m_stackLayout)[_blockId];
+				m_result << fmt::format(
+					"StackIn: {}\\l\\\n",
+					stackToString(blockLayout.stackIn)
+				);
+				m_result << fmt::format(
+					"StackOut: {}\\l\\n",
+					stackToString(blockLayout.stackOut)
+				);
+			}
+
+			for (auto const& phi: block.phis)
 		{
 			auto const& phiInfo = m_cfg.phiInfo(phi);
 			_out << fmt::format("phi{} := {}\\l\\\n", phi.value(), formatPhi(m_cfg, phiInfo));
@@ -151,7 +167,9 @@ protected:
 
 private:
 	LivenessAnalysis const* m_liveness;
+	SSACFGStackLayout const* m_stackLayout;
 	std::unique_ptr<JunkAdmittingBlocksFinder> m_junkAdmittingBlocks;
+	std::stringstream m_result{};
 };
 
 }
@@ -174,10 +192,11 @@ std::string SSACFG::ValueId::str(SSACFG const& _cfg) const
 std::string SSACFG::toDot(
 	bool _includeDiGraphDefinition,
 	std::optional<size_t> _functionIndex,
-	LivenessAnalysis const* _liveness
+	LivenessAnalysis const* _liveness,
+	SSACFGStackLayout const* _stackLayout
 ) const
 {
-	SSACFGDotExporter exporter(*this, _functionIndex.value_or(function ? 1 : 0), _liveness);
+	SSACFGDotExporter exporter(*this, _functionIndex.value_or(function ? 1 : 0), _liveness, _stackLayout);
 	if (function)
 		return exporter.exportFunction(*function, _includeDiGraphDefinition);
 	else

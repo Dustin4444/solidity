@@ -110,6 +110,7 @@ private:
 	void handleIROptimized(std::string const& _contract);
 	void handleIROptimizedAst(std::string const& _contract);
 	void handleYulCFGExport(std::string const& _contract);
+	void handleSSACFGDot(std::string const& _contract);
 	void handleBytecode(std::string const& _contract);
 	void handleSignatureHashes(std::string const& _contract);
 	void handleMetadata(std::string const& _contract);

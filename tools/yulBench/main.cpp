@@ -16,9 +16,13 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
-#include <libyul/backends/evm/EVMDialect.h>
-#include <libyul/backends/evm/SSAControlFlowGraphBuilder.h>
+#include "libyul/backends/evm/SSACFGEVMCodeTransform.h"
+#include "libyul/backends/evm/ssa/StackLayoutGenerator.h"
+
+
 #include <libyul/YulStack.h>
+#include <libyul/backends/evm/EVMDialect.h>
+#include <libyul/backends/evm/ssa/SSACFG.h>
 
 #include <liblangutil/ErrorReporter.h>
 
@@ -26,6 +30,8 @@
 
 #include <filesystem>
 #include <fstream>
+#include <libyul/backends/evm/ssa/ControlFlow.h>
+#include <libyul/backends/evm/ssa/SSACFGBuilder.h>
 
 std::shared_ptr<solidity::yul::Object> parse(std::string_view _filePath)
 {
@@ -58,9 +64,9 @@ std::shared_ptr<solidity::yul::Object> parse(std::string_view _filePath)
 	return stack.parserResult();
 }
 
-std::unique_ptr<solidity::yul::ControlFlow> buildSSACFG(solidity::yul::Object const& _object)
+std::unique_ptr<solidity::yul::ssa::ControlFlow> buildSSACFG(solidity::yul::Object const& _object)
 {
-	std::unique_ptr<solidity::yul::ControlFlow> controlFlow = solidity::yul::SSAControlFlowGraphBuilder::build(
+	std::unique_ptr<solidity::yul::ssa::ControlFlow> controlFlow = solidity::yul::ssa::SSACFGBuilder::build(
 		*_object.analysisInfo,
 		*_object.dialect(),
 		_object.code()->root(),
@@ -69,9 +75,9 @@ std::unique_ptr<solidity::yul::ControlFlow> buildSSACFG(solidity::yul::Object co
 	return controlFlow;
 }
 
-solidity::yul::ControlFlowLiveness computeLiveness(solidity::yul::ControlFlow const& _controlFlow)
+solidity::yul::ssa::ControlFlowLiveness computeLiveness(solidity::yul::ssa::ControlFlow const& _controlFlow)
 {
-	return solidity::yul::ControlFlowLiveness(_controlFlow);
+	return solidity::yul::ssa::ControlFlowLiveness(_controlFlow);
 }
 
 static void BM_BuildSSACFG(benchmark::State& state) {
@@ -91,6 +97,25 @@ static void BM_SSACFGLiveness(benchmark::State& state) {
 	}
 }
 
-BENCHMARK(BM_BuildSSACFG);
-BENCHMARK(BM_SSACFGLiveness);
+static void BM_SSACFGStackLayoutGenerator(benchmark::State& state) {
+	auto const& object = parse("/home/mho/dev/solidity/deposit.yul");
+	auto const cfg = buildSSACFG(*object);
+	auto const cfgLiveness = computeLiveness(*cfg);
+	for (auto _ : state) {
+		std::vector<solidity::yul::ssa::SSACFGStackLayout> layouts;
+		layouts.reserve(cfg->functionGraphs.size());
+
+		for (size_t i = 0; i < cfg->functionGraphs.size(); i++)
+		{
+			solidity::yul::ssa::TerminationPathAnalysis t(*cfg->functionGraphs[i], cfgLiveness.cfgLiveness[i]->topologicalSort());
+			layouts.push_back(solidity::yul::ssa::StackLayoutGenerator::generate(*cfgLiveness.cfgLiveness[i], t));
+		}
+
+		benchmark::DoNotOptimize(layouts);
+	}
+}
+
+//BENCHMARK(BM_BuildSSACFG);
+//BENCHMARK(BM_SSACFGLiveness);
+BENCHMARK(BM_SSACFGStackLayoutGenerator);
 BENCHMARK_MAIN();
