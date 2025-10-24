@@ -3,6 +3,7 @@
 #include "libyul/backends/evm/SSACFGStackLayout.h"
 #include "libyul/backends/evm/SSACFGStackShuffler.h"
 #include "libyul/backends/evm/ssa/SSACFG.h"
+#include "libyul/backends/evm/ssa/StackShuffler.h"
 
 
 #include <optional>
@@ -59,14 +60,18 @@ void shuffleStackExact(Stack& _stack, typename Stack::Data const& _target, SSACF
 		}
 	}
 
-	DanielShuffler<Stack>::shuffle(
+	/*DanielShuffler<Stack>::shuffle(
 	_stack,
 	{}, transformedTarget
-	);
-	/*OperationForwardShuffler<typename Stack::Callbacks>::shuffle(
-		_stack,
-		transformedTarget, {}, transformedTarget.size(), false
 	);*/
+	#if !defined(NDEBUG)
+	std::cout << "yay: " << stackToString(_stack.data()) << std::endl;
+	std::cout << "yay to: " << stackToString(transformedTarget) << std::endl;
+	#endif
+	StackShuffler<typename Stack::Callbacks>::shuffle(
+		_stack,
+		transformedTarget, {}, transformedTarget.size()
+	);
 }
 
 }

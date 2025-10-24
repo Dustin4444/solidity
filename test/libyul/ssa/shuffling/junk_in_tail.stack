@@ -1,0 +1,17 @@
+initial: [JUNK, v2]
+targetStackTop: [lit0, v2]
+targetStackTailSet: {v2}
+targetStackSize: 3
+// todo it would be better to pop the junk when it's on top directly
+// ----
+//             |      0 |      1      2 |      3
+//             +------- +-------------- +-------
+//    (initial)|      * |     v2        |       
+//         DUP1|      * |     v2     v2 |       
+//        SWAP2|     v2 |     v2      * |       
+//    PUSH lit0|     v2 |     v2      * |   lit0
+//        SWAP2|     v2 |   lit0      * |     v2
+//        SWAP1|     v2 |   lit0     v2 |      *
+//          POP|     v2 |   lit0     v2 |       
+//             +------- +-------------- +-------
+//     (target)|   {v2} |   lit0     v2 |

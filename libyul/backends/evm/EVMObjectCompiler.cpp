@@ -86,7 +86,7 @@ void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool const _s
 	if (_optimize && evmDialect->evmVersion().canOverchargeGasForCall())
 	{
 		std::vector<StackTooDeepError> stackErrors;
-		if (!_ssaCfgCodegen)
+		if (false && !_ssaCfgCodegen)
 			stackErrors = OptimizedEVMCodeTransform::run(
 				m_assembly,
 				*_object.analysisInfo,

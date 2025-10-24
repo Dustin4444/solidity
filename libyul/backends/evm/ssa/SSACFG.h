@@ -46,7 +46,7 @@ class LivenessAnalysis;
 class SSACFG
 {
 public:
-	SSACFG() = default;
+	SSACFG(): m_zero(newLiteral(nullptr, 0)) {}
 	SSACFG(SSACFG const&) = delete;
 	SSACFG(SSACFG&&) = delete;
 	SSACFG& operator=(SSACFG const&) = delete;
@@ -234,9 +234,9 @@ public:
 
 	ValueId unreachableValue()
 	{
-		if (!m_unreachableValue)
+		if (!m_unreachableValue.hasValue())
 			m_unreachableValue = ValueId::makeUnreachable();
-		return *m_unreachableValue;
+		return m_unreachableValue;
 	}
 
 	std::optional<ValueId> lookupLiteral(u256 const& _value) const
@@ -257,7 +257,6 @@ public:
 			return valueId;
 		}
 
-
 		m_literals.emplace_back(LiteralValue{std::move(_debugData), std::move(_value)});
 		auto const value = m_literals.size() - 1;
 		yulAssert(value < std::numeric_limits<ValueId::ValueType>::max());
@@ -277,7 +276,8 @@ public:
 	std::string toDot(
 		bool _includeDiGraphDefinition=true,
 		std::optional<size_t> _functionIndex=std::nullopt,
-		LivenessAnalysis const* _liveness=nullptr
+		LivenessAnalysis const* _liveness=nullptr,
+		SSACFGStackLayout const* _stackLayout=nullptr
 	) const;
 
 	PhiValue const& phiInfo(ValueId const& _valueId) const
@@ -301,12 +301,18 @@ public:
 		return m_variables.at(_valueId.value());
 	}
 
+	ValueId const& zero() const
+	{
+		return m_zero;
+	}
+
 private:
 	std::vector<LiteralValue> m_literals;
 	std::map<u256, ValueId> m_literalMapping;
 	std::vector<PhiValue> m_phis;
 	std::vector<VariableValue> m_variables;
-	std::optional<ValueId> m_unreachableValue;
+	ValueId m_unreachableValue;
+	ValueId m_zero;
 public:
 	langutil::DebugData::ConstPtr debugData;
 	BlockId entry = BlockId{0};

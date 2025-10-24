@@ -137,8 +137,8 @@ BOOST_AUTO_TEST_CASE(yo)
 		std::cout << fmt::format("--- start shuffle with {} ---", ssa::stackToString(stack->data())) << std::endl;
 		// TestStack::Data args{v79, v68};
 		{
-			auto const t = ranges::views::transform([&](ssa::SSACFG::ValueId _valueId) { return ssa::slotToString(SourceSlot::makeValueID(_valueId), *cfg); });
-			auto const t2 = ranges::views::transform([&](SourceSlot const& _slot) { return ssa::slotToString(_slot, *cfg); });
+			auto const t = ranges::views::transform([&](ssa::SSACFG::ValueId _valueId) { return ssa::slotToString(SourceSlot::makeValueID(_valueId)); });
+			auto const t2 = ranges::views::transform([&](SourceSlot const& _slot) { return ssa::slotToString(_slot); });
 			auto r = liveness | ranges::views::keys | t;
 			std::cout
 				<< ">>> target: "
