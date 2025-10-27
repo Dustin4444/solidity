@@ -37,6 +37,10 @@ struct FunctionCall;
 namespace ssa
 {
 
+/// Registry for tracking function call sites.
+///
+/// Maps FunctionCall AST nodes to unique numeric IDs. These IDs are used
+/// to generate return labels for function calls in the EVM bytecode.
 class CallSites
 {
 public:
@@ -67,6 +71,14 @@ private:
 	std::vector<FunctionCall const*> m_data;
 };
 
+/// A discriminated union representing a single EVM stack slot.
+/// Can represent:
+///		- ValueID: SSA values (including literals)
+///		- Junk: Placeholder/unused values
+///     - FunctionCallReturnLabel: Return addresses for function calls
+///     - FunctionReturnLabel: Identifies the calling function's graph
+///
+/// Memory layout is optimized: 8 bytes size for cache efficiency, trivially copyable, standard layout, trivial
 class StackSlot
 {
 public:
@@ -91,9 +103,9 @@ public:
 	constexpr bool isJunk() const noexcept { return kind() == Kind::Junk; }
 	constexpr Kind kind() const noexcept { return m_kind; }
 
-	ControlFlow::FunctionGraphID functionReturnLabel() const noexcept { yulAssert(isFunctionReturnLabel()); return m_payload; }
-	CallSites::CallSiteID functionCallReturnLabel() const noexcept { yulAssert(isFunctionCallReturnLabel()); return m_payload; }
-	SSACFG::ValueId valueID() const noexcept { yulAssert(isValueID()); return {m_payload, m_valueIdKind}; }
+	ControlFlow::FunctionGraphID functionReturnLabel() const { yulAssert(isFunctionReturnLabel()); return m_payload; }
+	CallSites::CallSiteID functionCallReturnLabel() const { yulAssert(isFunctionCallReturnLabel()); return m_payload; }
+	SSACFG::ValueId valueID() const { yulAssert(isValueID()); return {m_payload, m_valueIdKind}; }
 
 	static constexpr StackSlot makeJunk() { return {0, Kind::Junk}; }
 	static constexpr StackSlot makeValueID(SSACFG::ValueId const& _valueID) { return {_valueID.value(), Kind::ValueID, _valueID.kind()}; }
@@ -108,21 +120,19 @@ private:
 		m_valueIdKind(_valueIdKind)
 	{}
 
+	/// interpretation depends on kind
 	std::uint32_t m_payload;
 	Kind m_kind;
 	SSACFG::ValueId::Kind m_valueIdKind;
 };
-
-// PODness of the slot
-static_assert(sizeof(StackSlot) == 8, "StackSlot should be exactly 8 bytes");
-static_assert(std::is_trivially_copyable_v<StackSlot>, "StackSlot must be trivially copyable");
-static_assert(std::is_standard_layout_v<StackSlot>, "StackSlot must have standard layout");
-static_assert(std::is_trivial_v<StackSlot>, "StackSlot must be trivial");
+static_assert(sizeof(StackSlot) == 8, "Want cache efficiency, benchmark this if you go beyond 8 bytes");
+static_assert(std::is_trivially_copyable_v<StackSlot>, "Should be able to use memcpy semantics");
+static_assert(std::is_standard_layout_v<StackSlot>, "Want to have a predictable layout");
+static_assert(std::is_trivial_v<StackSlot>, "Want to have no init/cpy overhead");
 
 using StackData = std::vector<StackSlot>;
 std::string slotToString(StackSlot const& _slot);
 std::string slotToString(StackSlot const& _slot, SSACFG const& _cfg);
-std::string stackToString(StackData const& _stackData, SSACFG const& _cfg);
 std::string stackToString(StackData const& _stackData);
 
 template<typename StackManipulationCallback>
@@ -159,6 +169,35 @@ public:
 	using Slot = StackSlot;
 	using Data = StackData;
 
+	/// Array index into stack from the bottom (offset 0 = bottom).
+	/// Natural for array-like access and iteration; used when treating the stack as a data structure.
+	struct Offset
+	{
+		explicit constexpr Offset(size_t _value) : value(_value) {}
+		size_t value;
+		auto operator<=>(Offset const&) const = default;
+	};
+	// comparison operations with size_t
+	friend constexpr auto operator<=>(Offset lhs, size_t rhs) noexcept { return lhs.value <=> rhs; }
+	friend constexpr auto operator<=>(size_t lhs, Offset rhs) noexcept { return lhs <=> rhs.value; }
+	friend constexpr bool operator==(Offset lhs, size_t rhs) noexcept { return lhs.value == rhs; }
+	friend constexpr bool operator==(size_t lhs, Offset rhs) noexcept { return lhs == rhs.value; }
+
+	/// Distance from the stack top (depth 0 = top).
+	/// Natural for stack operations (SWAP1 = swap with depth 1); used for operations that
+	/// conceptually work "from the top".
+	struct Depth
+	{
+		explicit constexpr Depth(size_t _value) : value(_value) {}
+		size_t value;
+		auto operator<=>(Depth const&) const = default;
+	};
+	// comparison operations with size_t
+	friend constexpr auto operator<=>(Depth lhs, size_t rhs) noexcept { return lhs.value <=> rhs; }
+	friend constexpr auto operator<=>(size_t lhs, Depth rhs) noexcept { return lhs <=> rhs.value; }
+	friend constexpr bool operator==(Depth lhs, size_t rhs) noexcept { return lhs.value == rhs; }
+	friend constexpr bool operator==(size_t lhs, Depth rhs) noexcept { return lhs == rhs.value; }
+
 	Stack(
 		Data& _data,
 		Callbacks _callbacks
@@ -173,15 +212,16 @@ public:
 		return m_data->back();
 	}
 
-	void swap(size_t const _depth)
+	void swap(Depth const& _depth)
 	{
-		yulAssert(m_data->size() > _depth);
-		yulAssert(1 <= _depth && _depth <= reachableStackDepth);
-		std::swap((*m_data)[m_data->size() - _depth - 1], m_data->back());
+		yulAssert(swapReachable(_depth), "Stack too deep");
+		std::swap((*m_data)[depthToOffset(_depth).value], m_data->back());
 		if constexpr (!std::is_same_v<Callbacks, NoOpStackManipulationCallbacks>)
-			m_callbacks.swap(_depth);
+			m_callbacks.swap(_depth.value);
 	}
+	void swap(Offset const& _offset) { swap(offsetToDepth(_offset)); }
 
+	/// if the stack state needs to be updated without notifying the callback, the template parameter can be set to false
 	template<bool callback=true>
 	void pop()
 	{
@@ -191,6 +231,7 @@ public:
 			m_callbacks.pop();
 	}
 
+	/// if the stack state needs to be updated without notifying the callback, the template parameter can be set to false
 	template<bool callback=true>
 	void push(Slot const& _slot)
 	{
@@ -199,51 +240,36 @@ public:
 			m_callbacks.push(_slot);
 	}
 
-	void declareJunk(size_t const _depth)
+	void dup(Depth const& _depth)
 	{
-		yulAssert(_depth < m_data->size());
-		(*m_data)[m_data->size() - _depth - 1] = Slot::makeJunk();
-	}
-
-	Slot const& slot(size_t const _depth) const
-	{
-		yulAssert(_depth < m_data->size());
-		return (*m_data)[m_data->size() - _depth - 1];
-	}
-
-	void dup(Slot const& _slot)
-	{
-		std::optional<size_t> const depth = slotDepth(_slot);
-		yulAssert(depth, fmt::format("Invalid dup, could not find slot"));
-		yulAssert(1 <= *depth + 1 && *depth + 1 <= reachableStackDepth, "Stack too deep");
-		m_data->push_back((*m_data)[m_data->size() - *depth - 1]);
+		yulAssert(dupReachable(_depth), "Stack too deep");
+		m_data->push_back((*m_data)[depthToOffset(_depth).value]);
 		if constexpr (!std::is_same_v<Callbacks, NoOpStackManipulationCallbacks>)
-			m_callbacks.dup(*depth + 1);
+			m_callbacks.dup(_depth.value + 1);
 	}
+	void dup(Offset const& _offset)	{ dup(offsetToDepth(_offset)); }
 
-	void pushOrDup(Slot const& _slot)
+	bool dupReachable(Offset const& _offset) const noexcept { return dupReachable(offsetToDepth(_offset)); }
+	bool dupReachable(Depth const& _depth) const noexcept { return _depth < size() && 1 <= _depth.value + 1 && _depth.value + 1 <= reachableStackDepth; }
+	bool swapReachable(Offset const& _offset) const noexcept { return swapReachable(offsetToDepth(_offset)); }
+	bool swapReachable(Depth const& _depth) const noexcept { return _depth < size() && 1 <= _depth.value && _depth.value <= reachableStackDepth; }
+
+	void declareJunk(Depth const& _depth) { (*m_data)[depthToOffset(_depth).value] = Slot::makeJunk(); }
+
+	Slot const& slot(Depth const& _depth) const { return (*m_data)[depthToOffset(_depth).value]; }
+	Slot const& slot(Offset const& _offset) const { return slot(offsetToDepth(_offset)); }
+	bool empty() const noexcept { return size() == 0; }
+	size_t size() const noexcept { return m_data->size(); }
+
+	std::optional<Depth> findSlotDepth(Slot const& _value) const
 	{
-		// todo this is not optimal: sometimes i want to dup even if i could push
-		auto const maybeSlot = slotDepth(_slot);
-		if (maybeSlot && maybeSlot < reachableStackDepth)
-			dup(_slot);
-		else if (canBeFreelyGenerated(_slot))
-			push(_slot);
-		else
-			// can't dup because too deep and it's also not something we can freely generate
-			yulAssert(false, "Stack too deep.");
-	}
+		auto rview = *this | ranges::views::reverse;
+		auto it = ranges::find(rview, _value);
 
-	bool empty() const { return size() == 0; }
+		if (it == ranges::end(rview))
+			return std::nullopt;
 
-	size_t size() const
-	{
-		return m_data->size();
-	}
-
-	std::optional<size_t> slotDepth(Slot const& _value) const
-	{
-		return util::findOffset((*m_data) | ranges::views::reverse, _value);
+		return Depth{static_cast<size_t>(std::distance(ranges::begin(rview), it))};
 	}
 
 	static bool constexpr canBeFreelyGenerated(Slot const& _slot)
@@ -251,27 +277,9 @@ public:
 		return _slot.isLiteralValueID() || _slot.isJunk() || _slot.isFunctionCallReturnLabel();
 	}
 
-	Slot const& operator[](size_t const _index) const { return (*m_data)[_index]; }
+	Slot const& operator[](Offset const& _index) const noexcept { return (*m_data)[_index.value]; }
 	auto begin() const { return ranges::begin(*m_data); }
 	auto end() const { return ranges::end(*m_data); }
-
-	size_t numJunkSlots() const
-	{
-		return static_cast<size_t>(ranges::count_if(*m_data, [](Slot const& _slot) { return _slot.isJunk(); } ));
-	}
-
-	void addJunkTail(std::ptrdiff_t const _numJunk)
-	{
-		yulAssert(_numJunk >= 0);
-		if (_numJunk == 0)
-			return;
-
-		// append junk (so it's at the stack top)
-		m_data->resize(m_data->size() + static_cast<std::size_t>(_numJunk));
-		std::fill_n(m_data->rbegin(), static_cast<std::size_t>(_numJunk), Slot::makeJunk());
-		// rotate to the right by numJunk elements, now they're in the tail
-		std::rotate(m_data->rbegin(), m_data->rbegin() + static_cast<std::ptrdiff_t>(_numJunk), m_data->rend());
-	}
 
 	Data const& data() const
 	{
@@ -279,6 +287,19 @@ public:
 	}
 
 	Callbacks const& callbacks() const { return m_callbacks; }
+
+	/// index scheme conversion offset -> depth
+	Depth offsetToDepth(Offset const& _offset) const
+	{
+		yulAssert(_offset < size(), "Offset out of range");
+		return Depth{size() - _offset.value - 1};
+	}
+	/// index scheme conversion depth -> offset
+	Offset depthToOffset(Depth const& _depth) const
+	{
+		yulAssert(_depth < size(), "Depth out of range");
+		return Offset{size() - _depth.value - 1};
+	}
 
 private:
 	Data* m_data;

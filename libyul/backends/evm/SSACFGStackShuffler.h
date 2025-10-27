@@ -153,7 +153,7 @@ struct DanielShuffler
 					++sourceCounts[x];
 				for (auto const [i, x]: ranges::views::enumerate(targetStack))
 					if (i < currentStack.size() && targetStack[i].isJunk())
-						++targetCounts[currentStack[i]];
+						++targetCounts[currentStack[typename Stack::Offset{i}]];
 					else
 						++targetCounts[x];
 			}
@@ -162,17 +162,17 @@ struct DanielShuffler
 			{
 				if (_source >= currentStack.size() || _target >= targetStack.size())
 					return false;
-				return SlotIsCompatible(currentStack[_source], targetStack[_target]);
+				return SlotIsCompatible(currentStack[typename Stack::Offset{_source}], targetStack[_target]);
 			}
 
 			bool sourceIsSame(size_t _sourceOffset1, size_t _sourceOffset2) const
 			{
-				return _sourceOffset1 < currentStack.size() && _sourceOffset2 < currentStack.size() && currentStack[_sourceOffset1] == currentStack[_sourceOffset2];
+				return _sourceOffset1 < currentStack.size() && _sourceOffset2 < currentStack.size() && currentStack[typename Stack::Offset{_sourceOffset1}] == currentStack[typename Stack::Offset{_sourceOffset2}];
 			}
 
 			int sourceMultiplicity(size_t _sourceOffset) const
 			{
-				auto const& slot = currentStack[_sourceOffset];
+				auto const& slot = currentStack[typename Stack::Offset{_sourceOffset}];
 				return static_cast<int>(util::valueOrDefault(targetCounts, slot, static_cast<size_t>(0))) - static_cast<int>(sourceCounts.at(slot));
 			}
 
@@ -192,7 +192,7 @@ struct DanielShuffler
 
 			void swap(size_t _depth)
 			{
-				currentStack.swap(_depth);
+				currentStack.swap(typename Stack::Depth{_depth});
 			}
 
 			void pop()
@@ -202,7 +202,32 @@ struct DanielShuffler
 
 			void pushOrDupTarget(size_t _targetOffset)
 			{
-				currentStack.pushOrDup(targetStack[_targetOffset]);
+				auto const& slot = targetStack[_targetOffset];
+				std::optional<typename Stack::Depth> slotDepth = currentStack.findSlotDepth(slot);
+				if (slotDepth)
+				{
+					// if it's on stack and can be reached, dup
+					if (currentStack.dupReachable(*slotDepth))
+					{
+						currentStack.dup(*slotDepth);
+						return;
+					}
+				}
+
+				// if it's not on stack / too deep but can be pushed, push
+				if (currentStack.canBeFreelyGenerated(slot))
+				{
+					currentStack.push(slot);
+					return;
+				}
+
+				// stack too deep handling via callbacks, call dup anyway
+				if (slotDepth)
+				{
+					currentStack.dup(*slotDepth);
+					return;
+				}
+				yulAssert(false, "Invalid state: Tried to dup something that isn't on stack and can't be freely generated.");
 			}
 
 		};

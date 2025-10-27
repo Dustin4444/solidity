@@ -17,6 +17,25 @@
 
 #include <queue>
 #include <ranges>
+#include "AStarShuffler.h"
+#include "ExactShuffler.h"
+#include "libyul/backends/evm/SSACFGStackShuffler.h"
+#include "libyul/backends/evm/ssa/LivenessAnalysis.h"
+#include "range/v3/algorithm/count.hpp"
+#include "range/v3/algorithm/equal.hpp"
+#include "range/v3/algorithm/min_element.hpp"
+#include "range/v3/algorithm/none_of.hpp"
+#include "range/v3/algorithm/replace.hpp"
+#include "range/v3/algorithm/sort.hpp"
+#include "range/v3/numeric/accumulate.hpp"
+#include "range/v3/numeric/iota.hpp"
+#include "range/v3/view/drop.hpp"
+
+#include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
+#include <libyul/backends/evm/ssa/OperationForwardShuffler.h>
+
+#include <queue>
+#include <ranges>
 
 using namespace solidity::yul;
 using namespace solidity::yul::ssa;
@@ -57,7 +76,7 @@ private:
 
 void declareJunk(StackLayoutGenerator::StackType& _stack, LivenessAnalysis::LivenessData const& _live)
 {
-	for (size_t depth = 0; depth < _stack.size(); ++depth)
+	for (StackLayoutGenerator::StackType::Depth depth{0}; depth < _stack.size(); ++depth.value)
 	{
 		auto const slot = _stack.slot(depth);
 		if (slot.isValueID() && !_live.contains(slot.valueID()))
@@ -302,7 +321,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 	bool const junkCanBeAdded = m_junkBlockFinder.blockAllowsAdditionOfJunk(_blockId);
 	if constexpr (debugOutput)
 		std::cout << fmt::format(
-			"\tBlock {} (junk={}, stackIn={})\n", _blockId, junkCanBeAdded, stackToString(currentStackData, m_cfg));
+			"\tBlock {} (junk={}, stackIn={})\n", _blockId, junkCanBeAdded, stackToString(currentStackData));
 
 	SSACFG::BasicBlock const& block = m_cfg.block(_blockId);
 
@@ -323,7 +342,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				[](SSACFG::BuiltinCall const& _call) { return _call.builtin.get().name; },
 				[](SSACFG::LiteralAssignment const&) -> std::string { return "assign"; }
 			}, operation.kind);
-			std::cout << "\t\t" << operationName << "(" << stackToString(currentStackData, m_cfg) << " -> ";
+			std::cout << "\t\t" << operationName << "(" << stackToString(currentStackData) << " -> ";
 		}
 
 		// literals should have been pulled out a priori and now are treated as push constants
@@ -343,14 +362,14 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 			}
 		requiredStackTop += operation.inputs | ranges::views::transform(Slot::makeValueID);
 
-		for (size_t depth = 0; depth < stack.size(); ++depth)
+		for (StackType::Depth depth{0}; depth < stack.size(); ++depth.value)
 			if (stack.slot(depth).isValueID() && !liveOutWithoutOutputsSet.contains(stack.slot(depth).valueID()) && ranges::find(requiredStackTop, stack.slot(depth)) == ranges::end(requiredStackTop))
 				stack.declareJunk(depth);
 		/*junkShuffler(stack);*/
 
 		// declareJunk(stack, opLiveOutWithoutOutputs );
 		if constexpr(debugOutput)
-			std::cout << "{ " << stackToString(liveOutWithoutOutputs | ranges::views::transform(Slot::makeValueID) | ranges::to<std::vector>, m_cfg) << " } + " << stackToString(requiredStackTop, m_cfg) << ") -> " << std::flush;
+			std::cout << "{ " << stackToString(liveOutWithoutOutputs | ranges::views::transform(Slot::makeValueID) | ranges::to<std::vector>) << " } + " << stackToString(requiredStackTop) << ") -> " << std::flush;
 
 		std::size_t const targetSize = [&]
 		{
@@ -365,7 +384,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 					it->second = it->second > 0 ? it->second - 1 : 0;
 
 			// todo this should be a better heuristic. on revert paths vs returning paths.
-			int const pivot = stack.size() + ranges::accumulate(deficit | ranges::views::values, 0);
+			int const pivot = junkCanBeAdded ? stack.size() + requiredStackTop.size() : stack.size() + ranges::accumulate(deficit | ranges::views::values, 0);
 
 			std::size_t currentMinNumOps = std::numeric_limits<std::size_t>::max();
 
@@ -378,10 +397,8 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				if (tryTargetSize < 0 || tryTargetSize < minSize)
 					continue;
 
-				// todo remove later
-				if (tryTargetSize != pivot)
-					continue;
-
+				if constexpr(debugOutput)
+					std::cout << "\n\t\t\t -> target size = " << tryTargetSize << ": ";
 				// copy the current data
 				data = stack.data();
 				StackType countOpsStack (data, {});
@@ -392,10 +409,23 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 					currentMinNumOps = countOpsStack.callbacks().numOps;
 					result = static_cast<std::size_t>(tryTargetSize);
 				}
+				if constexpr(debugOutput)
+					std::cout << std::endl;
 			}
 			return result;
 		}();
+		if constexpr(debugOutput)
+			std::cout<<"\t\t\t -> ";
 		OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, requiredStackTop, opLiveOutWithoutOutputs, targetSize, m_junkBlockFinder.blockAllowsAdditionOfJunk(_blockId));
+		if constexpr(debugOutput)
+		{
+			std::string const operationName = std::visit(util::GenericVisitor{
+				[](SSACFG::Call const& _call) { return _call.function.get().name.str(); },
+				[](SSACFG::BuiltinCall const& _call) { return _call.builtin.get().name; },
+				[](SSACFG::LiteralAssignment const&) -> std::string { return "assign"; }
+			}, operation.kind);
+			std::cout << fmt::format("\n\t\t\t -> {}({}) ", operationName, stackToString(stack.data()));
+		}
 
 		m_stackLayout[_blockId].operationIn.push_back(currentStackData);
 
@@ -415,7 +445,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 			#if !defined(NDEBUG)
 			StackManipulationCallbacks::writeCallbackOutput = true;
 			#endif
-			fmt::print(" -> {}\n", stackToString(currentStackData, m_cfg));
+			fmt::print(" -> {}\n", stackToString(currentStackData));
 		}
 	}
 
@@ -440,16 +470,23 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 		}
 		else
 		{
-			// todo might need to compress stack if unreachable
+			// todo might need to compress stack if unreachable; this should use the shuffler
 			if (liveOutUnion.contains(cjump->condition))
 			{
 				// need to dup
-				stack.pushOrDup(Slot::makeValueID(cjump->condition));
+				auto const condition = Slot::makeValueID(cjump->condition);
+				if (auto depth = stack.findSlotDepth(condition))
+					if (stack.dupReachable(*depth))
+						stack.dup(*depth);
+					else
+						stack.push(condition);
+				else
+					stack.push(condition);
 			}
 			else
 			{
 				// can swap up
-				if (auto const depth = stack.slotDepth(Slot::makeValueID(cjump->condition)))
+				if (auto depth = stack.findSlotDepth(Slot::makeValueID(cjump->condition)))
 					stack.swap(*depth);
 				else
 					stack.push(Slot::makeValueID(cjump->condition));
@@ -479,5 +516,5 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 	m_stackLayout[_blockId].stackOut = currentStackData;
 
 	if constexpr (debugOutput)
-		std::cout << fmt::format("\t\tstack out = {}\n", stackToString(currentStackData, m_cfg));
+		std::cout << fmt::format("\t\tstack out = {}\n", stackToString(currentStackData));
 }
