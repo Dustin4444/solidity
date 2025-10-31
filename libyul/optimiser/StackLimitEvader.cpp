@@ -137,52 +137,15 @@ Block StackLimitEvader::run(
 		"StackLimitEvader does not support EOF."
 	);
 	auto astRoot = std::get<Block>(ASTCopier{}(_object.code()->root()));
-	if (evmDialect && evmDialect->evmVersion().canOverchargeGasForCall())
-	{
-		yul::AsmAnalysisInfo analysisInfo = yul::AsmAnalyzer::analyzeStrictAssertCorrect(
-			*evmDialect,
-			astRoot,
-			_object.summarizeStructure()
-		);
-		std::unique_ptr<CFG> cfg = ControlFlowGraphBuilder::build(analysisInfo, *evmDialect, astRoot);
-		run(_context, astRoot, StackLayoutGenerator::reportStackTooDeep(*cfg, *evmDialect));
-	}
-	else
-	{
-		run(_context, astRoot, CompilabilityChecker{
-			_object,
-			true,
-		}.unreachableVariables);
-	}
 	return astRoot;
 }
 
 void StackLimitEvader::run(
-	OptimiserStepContext& _context,
-	Block& _astRoot,
-	std::map<YulName, std::vector<StackLayoutGenerator::StackTooDeep>> const& _stackTooDeepErrors
+	OptimiserStepContext&,
+	Block&,
+	std::map<YulName, std::vector<StackLayoutGenerator::StackTooDeep>> const&
 )
 {
-	auto const* evmDialect = dynamic_cast<EVMDialect const*>(&_context.dialect);
-	yulAssert(
-		evmDialect && evmDialect->providesObjectAccess(),
-		"StackLimitEvader can only be run on objects using the EVMDialect with object access."
-	);
-	yulAssert(
-		!evmDialect->eofVersion().has_value(),
-		"StackLimitEvader does not support EOF."
-	);
-	std::map<YulName, std::vector<YulName>> unreachableVariables;
-	for (auto&& [function, stackTooDeepErrors]: _stackTooDeepErrors)
-	{
-		auto& unreachables = unreachableVariables[function];
-		// TODO: choose wisely.
-		for (auto const& stackTooDeepError: stackTooDeepErrors)
-			for (auto variable: stackTooDeepError.variableChoices | ranges::views::take(stackTooDeepError.deficit))
-				if (!util::contains(unreachables, variable))
-					unreachables.emplace_back(variable);
-	}
-	run(_context, _astRoot, unreachableVariables);
 }
 
 void StackLimitEvader::run(
