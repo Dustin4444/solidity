@@ -147,51 +147,13 @@ public:
 		uint64_t _numRequiredSlots,
 		Block& _block
 	);
-	using ASTModifier::operator();
-
-	void operator()(FunctionDefinition& _functionDefinition) override;
-	void operator()(Block& _block) override;
-	using ASTModifier::visit;
-	void visit(Expression& _expression) override;
 private:
-	class VariableMemoryOffsetTracker
-	{
-	public:
-		VariableMemoryOffsetTracker(
-			u256 _reservedMemory,
-			std::map<YulName, uint64_t> const& _memorySlots,
-			uint64_t _numRequiredSlots
-		): m_reservedMemory(_reservedMemory), m_memorySlots(_memorySlots), m_numRequiredSlots(_numRequiredSlots)
-		{}
-
-		/// @returns a YulName containing the memory offset to be assigned to @a _variable as number literal
-		/// or std::nullopt if the variable should not be moved.
-		std::optional<LiteralValue> operator()(YulName const& _variable) const;
-		/// @returns a YulName containing the memory offset to be assigned to @a _variable as number literal
-		/// or std::nullopt if the variable should not be moved.
-		std::optional<LiteralValue> operator()(NameWithDebugData const& _variable) const;
-		/// @returns a YulName containing the memory offset to be assigned to @a _variable as number literal
-		/// or std::nullopt if the variable should not be moved.
-		std::optional<LiteralValue> operator()(Identifier const& _variable) const;
-
-	private:
-		u256 m_reservedMemory;
-		std::map<YulName, uint64_t> const& m_memorySlots;
-		uint64_t m_numRequiredSlots = 0;
-	};
-	struct FunctionMoveInfo
-	{
-		std::vector<std::optional<YulName>> returnVariableSlots;
-	};
-
 	StackToMemoryMover(
 		OptimiserStepContext& _context,
-		VariableMemoryOffsetTracker const& _memoryOffsetTracker,
 		std::map<YulName, std::vector<NameWithDebugData>> _functionReturnVariables
 	);
 
 	OptimiserStepContext& m_context;
-	VariableMemoryOffsetTracker const& m_memoryOffsetTracker;
 	NameDispenser& m_nameDispenser;
 	/// Map from function names to the return variables of the function with that name.
 	std::map<YulName, std::vector<NameWithDebugData>> m_functionReturnVariables;
