@@ -20,6 +20,9 @@
  * or overwritten later on.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/UnusedStoreEliminator.h>
 
 #include <libyul/optimiser/Semantics.h>
@@ -46,6 +49,7 @@ using namespace solidity::yul;
 
 void UnusedStoreEliminator::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	std::map<FunctionHandle, SideEffects> functionSideEffects = SideEffectsPropagator::sideEffects(
 		_context.dialect,
 		CallGraphGenerator::callGraph(_ast)

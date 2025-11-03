@@ -20,6 +20,9 @@
  * it more or less inlines variable declarations.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/ExpressionJoiner.h>
 
 #include <libyul/optimiser/FunctionGrouper.h>
@@ -39,6 +42,7 @@ using namespace solidity::yul;
 
 void ExpressionJoiner::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	ExpressionJoiner{_ast}(_ast);
 	FunctionGrouper::run(_context, _ast);
 }

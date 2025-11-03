@@ -21,6 +21,9 @@
 
 #pragma once
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/DataFlowAnalyzer.h>
 #include <libyul/optimiser/OptimiserStep.h>
 
@@ -45,7 +48,7 @@ public:
 	static void run(
 		OptimiserStepContext& _context,
 		Block& _ast
-	) { run(_context.dialect, _ast); }
+	) { trace::Scope _{__PRETTY_FUNCTION__};run(_context.dialect, _ast); }
 
 	static void run(
 		Dialect const& _dialect,
@@ -88,7 +91,7 @@ public:
 	static void run(
 		OptimiserStepContext& _context,
 		Block& _ast
-	) { LiteralRematerialiser{_context.dialect}(_ast); }
+	) { trace::Scope _{__PRETTY_FUNCTION__};LiteralRematerialiser{_context.dialect}(_ast); }
 
 	using ASTModifier::visit;
 	void visit(Expression& _e) override;

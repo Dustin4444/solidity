@@ -15,6 +15,9 @@
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 // SPDX-License-Identifier: GPL-3.0
+#include "libsolutil/trace.h"
+
+
 #include <libyul/backends/evm/OptimizedEVMCodeTransform.h>
 
 #include <libyul/backends/evm/ControlFlowGraphBuilder.h>
@@ -48,6 +51,7 @@ std::vector<StackTooDeepError> OptimizedEVMCodeTransform::run(
 	UseNamedLabels _useNamedLabelsForFunctions
 )
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	std::unique_ptr<CFG> dfg = ControlFlowGraphBuilder::build(_analysisInfo, _dialect, _block);
 	StackLayout stackLayout = StackLayoutGenerator::run(*dfg, _dialect);
 

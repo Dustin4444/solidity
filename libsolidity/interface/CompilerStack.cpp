@@ -23,6 +23,9 @@
  */
 
 
+#include "libsolutil/trace.h"
+
+
 #include <libsolidity/interface/CompilerStack.h>
 #include <libsolidity/interface/ImportRemapper.h>
 
@@ -757,6 +760,7 @@ CompilerStack::PipelineConfig CompilerStack::requestedPipelineConfig(ContractDef
 
 bool CompilerStack::compile(State _stopAfter)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	m_stopAfter = _stopAfter;
 	if (m_stackState < AnalysisSuccessful)
 		if (!parseAndAnalyze(_stopAfter))
@@ -1579,6 +1583,7 @@ void CompilerStack::compileContract(
 
 void CompilerStack::generateIR(ContractDefinition const& _contract, bool _unoptimizedOnly)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	solAssert(m_stackState >= AnalysisSuccessful, "");
 	Contract& compiledContract = m_contracts.at(_contract.fullyQualifiedName());
 	if (compiledContract.yulIR)

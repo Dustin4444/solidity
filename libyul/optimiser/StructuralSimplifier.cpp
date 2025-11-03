@@ -15,11 +15,14 @@
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 // SPDX-License-Identifier: GPL-3.0
-#include <libyul/optimiser/StructuralSimplifier.h>
-#include <libyul/AST.h>
-#include <libyul/Utilities.h>
+#include "libsolutil/trace.h"
+
+
 #include <libsolutil/CommonData.h>
 #include <libsolutil/Visitor.h>
+#include <libyul/AST.h>
+#include <libyul/Utilities.h>
+#include <libyul/optimiser/StructuralSimplifier.h>
 
 using namespace solidity;
 using namespace solidity::yul;
@@ -82,6 +85,7 @@ bool expressionAlwaysFalse(Expression const& _expression)
 
 void StructuralSimplifier::run(OptimiserStepContext&, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	StructuralSimplifier{}(_ast);
 }
 

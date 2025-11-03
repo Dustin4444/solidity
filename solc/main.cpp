@@ -21,6 +21,9 @@
  * Solidity commandline compiler.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <solc/CommandLineInterface.h>
 
 #include <liblangutil/Exceptions.h>
@@ -34,6 +37,7 @@ using namespace solidity;
 
 int main(int argc, char** argv)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	try
 	{
 		solidity::frontend::CommandLineInterface cli(std::cin, std::cout, std::cerr);

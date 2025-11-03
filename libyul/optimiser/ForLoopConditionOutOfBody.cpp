@@ -16,10 +16,13 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
-#include <libyul/optimiser/ForLoopConditionOutOfBody.h>
-#include <libyul/optimiser/Semantics.h>
+#include "libsolutil/trace.h"
+
+
 #include <libyul/AST.h>
 #include <libyul/Utilities.h>
+#include <libyul/optimiser/ForLoopConditionOutOfBody.h>
+#include <libyul/optimiser/Semantics.h>
 
 #include <libsolutil/CommonData.h>
 
@@ -28,6 +31,7 @@ using namespace solidity::yul;
 
 void ForLoopConditionOutOfBody::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	ForLoopConditionOutOfBody{_context.dialect}(_ast);
 }
 

@@ -21,6 +21,7 @@
 #include <functional>
 #include <list>
 #include <set>
+#include <map>
 
 namespace solidity::util
 {

@@ -15,13 +15,16 @@
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 // SPDX-License-Identifier: GPL-3.0
-#include <libyul/optimiser/ConditionalUnsimplifier.h>
-#include <libyul/optimiser/Semantics.h>
-#include <libyul/AST.h>
-#include <libyul/Utilities.h>
-#include <libyul/optimiser/NameCollector.h>
-#include <libyul/ControlFlowSideEffectsCollector.h>
+#include "libsolutil/trace.h"
+
+
 #include <libsolutil/CommonData.h>
+#include <libyul/AST.h>
+#include <libyul/ControlFlowSideEffectsCollector.h>
+#include <libyul/Utilities.h>
+#include <libyul/optimiser/ConditionalUnsimplifier.h>
+#include <libyul/optimiser/NameCollector.h>
+#include <libyul/optimiser/Semantics.h>
 
 using namespace solidity;
 using namespace solidity::yul;
@@ -29,6 +32,7 @@ using namespace solidity::util;
 
 void ConditionalUnsimplifier::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	ConditionalUnsimplifier{
 		_context.dialect,
 		ControlFlowSideEffectsCollector{_context.dialect, _ast}.functionSideEffectsNamed()

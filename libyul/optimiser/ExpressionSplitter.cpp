@@ -20,6 +20,9 @@
  * declarations.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/ExpressionSplitter.h>
 
 #include <libyul/optimiser/OptimiserStep.h>
@@ -44,6 +47,7 @@ ExpressionSplitter::~ExpressionSplitter() = default;
 
 void ExpressionSplitter::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	ExpressionSplitter{_context.dialect, _context.dispenser}(_ast);
 }
 

@@ -16,9 +16,12 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
+#include "libsolutil/trace.h"
+
+
+#include <libyul/AST.h>
 #include <libyul/optimiser/ForLoopConditionIntoBody.h>
 #include <libyul/optimiser/OptimiserStep.h>
-#include <libyul/AST.h>
 
 #include <libsolutil/CommonData.h>
 
@@ -27,6 +30,7 @@ using namespace solidity::yul;
 
 void ForLoopConditionIntoBody::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	ForLoopConditionIntoBody{_context.dialect}(_ast);
 }
 

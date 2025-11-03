@@ -19,6 +19,9 @@
  * Optimiser component that uses the simplification rules to simplify expressions.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/ExpressionSimplifier.h>
 
 #include <libyul/backends/evm/EVMDialect.h>
@@ -36,6 +39,7 @@ using namespace solidity::yul;
 
 void ExpressionSimplifier::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	ExpressionSimplifier{_context.dialect}(_ast);
 }
 

@@ -22,6 +22,9 @@
 
 #pragma once
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/ASTForward.h>
 
 namespace solidity::yul
@@ -41,7 +44,7 @@ class FunctionGrouper
 {
 public:
 	static constexpr char const* name{"FunctionGrouper"};
-	static void run(OptimiserStepContext&, Block& _ast) { FunctionGrouper{}(_ast); }
+	static void run(OptimiserStepContext&, Block& _ast) { trace::Scope _{__PRETTY_FUNCTION__}; FunctionGrouper{}(_ast); }
 
 	void operator()(Block& _block);
 

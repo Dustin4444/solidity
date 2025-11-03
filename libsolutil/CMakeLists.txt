@@ -36,6 +36,7 @@ set(sources
 	SwarmHash.h
 	TemporaryDirectory.cpp
 	TemporaryDirectory.h
+	trace.h
 	UTF8.cpp
 	UTF8.h
 	vector_ref.h

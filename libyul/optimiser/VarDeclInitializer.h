@@ -22,6 +22,8 @@
 #include <libyul/optimiser/ASTWalker.h>
 #include <libyul/optimiser/OptimiserStep.h>
 
+#include <libsolutil/trace.h>
+
 namespace solidity::yul
 {
 
@@ -35,7 +37,7 @@ class VarDeclInitializer: public ASTModifier
 {
 public:
 	static constexpr char const* name{"VarDeclInitializer"};
-	static void run(OptimiserStepContext& _ctx, Block& _ast) { VarDeclInitializer{_ctx.dialect}(_ast); }
+	static void run(OptimiserStepContext& _ctx, Block& _ast) { trace::Scope _{__PRETTY_FUNCTION__};VarDeclInitializer{_ctx.dialect}(_ast); }
 
 	void operator()(Block& _block) override;
 

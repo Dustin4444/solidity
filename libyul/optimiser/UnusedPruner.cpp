@@ -18,6 +18,9 @@
  * Optimisation stage that removes unused variables and functions.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/UnusedPruner.h>
 
 #include <libyul/optimiser/CallGraphGenerator.h>
@@ -35,6 +38,7 @@ using namespace solidity::yul;
 
 void UnusedPruner::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	UnusedPruner::runUntilStabilisedOnFullAST(_context.dialect, _ast, _context.reservedIdentifiers);
 	FunctionGrouper::run(_context, _ast);
 }

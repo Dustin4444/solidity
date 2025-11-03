@@ -19,6 +19,9 @@
  * Optimiser component that performs function inlining inside expressions.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/ExpressionInliner.h>
 
 #include <libyul/optimiser/InlinableExpressionFunctionFinder.h>
@@ -36,6 +39,7 @@ using namespace solidity::yul;
 
 void ExpressionInliner::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	InlinableExpressionFunctionFinder funFinder;
 	funFinder(_ast);
 	ExpressionInliner inliner{_context.dialect, funFinder.inlinableFunctions()};

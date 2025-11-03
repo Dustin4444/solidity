@@ -15,27 +15,32 @@
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <libyul/optimiser/ASTCopier.h>
-#include <libyul/optimiser/StackLimitEvader.h>
-#include <libyul/optimiser/CallGraphGenerator.h>
-#include <libyul/optimiser/FunctionCallFinder.h>
-#include <libyul/optimiser/NameDispenser.h>
-#include <libyul/optimiser/NameCollector.h>
-#include <libyul/optimiser/StackToMemoryMover.h>
-#include <libyul/backends/evm/ControlFlowGraphBuilder.h>
-#include <libyul/backends/evm/EVMDialect.h>
-#include <libyul/AsmAnalysis.h>
+#include "libsolutil/trace.h"
+
+
+#include <libsolutil/Algorithms.h>
+#include <libsolutil/CommonData.h>
 #include <libyul/AST.h>
+#include <libyul/AsmAnalysis.h>
 #include <libyul/CompilabilityChecker.h>
 #include <libyul/Exceptions.h>
 #include <libyul/Object.h>
 #include <libyul/Utilities.h>
-#include <libsolutil/Algorithms.h>
-#include <libsolutil/CommonData.h>
+#include <libyul/backends/evm/ControlFlowGraphBuilder.h>
+#include <libyul/backends/evm/EVMDialect.h>
+#include <libyul/optimiser/ASTCopier.h>
+#include <libyul/optimiser/CallGraphGenerator.h>
+#include <libyul/optimiser/FunctionCallFinder.h>
+#include <libyul/optimiser/NameCollector.h>
+#include <libyul/optimiser/NameDispenser.h>
+#include <libyul/optimiser/StackLimitEvader.h>
+#include <libyul/optimiser/StackToMemoryMover.h>
 
 #include <range/v3/range/conversion.hpp>
 #include <range/v3/view/concat.hpp>
 #include <range/v3/view/take.hpp>
+
+#include <map>
 
 using namespace solidity;
 using namespace solidity::yul;
@@ -126,6 +131,7 @@ Block StackLimitEvader::run(
 	Object const& _object
 )
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	yulAssert(_object.hasCode());
 	auto const* evmDialect = dynamic_cast<EVMDialect const*>(&_context.dialect);
 	yulAssert(
@@ -163,6 +169,7 @@ void StackLimitEvader::run(
 	std::map<YulName, std::vector<StackLayoutGenerator::StackTooDeep>> const& _stackTooDeepErrors
 )
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	auto const* evmDialect = dynamic_cast<EVMDialect const*>(&_context.dialect);
 	yulAssert(
 		evmDialect && evmDialect->providesObjectAccess(),
@@ -191,6 +198,7 @@ void StackLimitEvader::run(
 	std::map<YulName, std::vector<YulName>> const& _unreachableVariables
 )
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	auto const* evmDialect = dynamic_cast<EVMDialect const*>(&_context.dialect);
 	yulAssert(
 		evmDialect && evmDialect->providesObjectAccess(),

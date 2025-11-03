@@ -19,15 +19,19 @@
  * Optimiser component that combines syntactically equivalent functions.
  */
 
-#include <libyul/optimiser/EquivalentFunctionCombiner.h>
-#include <libyul/AST.h>
+#include "libsolutil/trace.h"
+
+
 #include <libsolutil/CommonData.h>
+#include <libyul/AST.h>
+#include <libyul/optimiser/EquivalentFunctionCombiner.h>
 
 using namespace solidity;
 using namespace solidity::yul;
 
 void EquivalentFunctionCombiner::run(OptimiserStepContext&, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	EquivalentFunctionCombiner{EquivalentFunctionDetector::run(_ast)}(_ast);
 }
 

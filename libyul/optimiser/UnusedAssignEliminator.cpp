@@ -20,6 +20,9 @@
  * until they go out of scope or are re-assigned.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/UnusedAssignEliminator.h>
 
 #include <libyul/optimiser/Semantics.h>
@@ -40,6 +43,7 @@ using namespace solidity::yul;
 
 void UnusedAssignEliminator::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	UnusedAssignEliminator uae{
 		_context.dialect,
 		ControlFlowSideEffectsCollector{_context.dialect, _ast}.functionSideEffectsNamed()

@@ -20,6 +20,9 @@
  * currently stored in storage, if known.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/LoadResolver.h>
 
 #include <libyul/backends/evm/EVMDialect.h>
@@ -43,6 +46,7 @@ using namespace solidity::yul;
 
 void LoadResolver::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	bool containsMSize = MSizeFinder::containsMSize(_context.dialect, _ast);
 	LoadResolver{
 		_context.dialect,

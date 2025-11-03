@@ -15,6 +15,9 @@
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 // SPDX-License-Identifier: GPL-3.0
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/CircularReferencesPruner.h>
 
 #include <libyul/optimiser/CallGraphGenerator.h>
@@ -28,6 +31,7 @@ using namespace solidity::yul;
 
 void CircularReferencesPruner::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	CircularReferencesPruner{_context.reservedIdentifiers}(_ast);
 	FunctionGrouper::run(_context, _ast);
 }

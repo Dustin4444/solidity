@@ -15,14 +15,17 @@
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 // SPDX-License-Identifier: GPL-3.0
-#include <libyul/optimiser/ControlFlowSimplifier.h>
-#include <libyul/optimiser/Semantics.h>
-#include <libyul/optimiser/OptimiserStep.h>
-#include <libyul/AST.h>
-#include <libyul/Utilities.h>
-#include <libyul/Dialect.h>
+#include "libsolutil/trace.h"
+
+
 #include <libsolutil/CommonData.h>
 #include <libsolutil/Visitor.h>
+#include <libyul/AST.h>
+#include <libyul/Dialect.h>
+#include <libyul/Utilities.h>
+#include <libyul/optimiser/ControlFlowSimplifier.h>
+#include <libyul/optimiser/OptimiserStep.h>
+#include <libyul/optimiser/Semantics.h>
 
 #include <range/v3/action/remove_if.hpp>
 
@@ -71,6 +74,7 @@ void removeEmptyCasesFromSwitch(Switch& _switchStmt)
 
 void ControlFlowSimplifier::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	ControlFlowSimplifier{_context.dialect}(_ast);
 }
 

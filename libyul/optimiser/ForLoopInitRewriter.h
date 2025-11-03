@@ -17,6 +17,9 @@
 // SPDX-License-Identifier: GPL-3.0
 #pragma once
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/ASTWalker.h>
 #include <libyul/optimiser/OptimiserStep.h>
 
@@ -34,6 +37,7 @@ public:
 	static constexpr char const* name{"ForLoopInitRewriter"};
 	static void run(OptimiserStepContext&, Block& _ast)
 	{
+		trace::Scope _{__PRETTY_FUNCTION__};
 		ForLoopInitRewriter{}(_ast);
 	}
 

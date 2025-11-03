@@ -20,6 +20,9 @@
  * value that is already known to be in that slot.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/EqualStoreEliminator.h>
 
 #include <libyul/optimiser/CallGraphGenerator.h>
@@ -35,6 +38,7 @@ using namespace solidity::yul;
 
 void EqualStoreEliminator::run(OptimiserStepContext const& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	EqualStoreEliminator eliminator{
 		_context.dialect,
 		SideEffectsPropagator::sideEffects(_context.dialect, CallGraphGenerator::callGraph(_ast))

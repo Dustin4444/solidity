@@ -19,11 +19,14 @@
  * Optimisation stage that removes unreachable code.
  */
 
-#include <libyul/optimiser/DeadCodeEliminator.h>
-#include <libyul/optimiser/Semantics.h>
-#include <libyul/optimiser/OptimiserStep.h>
-#include <libyul/ControlFlowSideEffectsCollector.h>
+#include "libsolutil/trace.h"
+
+
 #include <libyul/AST.h>
+#include <libyul/ControlFlowSideEffectsCollector.h>
+#include <libyul/optimiser/DeadCodeEliminator.h>
+#include <libyul/optimiser/OptimiserStep.h>
+#include <libyul/optimiser/Semantics.h>
 
 #include <libevmasm/SemanticInformation.h>
 
@@ -36,6 +39,7 @@ using namespace solidity::yul;
 
 void DeadCodeEliminator::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	ControlFlowSideEffectsCollector sideEffects(_context.dialect, _ast);
 	DeadCodeEliminator{
 		_context.dialect,

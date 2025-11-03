@@ -14,10 +14,13 @@
 	You should have received a copy of the GNU General Public License
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include <libyul/optimiser/StackToMemoryMover.h>
+#include "libsolutil/trace.h"
+
+
+#include <libyul/backends/evm/EVMDialect.h>
 #include <libyul/optimiser/NameCollector.h>
 #include <libyul/optimiser/NameDispenser.h>
-#include <libyul/backends/evm/EVMDialect.h>
+#include <libyul/optimiser/StackToMemoryMover.h>
 
 #include <libyul/AST.h>
 #include <libyul/Utilities.h>
@@ -81,6 +84,7 @@ void StackToMemoryMover::run(
 	Block& _block
 )
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	VariableMemoryOffsetTracker memoryOffsetTracker(_reservedMemory, _memorySlots, _numRequiredSlots);
 	StackToMemoryMover stackToMemoryMover(
 		_context,

@@ -19,6 +19,9 @@
  * Optimiser suite that combines all steps and also provides the settings for the heuristics.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/Suite.h>
 
 #include <libyul/optimiser/Disambiguator.h>

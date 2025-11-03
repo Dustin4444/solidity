@@ -16,8 +16,11 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
-#include <libyul/optimiser/BlockFlattener.h>
+#include "libsolutil/trace.h"
+
+
 #include <libyul/AST.h>
+#include <libyul/optimiser/BlockFlattener.h>
 
 #include <libsolutil/CommonData.h>
 
@@ -45,6 +48,7 @@ void BlockFlattener::operator()(Block& _block)
 
 void BlockFlattener::run(OptimiserStepContext&, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	BlockFlattener flattener;
 	for (auto& statement: _ast.statements)
 		if (auto* block = std::get_if<Block>(&statement))

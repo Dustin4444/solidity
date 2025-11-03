@@ -20,6 +20,9 @@
  * and assignments.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/SSATransform.h>
 
 #include <libyul/optimiser/NameCollector.h>
@@ -368,6 +371,7 @@ void PropagateValues::operator()(Block& _block)
 
 void SSATransform::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	std::set<YulName> assignedVariables = assignedVariableNames(_ast);
 	IntroduceSSA{_context.dispenser, assignedVariables}(_ast);
 	IntroduceControlFlowSSA{_context.dispenser, assignedVariables}(_ast);

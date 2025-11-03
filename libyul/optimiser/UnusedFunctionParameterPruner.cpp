@@ -20,14 +20,17 @@
  * definition.
  */
 
+#include "libsolutil/trace.h"
+
+
+#include <libyul/AST.h>
+#include <libyul/YulName.h>
+#include <libyul/optimiser/NameCollector.h>
+#include <libyul/optimiser/NameDispenser.h>
+#include <libyul/optimiser/NameDisplacer.h>
+#include <libyul/optimiser/OptimiserStep.h>
 #include <libyul/optimiser/UnusedFunctionParameterPruner.h>
 #include <libyul/optimiser/UnusedFunctionsCommon.h>
-#include <libyul/optimiser/OptimiserStep.h>
-#include <libyul/optimiser/NameCollector.h>
-#include <libyul/optimiser/NameDisplacer.h>
-#include <libyul/optimiser/NameDispenser.h>
-#include <libyul/YulName.h>
-#include <libyul/AST.h>
 
 #include <libsolutil/CommonData.h>
 
@@ -42,6 +45,7 @@ using namespace solidity::yul::unusedFunctionsCommon;
 
 void UnusedFunctionParameterPruner::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	std::map<YulName, size_t> references = VariableReferencesCounter::countReferences(_ast);
 	auto used = [&](auto v) -> bool { return references.count(v.name); };
 

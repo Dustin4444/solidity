@@ -16,6 +16,9 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/YulStack.h>
 
 #include <libyul/AsmAnalysis.h>
@@ -89,6 +92,7 @@ bool YulStack::parseAndAnalyze(std::string const& _sourceName, std::string const
 
 void YulStack::optimize()
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	yulAssert(m_stackState >= AnalysisSuccessful, "Analysis was not successful.");
 	yulAssert(m_parserResult);
 

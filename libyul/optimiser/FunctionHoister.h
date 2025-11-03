@@ -22,6 +22,9 @@
 
 #pragma once
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/ASTForward.h>
 #include <libyul/optimiser/ASTWalker.h>
 
@@ -40,7 +43,7 @@ class FunctionHoister: public ASTModifier
 {
 public:
 	static constexpr char const* name{"FunctionHoister"};
-	static void run(OptimiserStepContext&, Block& _ast) { FunctionHoister{}(_ast); }
+	static void run(OptimiserStepContext&, Block& _ast) { trace::Scope _{__PRETTY_FUNCTION__}; FunctionHoister{}(_ast); }
 
 	using ASTModifier::operator();
 	void operator()(Block& _block) override;

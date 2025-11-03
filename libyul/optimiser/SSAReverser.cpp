@@ -15,10 +15,13 @@
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 // SPDX-License-Identifier: GPL-3.0
-#include <libyul/optimiser/SSAReverser.h>
-#include <libyul/optimiser/Metrics.h>
-#include <libyul/AST.h>
+#include "libsolutil/trace.h"
+
+
 #include <libsolutil/CommonData.h>
+#include <libyul/AST.h>
+#include <libyul/optimiser/Metrics.h>
+#include <libyul/optimiser/SSAReverser.h>
 
 #include <variant>
 
@@ -27,6 +30,7 @@ using namespace solidity::yul;
 
 void SSAReverser::run(OptimiserStepContext&, Block& _block)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	AssignmentCounter assignmentCounter;
 	assignmentCounter(_block);
 	SSAReverser{assignmentCounter}(_block);

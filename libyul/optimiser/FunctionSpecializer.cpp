@@ -16,6 +16,9 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/FunctionSpecializer.h>
 
 #include <libyul/optimiser/ASTCopier.h>
@@ -128,6 +131,7 @@ FunctionDefinition FunctionSpecializer::specialize(
 
 void FunctionSpecializer::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	FunctionSpecializer f{
 		CallGraphGenerator::callGraph(_ast).recursiveFunctions(),
 		_context.dispenser

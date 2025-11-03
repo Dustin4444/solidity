@@ -16,6 +16,9 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/optimiser/LoopInvariantCodeMotion.h>
 
 #include <libyul/optimiser/CallGraphGenerator.h>
@@ -32,6 +35,7 @@ using namespace solidity::yul;
 
 void LoopInvariantCodeMotion::run(OptimiserStepContext& _context, Block& _ast)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	std::map<FunctionHandle, SideEffects> functionSideEffects =
 		SideEffectsPropagator::sideEffects(_context.dialect, CallGraphGenerator::callGraph(_ast));
 	bool containsMSize = MSizeFinder::containsMSize(_context.dialect, _ast);

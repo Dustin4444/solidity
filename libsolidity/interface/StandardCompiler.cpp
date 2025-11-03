@@ -21,8 +21,11 @@
  * Standard JSON compiler interface.
  */
 
-#include <libsolidity/interface/StandardCompiler.h>
+#include "libsolutil/trace.h"
+
+
 #include <libsolidity/interface/ImportRemapper.h>
+#include <libsolidity/interface/StandardCompiler.h>
 
 #include <libsolidity/ast/ASTJsonExporter.h>
 #include <libyul/YulStack.h>
@@ -1639,6 +1642,7 @@ Json StandardCompiler::compileSolidity(StandardCompiler::InputsAndSettings _inpu
 
 Json StandardCompiler::compileYul(InputsAndSettings _inputsAndSettings)
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	solAssert(_inputsAndSettings.jsonSources.empty());
 
 	Json output;
@@ -1794,6 +1798,7 @@ Json StandardCompiler::compileYul(InputsAndSettings _inputsAndSettings)
 
 Json StandardCompiler::compile(Json const& _input) noexcept
 {
+	trace::Scope _{__PRETTY_FUNCTION__};
 	YulStringRepository::reset();
 
 	try
