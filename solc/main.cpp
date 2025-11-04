@@ -37,7 +37,7 @@ using namespace solidity;
 
 int main(int argc, char** argv)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	try
 	{
 		solidity::frontend::CommandLineInterface cli(std::cin, std::cout, std::cerr);

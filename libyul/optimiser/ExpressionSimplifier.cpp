@@ -39,7 +39,7 @@ using namespace solidity::yul;
 
 void ExpressionSimplifier::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	ExpressionSimplifier{_context.dialect}(_ast);
 }
 

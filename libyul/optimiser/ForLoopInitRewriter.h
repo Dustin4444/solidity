@@ -37,7 +37,7 @@ public:
 	static constexpr char const* name{"ForLoopInitRewriter"};
 	static void run(OptimiserStepContext&, Block& _ast)
 	{
-		trace::Scope _{__PRETTY_FUNCTION__};
+		TRACE_SCOPE_CLASS();
 		ForLoopInitRewriter{}(_ast);
 	}
 

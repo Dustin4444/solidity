@@ -46,7 +46,7 @@ using namespace solidity::yul;
 
 void LoadResolver::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	bool containsMSize = MSizeFinder::containsMSize(_context.dialect, _ast);
 	LoadResolver{
 		_context.dialect,

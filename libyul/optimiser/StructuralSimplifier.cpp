@@ -85,7 +85,7 @@ bool expressionAlwaysFalse(Expression const& _expression)
 
 void StructuralSimplifier::run(OptimiserStepContext&, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	StructuralSimplifier{}(_ast);
 }
 

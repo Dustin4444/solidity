@@ -37,7 +37,7 @@ class VarDeclInitializer: public ASTModifier
 {
 public:
 	static constexpr char const* name{"VarDeclInitializer"};
-	static void run(OptimiserStepContext& _ctx, Block& _ast) { trace::Scope _{__PRETTY_FUNCTION__};VarDeclInitializer{_ctx.dialect}(_ast); }
+	static void run(OptimiserStepContext& _ctx, Block& _ast) { TRACE_SCOPE_CLASS();VarDeclInitializer{_ctx.dialect}(_ast); }
 
 	void operator()(Block& _block) override;
 

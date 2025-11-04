@@ -131,7 +131,7 @@ Block StackLimitEvader::run(
 	Object const& _object
 )
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	yulAssert(_object.hasCode());
 	auto const* evmDialect = dynamic_cast<EVMDialect const*>(&_context.dialect);
 	yulAssert(
@@ -169,7 +169,7 @@ void StackLimitEvader::run(
 	std::map<YulName, std::vector<StackLayoutGenerator::StackTooDeep>> const& _stackTooDeepErrors
 )
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	auto const* evmDialect = dynamic_cast<EVMDialect const*>(&_context.dialect);
 	yulAssert(
 		evmDialect && evmDialect->providesObjectAccess(),
@@ -198,7 +198,7 @@ void StackLimitEvader::run(
 	std::map<YulName, std::vector<YulName>> const& _unreachableVariables
 )
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	auto const* evmDialect = dynamic_cast<EVMDialect const*>(&_context.dialect);
 	yulAssert(
 		evmDialect && evmDialect->providesObjectAccess(),

@@ -31,7 +31,7 @@ using namespace solidity::yul;
 
 void CircularReferencesPruner::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	CircularReferencesPruner{_context.reservedIdentifiers}(_ast);
 	FunctionGrouper::run(_context, _ast);
 }

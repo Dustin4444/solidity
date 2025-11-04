@@ -131,7 +131,7 @@ FunctionDefinition FunctionSpecializer::specialize(
 
 void FunctionSpecializer::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	FunctionSpecializer f{
 		CallGraphGenerator::callGraph(_ast).recursiveFunctions(),
 		_context.dispenser

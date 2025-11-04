@@ -19,6 +19,9 @@
  * Transformation of a Yul AST into a control flow graph.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/backends/evm/ssa/SSACFGBuilder.h>
 
 #include <libyul/backends/evm/ssa/ControlFlow.h>
@@ -70,6 +73,7 @@ std::unique_ptr<ControlFlow> SSACFGBuilder::build(
 	bool _keepLiteralAssignments
 )
 {
+	TRACE_SCOPE_METHOD();
 	ControlFlowSideEffectsCollector sideEffects(_dialect, _block);
 
 	auto controlFlow = std::make_unique<ControlFlow>();

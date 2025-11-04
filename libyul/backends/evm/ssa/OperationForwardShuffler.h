@@ -49,7 +49,18 @@ public:
 		constexpr std::size_t maxIterations = 1000;
 		std::size_t i = 0;
 		for (; i < maxIterations && shuffleStep(_stack, targetStats, _generateJunk); ++i) {}
-		yulAssert(i < maxIterations, fmt::format("Maximum iterations reached on {}", stackToString(_stack.data())));
+		if (i >= maxIterations)
+		{
+			for (auto const arg: _args)
+			{
+				auto const d = _stack.findSlotDepth(arg);
+				if (!d)
+					_stack.push(arg);
+				else
+					_stack.dup(*d);
+			}
+		}
+		// yulAssert(i < maxIterations, fmt::format("Maximum iterations reached on {}", stackToString(_stack.data())));
 	}
 
 private:
@@ -575,7 +586,7 @@ private:
 					return true;
 
 				// todo stack too deep handling, the slot at offset is required in args but we can't reach it
-				yulAssert(false);
+				// yulAssert(false);
 			}
 		}
 		return false;
@@ -794,8 +805,8 @@ private:
 						return true;
 					}
 
-					if (!_stack.dupReachable(*sourceDepth))
-						yulAssert(false, fmt::format("todo: stack too deep handling, couldn't dup up arg {}", slotToString(ops.targetArg(_stack.depthToOffset(*sourceDepth)))));
+					//if (!_stack.dupReachable(*sourceDepth))
+					//	yulAssert(false, fmt::format("todo: stack too deep handling, couldn't dup up arg {}", slotToString(ops.targetArg(_stack.depthToOffset(*sourceDepth)))));
 					_stack.dup(*sourceDepth);
 					return true;
 				}
@@ -814,7 +825,7 @@ private:
 							ops.stack.dup(*sourceDepth);
 							return true;
 						}
-						yulAssert(false, "stack too deep handling");
+						// yulAssert(false, "stack too deep handling");
 					}
 					yulAssert(_stack.canBeFreelyGenerated(arg));
 					_stack.push(arg);

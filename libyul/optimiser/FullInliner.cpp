@@ -49,7 +49,7 @@ using namespace solidity::yul;
 
 void FullInliner::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	FullInliner inliner{_ast, _context.dispenser, _context.dialect};
 	inliner.run(Pass::InlineTiny);
 	inliner.run(Pass::InlineRest);

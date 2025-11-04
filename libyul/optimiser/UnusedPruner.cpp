@@ -38,7 +38,7 @@ using namespace solidity::yul;
 
 void UnusedPruner::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	UnusedPruner::runUntilStabilisedOnFullAST(_context.dialect, _ast, _context.reservedIdentifiers);
 	FunctionGrouper::run(_context, _ast);
 }

@@ -43,7 +43,7 @@ class FunctionHoister: public ASTModifier
 {
 public:
 	static constexpr char const* name{"FunctionHoister"};
-	static void run(OptimiserStepContext&, Block& _ast) { trace::Scope _{__PRETTY_FUNCTION__}; FunctionHoister{}(_ast); }
+	static void run(OptimiserStepContext&, Block& _ast) { TRACE_SCOPE_CLASS(); FunctionHoister{}(_ast); }
 
 	using ASTModifier::operator();
 	void operator()(Block& _block) override;

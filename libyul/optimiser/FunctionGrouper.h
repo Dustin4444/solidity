@@ -44,7 +44,7 @@ class FunctionGrouper
 {
 public:
 	static constexpr char const* name{"FunctionGrouper"};
-	static void run(OptimiserStepContext&, Block& _ast) { trace::Scope _{__PRETTY_FUNCTION__}; FunctionGrouper{}(_ast); }
+	static void run(OptimiserStepContext&, Block& _ast) { TRACE_SCOPE_CLASS(); FunctionGrouper{}(_ast); }
 
 	void operator()(Block& _block);
 

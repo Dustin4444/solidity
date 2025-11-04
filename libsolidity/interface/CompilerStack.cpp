@@ -760,7 +760,7 @@ CompilerStack::PipelineConfig CompilerStack::requestedPipelineConfig(ContractDef
 
 bool CompilerStack::compile(State _stopAfter)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	m_stopAfter = _stopAfter;
 	if (m_stackState < AnalysisSuccessful)
 		if (!parseAndAnalyze(_stopAfter))
@@ -1583,7 +1583,7 @@ void CompilerStack::compileContract(
 
 void CompilerStack::generateIR(ContractDefinition const& _contract, bool _unoptimizedOnly)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	solAssert(m_stackState >= AnalysisSuccessful, "");
 	Contract& compiledContract = m_contracts.at(_contract.fullyQualifiedName());
 	if (compiledContract.yulIR)

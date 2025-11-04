@@ -38,7 +38,7 @@ using namespace solidity::yul;
 
 void EqualStoreEliminator::run(OptimiserStepContext const& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	EqualStoreEliminator eliminator{
 		_context.dialect,
 		SideEffectsPropagator::sideEffects(_context.dialect, CallGraphGenerator::callGraph(_ast))

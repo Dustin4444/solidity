@@ -31,7 +31,7 @@ using namespace solidity::yul;
 
 void EquivalentFunctionCombiner::run(OptimiserStepContext&, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	EquivalentFunctionCombiner{EquivalentFunctionDetector::run(_ast)}(_ast);
 }
 

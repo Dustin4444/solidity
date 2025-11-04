@@ -20,6 +20,9 @@
  * @date 2014
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libevmasm/Assembly.h>
 
 #include <libevmasm/CommonSubexpressionEliminator.h>
@@ -833,6 +836,7 @@ AssemblyItem Assembly::newDupN(size_t _depth) const
 
 Assembly& Assembly::optimise(OptimiserSettings const& _settings)
 {
+	TRACE_SCOPE_METHOD();
 	optimiseInternal(_settings, {});
 	return *this;
 }

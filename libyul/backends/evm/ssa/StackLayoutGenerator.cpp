@@ -15,10 +15,9 @@
 #include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
 #include <libyul/backends/evm/ssa/OperationForwardShuffler.h>
 
-#include <queue>
-#include <ranges>
 #include "AStarShuffler.h"
 #include "ExactShuffler.h"
+#include "libsolutil/trace.h"
 #include "libyul/backends/evm/SSACFGStackShuffler.h"
 #include "libyul/backends/evm/ssa/LivenessAnalysis.h"
 #include "range/v3/algorithm/count.hpp"
@@ -30,6 +29,8 @@
 #include "range/v3/numeric/accumulate.hpp"
 #include "range/v3/numeric/iota.hpp"
 #include "range/v3/view/drop.hpp"
+#include <queue>
+#include <ranges>
 
 #include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
 #include <libyul/backends/evm/ssa/OperationForwardShuffler.h>
@@ -41,7 +42,7 @@ using namespace solidity::yul;
 using namespace solidity::yul::ssa;
 
 #if !defined(NDEBUG)
-bool StackLayoutGenerator::StackManipulationCallbacks::writeCallbackOutput = true;
+bool StackLayoutGenerator::StackManipulationCallbacks::writeCallbackOutput = false;
 #else
 bool StackLayoutGenerator::StackManipulationCallbacks::writeCallbackOutput = false;
 #endif
@@ -49,7 +50,7 @@ bool StackLayoutGenerator::StackManipulationCallbacks::writeCallbackOutput = fal
 namespace
 {
 #if !defined(NDEBUG)
-bool constexpr debugOutput = true;
+bool constexpr debugOutput = false;
 #else
 bool constexpr debugOutput = false;
 #endif
@@ -97,6 +98,7 @@ StackLayoutGenerator::StackLayoutGenerator(LivenessAnalysis const& _liveness, Te
 
 SSACFGStackLayout StackLayoutGenerator::generate(LivenessAnalysis const& _cfgLiveness, TerminationPathAnalysis const& _junkBlockFinder)
 {
+	TRACE_SCOPE_METHOD();
 	if constexpr (debugOutput)
 		std::cout << _cfgLiveness.cfg().toDot(true, std::nullopt, &_cfgLiveness) << std::endl;
 	if constexpr (debugOutput)
@@ -394,7 +396,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 			for (int delta: ranges::views::iota(-static_cast<int>(requiredStackTop.size()), static_cast<int>(requiredStackTop.size()) + 1))
 			{
 				auto const tryTargetSize = pivot + delta;
-				if (tryTargetSize < 0 || tryTargetSize < minSize)
+				if (tryTargetSize < 0 || tryTargetSize < minSize || tryTargetSize != pivot)
 					continue;
 
 				if constexpr(debugOutput)
@@ -403,7 +405,6 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				data = stack.data();
 				StackType countOpsStack (data, {});
 				OperationForwardShuffler<StackManipulationCallbacks>::shuffle(countOpsStack, requiredStackTop, opLiveOutWithoutOutputs, static_cast<std::size_t>(tryTargetSize), m_junkBlockFinder.blockAllowsAdditionOfJunk(_blockId));
-				yulAssert(countOpsStack.size() == tryTargetSize);
 				if (countOpsStack.callbacks().numOps < currentMinNumOps)
 				{
 					currentMinNumOps = countOpsStack.callbacks().numOps;

@@ -48,7 +48,7 @@ void BlockFlattener::operator()(Block& _block)
 
 void BlockFlattener::run(OptimiserStepContext&, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	BlockFlattener flattener;
 	for (auto& statement: _ast.statements)
 		if (auto* block = std::get_if<Block>(&statement))

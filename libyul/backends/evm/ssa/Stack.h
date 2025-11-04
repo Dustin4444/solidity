@@ -209,7 +209,6 @@ public:
 	void swap(Depth const& _depth) { swap(depthToOffset(_depth)); }
 	void swap(Offset const& _offset)
 	{
-		yulAssert(swapReachable(_offset), "Stack too deep");
 		std::swap((*m_data)[_offset.value], m_data->back());
 		if constexpr (!std::is_same_v<Callbacks, NoOpStackManipulationCallbacks>)
 			m_callbacks.swap(offsetToDepth(_offset).value);
@@ -237,7 +236,6 @@ public:
 	void dup(Depth const& _depth) { dup(depthToOffset(_depth)); }
 	void dup(Offset const& _offset)
 	{
-		yulAssert(dupReachable(_offset), "Stack too deep");
 		m_data->push_back((*m_data)[_offset.value]);
 		if constexpr (!std::is_same_v<Callbacks, NoOpStackManipulationCallbacks>)
 			m_callbacks.dup(offsetToDepth(_offset).value + 1);

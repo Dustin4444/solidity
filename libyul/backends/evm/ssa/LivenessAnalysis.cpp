@@ -16,6 +16,9 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/backends/evm/ssa/LivenessAnalysis.h>
 
 #include <libsolutil/Visitor.h>
@@ -180,6 +183,7 @@ LivenessAnalysis::LivenessAnalysis(SSACFG const& _cfg):
 	m_liveOuts(_cfg.numBlocks()),
 	m_operationLiveOuts(_cfg.numBlocks())
 {
+	TRACE_SCOPE_METHOD();
 	runDagDfs();
 	for (auto const loopRootNode: m_loopNestingForest.loopRootNodes())
 		runLoopTreeDfs(loopRootNode);

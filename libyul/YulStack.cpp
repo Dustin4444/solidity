@@ -77,6 +77,7 @@ bool YulStack::parse(std::string const& _sourceName, std::string const& _source)
 
 bool YulStack::parseAndAnalyze(std::string const& _sourceName, std::string const& _source)
 {
+	TRACE_SCOPE_METHOD();
 	m_errors.clear();
 	yulAssert(m_stackState == Empty);
 
@@ -92,7 +93,7 @@ bool YulStack::parseAndAnalyze(std::string const& _sourceName, std::string const
 
 void YulStack::optimize()
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_METHOD();
 	yulAssert(m_stackState >= AnalysisSuccessful, "Analysis was not successful.");
 	yulAssert(m_parserResult);
 
@@ -254,6 +255,7 @@ MachineAssemblyObject YulStack::assemble(Machine _machine, bool _ssaCfgCodegen)
 std::pair<MachineAssemblyObject, MachineAssemblyObject>
 YulStack::assembleWithDeployed(std::optional<std::string_view> _deployName, bool _ssaCfgCodegen)
 {
+	TRACE_SCOPE_METHOD();
 	yulAssert(m_charStream);
 
 	auto [creationAssembly, deployedAssembly] = assembleEVMWithDeployed(_deployName, _ssaCfgCodegen);
@@ -313,6 +315,7 @@ YulStack::assembleWithDeployed(std::optional<std::string_view> _deployName, bool
 std::pair<std::shared_ptr<evmasm::Assembly>, std::shared_ptr<evmasm::Assembly>>
 YulStack::assembleEVMWithDeployed(std::optional<std::string_view> _deployName, bool _ssaCfgCodegen)
 {
+	TRACE_SCOPE_METHOD();
 	yulAssert(m_stackState >= AnalysisSuccessful);
 	yulAssert(m_parserResult, "");
 	yulAssert(m_parserResult->hasCode(), "");
@@ -332,7 +335,7 @@ YulStack::assembleEVMWithDeployed(std::optional<std::string_view> _deployName, b
 	{
 		compileEVM(adapter, optimize, _ssaCfgCodegen);
 
-		assembly.optimise(evmasm::Assembly::OptimiserSettings::translateSettings(m_optimiserSettings));
+		//assembly.optimise(evmasm::Assembly::OptimiserSettings::translateSettings(m_optimiserSettings));
 
 		std::optional<evmasm::SubAssemblyID> subIndex;
 

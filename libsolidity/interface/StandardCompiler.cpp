@@ -1642,7 +1642,7 @@ Json StandardCompiler::compileSolidity(StandardCompiler::InputsAndSettings _inpu
 
 Json StandardCompiler::compileYul(InputsAndSettings _inputsAndSettings)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	solAssert(_inputsAndSettings.jsonSources.empty());
 
 	Json output;
@@ -1798,7 +1798,7 @@ Json StandardCompiler::compileYul(InputsAndSettings _inputsAndSettings)
 
 Json StandardCompiler::compile(Json const& _input) noexcept
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	YulStringRepository::reset();
 
 	try

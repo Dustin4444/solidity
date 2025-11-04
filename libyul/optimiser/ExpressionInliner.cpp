@@ -39,7 +39,7 @@ using namespace solidity::yul;
 
 void ExpressionInliner::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	InlinableExpressionFunctionFinder funFinder;
 	funFinder(_ast);
 	ExpressionInliner inliner{_context.dialect, funFinder.inlinableFunctions()};

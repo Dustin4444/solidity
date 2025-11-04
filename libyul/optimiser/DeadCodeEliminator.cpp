@@ -39,7 +39,7 @@ using namespace solidity::yul;
 
 void DeadCodeEliminator::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	ControlFlowSideEffectsCollector sideEffects(_context.dialect, _ast);
 	DeadCodeEliminator{
 		_context.dialect,

@@ -51,7 +51,7 @@ std::vector<StackTooDeepError> OptimizedEVMCodeTransform::run(
 	UseNamedLabels _useNamedLabelsForFunctions
 )
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	std::unique_ptr<CFG> dfg = ControlFlowGraphBuilder::build(_analysisInfo, _dialect, _block);
 	StackLayout stackLayout = StackLayoutGenerator::run(*dfg, _dialect);
 

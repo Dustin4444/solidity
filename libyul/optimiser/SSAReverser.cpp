@@ -30,7 +30,7 @@ using namespace solidity::yul;
 
 void SSAReverser::run(OptimiserStepContext&, Block& _block)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	AssignmentCounter assignmentCounter;
 	assignmentCounter(_block);
 	SSAReverser{assignmentCounter}(_block);

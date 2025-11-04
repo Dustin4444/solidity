@@ -241,7 +241,7 @@ std::tuple<bool, Block> StackCompressor::run(
 	bool _optimizeStackAllocation,
 	size_t _maxIterations)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	yulAssert(_object.hasCode());
 	yulAssert(_object.dialect(), "No dialect");
 	yulAssert(

@@ -32,7 +32,7 @@ using namespace solidity::util;
 
 void ConditionalUnsimplifier::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	ConditionalUnsimplifier{
 		_context.dialect,
 		ControlFlowSideEffectsCollector{_context.dialect, _ast}.functionSideEffectsNamed()

@@ -31,7 +31,7 @@ using namespace solidity::yul;
 
 void ForLoopConditionOutOfBody::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	ForLoopConditionOutOfBody{_context.dialect}(_ast);
 }
 

@@ -84,7 +84,7 @@ void StackToMemoryMover::run(
 	Block& _block
 )
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	VariableMemoryOffsetTracker memoryOffsetTracker(_reservedMemory, _memorySlots, _numRequiredSlots);
 	StackToMemoryMover stackToMemoryMover(
 		_context,

@@ -113,6 +113,7 @@ void OptimiserSuite::run(
 
 	Block astRoot;
 	{
+		TRACE_SCOPE("Disambiguator");
 		PROFILER_PROBE("Disambiguator", probe);
 		astRoot = std::get<Block>(Disambiguator(
 			dialect,
@@ -161,6 +162,7 @@ void OptimiserSuite::run(
 	{
 		yulAssert(_meter, "");
 		{
+			TRACE_SCOPE("ConstantOptimiser");
 			PROFILER_PROBE("ConstantOptimiser", probe);
 			ConstantOptimiser{*evmDialect, *_meter}(astRoot);
 		}
@@ -196,10 +198,12 @@ void OptimiserSuite::run(
 
 	dispenser.reset(astRoot);
 	{
+		TRACE_SCOPE("NameSimplifier");
 		PROFILER_PROBE("NameSimplifier", probe);
 		NameSimplifier::run(suite.m_context, astRoot);
 	}
 	{
+		TRACE_SCOPE("VarNameCleaner");
 		PROFILER_PROBE("VarNameCleaner", probe);
 		VarNameCleaner::run(suite.m_context, astRoot);
 	}

@@ -19,6 +19,9 @@
  * Compiler that transforms Yul Objects to EVM bytecode objects.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/backends/evm/EVMObjectCompiler.h>
 
 #include <libyul/backends/evm/EVMCodeTransform.h>
@@ -49,6 +52,7 @@ void EVMObjectCompiler::compile(
 
 void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool const _ssaCfgCodegen)
 {
+	TRACE_SCOPE_CLASS();
 	yulAssert(_object.dialect());
 	auto const* evmDialect = dynamic_cast<EVMDialect const*>(_object.dialect());
 	yulAssert(evmDialect);
@@ -86,7 +90,7 @@ void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool const _s
 	if (_optimize && evmDialect->evmVersion().canOverchargeGasForCall())
 	{
 		std::vector<StackTooDeepError> stackErrors;
-		if (!_ssaCfgCodegen)
+		if (false && !_ssaCfgCodegen)
 			stackErrors = OptimizedEVMCodeTransform::run(
 				m_assembly,
 				*_object.analysisInfo,

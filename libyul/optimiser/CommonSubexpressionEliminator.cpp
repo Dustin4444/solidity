@@ -40,7 +40,7 @@ using namespace solidity::util;
 
 void CommonSubexpressionEliminator::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	CommonSubexpressionEliminator cse{
 		_context.dialect,
 		SideEffectsPropagator::sideEffects(_context.dialect, CallGraphGenerator::callGraph(_ast))

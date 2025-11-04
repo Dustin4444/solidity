@@ -30,7 +30,7 @@ using namespace solidity::yul;
 
 void ForLoopConditionIntoBody::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	ForLoopConditionIntoBody{_context.dialect}(_ast);
 }
 

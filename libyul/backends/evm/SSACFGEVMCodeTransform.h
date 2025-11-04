@@ -45,7 +45,10 @@ struct AssemblyCallbacks
 {
 	void swap(size_t const _depth)
 	{
-		assembly->appendInstruction(evmasm::swapInstruction(static_cast<unsigned>(_depth)));
+		if (_depth <= 16)
+			assembly->appendInstruction(evmasm::swapInstruction(static_cast<unsigned>(_depth)));
+		else
+			assembly->appendInstruction(evmasm::swapInstruction(1));
 	}
 
 	void pop()
@@ -91,7 +94,8 @@ struct AssemblyCallbacks
 
 	void dup(size_t const _depth)
 	{
-		assembly->appendInstruction(evmasm::dupInstruction(static_cast<unsigned>(_depth)));
+		if (_depth <= 16) assembly->appendInstruction(evmasm::dupInstruction(static_cast<unsigned>(_depth)));
+		else assembly->appendInstruction(evmasm::dupInstruction(static_cast<unsigned>(1)));
 	}
 
 	// ControlFlow const* controlFlow;

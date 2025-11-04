@@ -42,7 +42,7 @@ using namespace solidity::yul;
 
 void ExpressionJoiner::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	ExpressionJoiner{_ast}(_ast);
 	FunctionGrouper::run(_context, _ast);
 }

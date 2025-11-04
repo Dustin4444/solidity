@@ -47,7 +47,7 @@ ExpressionSplitter::~ExpressionSplitter() = default;
 
 void ExpressionSplitter::run(OptimiserStepContext& _context, Block& _ast)
 {
-	trace::Scope _{__PRETTY_FUNCTION__};
+	TRACE_SCOPE_CLASS();
 	ExpressionSplitter{_context.dialect, _context.dispenser}(_ast);
 }
 

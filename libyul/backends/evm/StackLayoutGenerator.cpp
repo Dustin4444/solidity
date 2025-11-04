@@ -19,6 +19,9 @@
  * Stack layout generator for Yul to EVM code generation.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/backends/evm/StackLayoutGenerator.h>
 
 #include <libyul/backends/evm/StackHelpers.h>
@@ -47,6 +50,7 @@ using namespace solidity::yul;
 
 StackLayout StackLayoutGenerator::run(CFG const& _cfg, EVMDialect const& _evmDialect)
 {
+	TRACE_SCOPE_CLASS();
 	StackLayout stackLayout{{}, {}};
 	StackLayoutGenerator{
 		stackLayout,

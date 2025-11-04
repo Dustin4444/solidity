@@ -19,6 +19,9 @@
  * Analyzer part of inline assembly.
  */
 
+#include "libsolutil/trace.h"
+
+
 #include <libyul/AsmAnalysis.h>
 
 #include <libyul/AST.h>
@@ -112,6 +115,7 @@ AsmAnalysisInfo AsmAnalyzer::analyzeStrictAssertCorrect(
 	Object::Structure _objectStructure
 )
 {
+	TRACE_SCOPE_CLASS();
 	ErrorList errorList;
 	langutil::ErrorReporter errors(errorList);
 	AsmAnalysisInfo analysisInfo;
