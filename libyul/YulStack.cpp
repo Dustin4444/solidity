@@ -335,7 +335,7 @@ YulStack::assembleEVMWithDeployed(std::optional<std::string_view> _deployName, b
 	{
 		compileEVM(adapter, optimize, _ssaCfgCodegen);
 
-		//assembly.optimise(evmasm::Assembly::OptimiserSettings::translateSettings(m_optimiserSettings));
+		assembly.optimise(evmasm::Assembly::OptimiserSettings::translateSettings(m_optimiserSettings));
 
 		std::optional<evmasm::SubAssemblyID> subIndex;
 
