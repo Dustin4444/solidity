@@ -20,6 +20,7 @@
  */
 
 #include "libsolutil/trace.h"
+#include "libyul/AsmPrinter.h"
 
 
 #include <libyul/backends/evm/ssa/SSACFGBuilder.h>
@@ -73,6 +74,7 @@ std::unique_ptr<ControlFlow> SSACFGBuilder::build(
 	bool _keepLiteralAssignments
 )
 {
+	auto const begin = std::chrono::high_resolution_clock::now();
 	TRACE_SCOPE_METHOD();
 	ControlFlowSideEffectsCollector sideEffects(_dialect, _block);
 
@@ -89,6 +91,14 @@ std::unique_ptr<ControlFlow> SSACFGBuilder::build(
 	mainGraph.block(builder.m_currentBlock).exit = SSACFG::BasicBlock::MainExit{};
 	controlFlow->functionGraphs.at(0)->block(builder.m_currentBlock).exit = SSACFG::BasicBlock::MainExit{};
 	builder.cleanUnreachable();
+
+	auto const elapsed = std::chrono::high_resolution_clock::now() - begin;
+	auto const elapsedMS=std::chrono::duration<double, std::milli>(elapsed).count();
+	std::cout << "ELAPSED: " <<  elapsedMS<< "ms" << std::endl;
+	if (elapsedMS > 1000)
+	{
+		std::cout << AsmPrinter{_dialect}(_block) << std::endl;;
+	}
 	return controlFlow;
 }
 
