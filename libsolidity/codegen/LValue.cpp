@@ -458,6 +458,7 @@ void GenericStorageItem<IsTransient>::setToZero(langutil::SourceLocation const&,
 		solUnimplementedAssert(!IsTransient, "Transient storage reference types are not supported yet.");
 		if (!_removeReference)
 			CompilerUtils(m_context).copyToStackTop(sizeOnStack(), sizeOnStack());
+		m_context << Instruction::POP; // remove byte offset
 		ArrayUtils(m_context).clearArray(dynamic_cast<ArrayType const&>(*m_dataType));
 	}
 	else if (m_dataType->category() == Type::Category::Struct)

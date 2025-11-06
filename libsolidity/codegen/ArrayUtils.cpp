@@ -539,7 +539,7 @@ void ArrayUtils::clearArray(ArrayType const& _typeIn) const
 	Type const* type = &_typeIn;
 	m_context.callLowLevelFunction(
 		"$clearArray_" + _typeIn.identifier(),
-		2,
+		1,
 		0,
 		[type](CompilerContext& _context)
 		{
@@ -554,7 +554,6 @@ void ArrayUtils::clearArray(ArrayType const& _typeIn) const
 			if (_type.baseType()->isValueType())
 				solAssert(_type.baseType()->storageSize() <= 1, "Invalid size for value type.");
 
-			_context << Instruction::POP; // remove byte offset
 			if (_type.isDynamicallySized())
 				ArrayUtils(_context).clearDynamicArray(_type);
 			else if (_type.length() == 0 || _type.baseType()->category() == Type::Category::Mapping)
@@ -595,7 +594,7 @@ void ArrayUtils::clearArray(ArrayType const& _typeIn) const
 					ArrayUtils(_context).clearStorageLoop(_type.baseType());
 				_context << Instruction::POP;
 			}
-			solAssert(_context.stackHeight() == stackHeightStart - 2, "");
+			solAssert(_context.stackHeight() == stackHeightStart - 1, "");
 		}
 	);
 }

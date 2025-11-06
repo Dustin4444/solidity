@@ -54,21 +54,21 @@ public:
 	/// Stack post: memory_offset + length(padded)
 	void copyArrayToMemory(ArrayType const& _sourceType, bool _padToWordBoundaries = true) const;
 	/// Clears the given dynamic or static array.
-	/// Stack pre: storage_ref storage_byte_offset
+	/// Stack pre: storage_ref
 	/// Stack post:
 	void clearArray(ArrayType const& _type) const;
 	/// Clears the length and data elements of the array referenced on the stack.
-	/// Stack pre: reference (excludes byte offset)
+	/// Stack pre: reference
 	/// Stack post:
 	void clearDynamicArray(ArrayType const& _type) const;
 	/// Changes the size of a dynamic array and clears the tail if it is shortened.
-	/// Stack pre: reference (excludes byte offset) new_length
+	/// Stack pre: reference new_length
 	/// Stack post:
 	void resizeDynamicArray(ArrayType const& _type) const;
 	/// Increments the size of a dynamic array by one.
 	/// Does not touch the new data element. In case of a byte array, this might move the
 	/// data.
-	/// Stack pre: reference (excludes byte offset)
+	/// Stack pre: reference
 	/// Stack post: new_length
 	void incrementDynamicArraySize(ArrayType const& _type) const;
 	/// Decrements the size of a dynamic array by one if length is nonzero. Causes a Panic otherwise.
