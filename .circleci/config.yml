@@ -208,9 +208,44 @@ commands:
 
   run_build:
     steps:
+      # TODO: remove the line below
+      # Before merging this PR we need to use an alternative develop branch to test the functionality, `develop-cache-test`
+
+      # On `develop-cache-test` we intentionally do NOT restore any ccache, so every run starts from scratch.
+      # Other branches restore the most recent cache produced on `develop-cache-test`.
+      - when:
+          condition:
+            not:
+              equal: ["develop-cache-test", << pipeline.git.branch >>]
+          steps:
+            - restore_cache:
+                keys:
+                  # Reuse cache produced on develop-cache-test (prefix match; restores the most recent).
+                  - v1-ccache-{{ arch }}-develop-cache-test-
+                  - v1-ccache-{{ arch }}-
       - run:
           name: Build
-          command: scripts/ci/build.sh
+          command: |
+            export CCACHE_DIR="$HOME/.ccache"
+            export CCACHE_BASEDIR="$(pwd)"
+            export CCACHE_NOHASHDIR=1
+            mkdir -p "$CCACHE_DIR"
+            export CMAKE_OPTIONS="${CMAKE_OPTIONS:-} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+            ccache -z || true
+
+            scripts/ci/build.sh
+
+            ccache -s || true
+
+      # On `develop-cache-test` we always generate a fresh cache by never restoring and by saving under a unique key.
+      - when:
+          condition:
+            equal: ["develop-cache-test", << pipeline.git.branch >>]
+          steps:
+            - save_cache:
+                key: v1-ccache-{{ arch }}-develop-cache-test-{{ .Revision }}
+                paths:
+                  - ~/.ccache
 
   run_build_ossfuzz:
     steps:
@@ -1197,7 +1232,7 @@ jobs:
       - run:
           name: Install build dependencies
           command: |
-            pacman --noconfirm -Syu --noprogressbar --needed base-devel boost cmake git openssh tar
+            pacman --noconfirm -Syu --noprogressbar --needed base-devel boost cmake ccache git openssh tar
       - checkout
       - run_build
       - store_artifacts_solc

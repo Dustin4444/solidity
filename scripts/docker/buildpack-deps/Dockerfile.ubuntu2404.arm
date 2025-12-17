@@ -40,6 +40,7 @@ RUN <<-EOF
     apt-get install --quiet=2 --no-install-recommends \
         build-essential \
         cmake \
+        ccache \
         jq \
         libboost-filesystem-dev \
         libboost-program-options-dev \
