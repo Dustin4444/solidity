@@ -524,11 +524,11 @@ defaults:
   - base_osx: &base_osx
       macos:
         xcode: 15.4.0
-      resource_class: m4pro.medium
+      resource_class: m4pro.large
       environment: &base_osx_env
         TERM: xterm
-        MAKEFLAGS: -j8
-        CPUs: 8
+        MAKEFLAGS: -j18
+        CPUs: 18
 
   - base_ubuntu_clang: &base_ubuntu_clang
       docker:
