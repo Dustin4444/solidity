@@ -3063,10 +3063,14 @@ void TypeChecker::endVisit(NewExpression const& _newExpression)
 bool TypeChecker::visit(MemberAccess const& _memberAccess)
 {
 	_memberAccess.expression().accept(*this);
+	// Type of the expression, which member is being accessed.
 	Type const* exprType = type(_memberAccess.expression());
+	// Name of the being access member.
 	ASTString const& memberName = _memberAccess.memberName();
 
 	auto& annotation = _memberAccess.annotation();
+
+	// Get all possible overloads of `memberName` and match them with the arguments and the parent expression type.
 
 	// Retrieve the types of the arguments if this is used to call a function.
 	auto const& arguments = annotation.arguments;
@@ -3085,8 +3089,10 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 				++it;
 	}
 
+	// Why?
 	annotation.isConstant = false;
 
+	// In case, when possible member is not found, report proper error. Depends on many different cases.
 	if (possibleMembers.empty())
 	{
 		if (initialMemberCount == 0 && !dynamic_cast<ArraySliceType const*>(exprType))
@@ -3180,23 +3186,36 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 			(memberName == "value" ? " - did you forget the \"payable\" modifier?" : ".")
 		);
 
+	// Here possible `possibleMembers.size()` must be equal to 1. Any other size should result an error reported above.
+	solAssert(possibleMembers.size() == 1);
+
+	// Initialize accessed member annotation declaration and type with just found member.
 	annotation.referencedDeclaration = possibleMembers.front().declaration;
 	annotation.type = possibleMembers.front().type;
 
+	// Set default virtual lookup to `static`.
+	// TODO: Does it mean that we search only in current contract? Not looking into contracts higher in hierarchy?
 	VirtualLookup requiredLookup = VirtualLookup::Static;
 
+	// Member type is a function (`FunctionType`)
 	if (auto funType = dynamic_cast<FunctionType const*>(annotation.type))
 	{
+		// If function type has bound first argument, we mae sure that the expression type is convertible to the
+		// bound argument.
+		// We assert here because it's checked above. ??
 		solAssert(
 			!funType->hasBoundFirstArgument() || exprType->isImplicitlyConvertibleTo(*funType->selfType()),
 			"Function \"" + memberName + "\" cannot be called on an object of type " +
 			exprType->humanReadableName() + " (expected " + funType->selfType()->humanReadableName() + ")."
 		);
 
+		// In the past `value` and `gas` to the ext*call were passed using call syntax i.e. c.foo.gas(1).value(5)()
+		// Now it's deprecated in favor of c.foo{gas: 1, value: 5}() syntax.
 		if (
 			dynamic_cast<FunctionType const*>(exprType) &&
 			!annotation.referencedDeclaration &&
 			(memberName == "value" || memberName == "gas")
+			// TODO: Change to SetGas and SetValue instead of comparing strings.
 		)
 			m_errorReporter.typeError(
 				1621_error,
@@ -3204,6 +3223,9 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 				"Using \"." + memberName + "(...)\" is deprecated. Use \"{" + memberName + ": ...}\" instead."
 			);
 
+		// Disallow push to array with nested mappings.
+		// TODO: Check what happens when push has no args. Why do we have to check arg num.
+		// Push should be disallowed regardless num of arg.
 		if (
 			funType->kind() == FunctionType::Kind::ArrayPush &&
 			arguments.value().numArguments() != 0 &&
@@ -3215,6 +3237,8 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 				"Storage arrays with nested mappings do not support .push(<arg>)."
 			);
 
+		// If parent type is a contract and it super, change lookup method to `super`.
+		// TODO: What about `virtual`? Is it already covered above?
 		if (!funType->hasBoundFirstArgument())
 			if (auto typeType = dynamic_cast<TypeType const*>(exprType))
 			{
@@ -3223,6 +3247,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 					requiredLookup = VirtualLookup::Super;
 			}
 
+		// Print a warning informing about deprecation of `send` and `transfer`
 		if (
 			funType->kind() == FunctionType::Kind::Send ||
 			funType->kind() == FunctionType::Kind::Transfer
@@ -3237,19 +3262,32 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 			);
 	}
 
+	// Update lookup method. It can be only `static` or `super` at this point.
+	solAssert(requiredLookup == VirtualLookup::Static || requiredLookup == VirtualLookup::Super);
 	annotation.requiredLookup = requiredLookup;
 
+	// The parent expression is a struct. In this case is assignable, only if it's not stored in the call data.
+	// TODO: What is the default value of `isLValue`? What happens if it's not initialized.
 	if (auto const* structType = dynamic_cast<StructType const*>(exprType))
 		annotation.isLValue = !structType->dataStoredIn(DataLocation::CallData);
+	// If it's an array or FixedBytes (i.e. bytes2, bytes4 etc.) it's not assignable too.
 	else if (exprType->category() == Type::Category::Array)
 		annotation.isLValue = false;
 	else if (exprType->category() == Type::Category::FixedBytes)
 		annotation.isLValue = false;
+	// TODO: What are all possible syntaxes which have this type (`TypeType`).
 	else if (TypeType const* typeType = dynamic_cast<decltype(typeType)>(exprType))
 	{
+		// The parent expression is a contract type.
 		if (ContractType const* contractType = dynamic_cast<decltype(contractType)>(typeType->actualType()))
 		{
+			// Set the same `isLValue` as it's defined in referenced declaration.
+			// TODO: referenced declaration can `nullptr`. Look at function type `gas`, `value` case.
+			solAssert(annotation.referencedDeclaration != nullptr);
 			annotation.isLValue = annotation.referencedDeclaration->isLValue();
+
+			// If the member is a function type (i.e. C.foo, type(this).foo), assign the same purity as in parent expression
+			// TODO: Verify this. What exact expressions go to this category.
 			if (
 				auto const* functionType = dynamic_cast<FunctionType const*>(annotation.type);
 				functionType &&
@@ -3257,21 +3295,26 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 			)
 				annotation.isPure = *_memberAccess.expression().annotation().isPure;
 		}
-		else
+		else // If it's not a contract set to `false`. TODO: Why?
 			annotation.isLValue = false;
 	}
+	// If the parent expression is a module assign purity from it and set as non-assignable.
 	else if (exprType->category() == Type::Category::Module)
 	{
 		annotation.isPure = *_memberAccess.expression().annotation().isPure;
-		annotation.isLValue = false;
+		annotation.isLValue = false; // TODO: The same value in both branches. Can be moved outside.
 	}
 	else
 		annotation.isLValue = false;
 
 	// TODO some members might be pure, but for example `address(0x123).balance` is not pure
 	// although every subexpression is, so leaving this limited for now.
+	// If it's a type expression (`TypeType`).
+	// TODO: Define full list of possible expression which go to this category.
 	if (auto tt = dynamic_cast<TypeType const*>(exprType))
 	{
+		// If it's an anm or UDVT set purity to true.
+		// TODO: How about different types? What are possible actual types categories.
 		if (
 			tt->actualType()->category() == Type::Category::Enum ||
 			tt->actualType()->category() == Type::Category::UserDefinedValueType
@@ -3280,6 +3323,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 
 		// `concat` purity depends also on its arguments, but this is checked later, in visit(FunctionCall...)
 		// This covers `bytes.concat` and `string.concat`.
+		// TODO: What are possible actual types having array category?
 		if (tt->actualType()->category() == Type::Category::Array)
 		{
 			if (
@@ -3293,6 +3337,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 				annotation.isPure = true;
 		}
 	}
+	// If parent expression is a function type and has declaration, it's possible to get its selector.
 	if (
 		auto const* functionType = dynamic_cast<FunctionType const*>(exprType);
 		functionType &&
@@ -3300,12 +3345,17 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 		memberName == "selector"
 	)
 	{
+		// In case it's the declaration is a function definition.
+		// TODO: Does it have to be only user-defined function?
 		if (dynamic_cast<FunctionDefinition const*>(&functionType->declaration()))
 		{
+			// TODO: Check what exactly this can be. Define full list of possible expressions.
 			if (auto const* parentAccess = dynamic_cast<MemberAccess const*>(&_memberAccess.expression()))
 			{
+				// Assign purity from the parent of parent expression.
 				bool isPure = *parentAccess->expression().annotation().isPure;
 				// Accessing a function selector using `super|this.f.selector`.
+				// Handle special case for `super` and `this` as they are not pure by definition.
 				if (auto const* exprInt = dynamic_cast<Identifier const*>(&parentAccess->expression()))
 					if (exprInt->name() == "this" || exprInt->name() == "super")
 						isPure = true;
@@ -3315,6 +3365,8 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 		}
 		// In case of event or error definition the selector is always compile-time constant, as it can be
 		// a keccak256 hash of the event signature or a function selector in case of an error.
+		// There are not a FunctionDefinition but still Error and Event selector is pure.
+		// TODO: What else should be pure?
 		else if (
 			dynamic_cast<EventDefinition const*>(&functionType->declaration()) ||
 			dynamic_cast<ErrorDefinition const*>(&functionType->declaration())
@@ -3322,6 +3374,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 			annotation.isPure = true;
 	}
 
+	// TODO: WTF?
 	if (
 		auto const* varDecl = dynamic_cast<VariableDeclaration const*>(annotation.referencedDeclaration);
 		!annotation.isPure.set() &&
@@ -3330,16 +3383,23 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 	)
 		annotation.isPure = true;
 
+	// The parent expression is block, msg, tx, abi, type(...)??? or error instance.
 	if (auto magicType = dynamic_cast<MagicType const*>(exprType))
 	{
+		// We assume any abi member call is pure. Purity of the arguments if verified later, in visit(FunctionCall...).
 		if (magicType->kind() == MagicType::Kind::ABI)
 			annotation.isPure = true;
+		// The contract code is pure too, but we have to handle circular dependency properly.
+		// TODO: What exactly is magic type. It looks that it only can be a contract
 		else if (magicType->kind() == MagicType::Kind::MetaType && (
 			memberName == "creationCode" || memberName == "runtimeCode"
 		))
 		{
 			annotation.isPure = true;
 			ContractType const& accessedContractType = dynamic_cast<ContractType const&>(*magicType->typeArgument());
+			// TODO: Why has it always to be true?
+			// Runtime code of a contact containing immutable variables is not available.
+			// TODO: Check if always?
 			solAssert(!accessedContractType.isSuper(), "");
 			if (
 				memberName == "runtimeCode" &&
@@ -3351,15 +3411,19 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 					"\"runtimeCode\" is not available for contracts containing immutable variables."
 				);
 		}
+		// TODO: Name of a contract? Where is it checked that we it only can a contract in this case.
 		else if (magicType->kind() == MagicType::Kind::MetaType && memberName == "name")
 			annotation.isPure = true;
+		// TODO: Name of an interface? Where is it checked that we it only can an interface in this case.
 		else if (magicType->kind() == MagicType::Kind::MetaType && memberName == "interfaceId")
 			annotation.isPure = true;
+		// TODO: What are possible meta types here?
 		else if (
 			magicType->kind() == MagicType::Kind::MetaType &&
 			(memberName == "min" || memberName == "max")
 		)
 			annotation.isPure = true;
+		// Handle errors of wrong `block` members usage accordingly to a fork.
 		else if (magicType->kind() == MagicType::Kind::Block)
 		{
 			if (memberName == "chainid" && !m_evmVersion.hasChainID())
@@ -3395,6 +3459,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 		}
 	}
 
+	// Handle errors of `codehash` member availability for an address value. I.e. `address(1).codehash`.
 	if (
 		_memberAccess.expression().annotation().type->category() == Type::Category::Address &&
 		memberName == "codehash" &&
