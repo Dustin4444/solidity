@@ -3090,8 +3090,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 				++it;
 	}
 
-	// TODO: Explain why it is set to false. It cannot be changed (SetOnce). From quick code base review, `isConstant`
-	// TODO: is never `true`.
+	// TODO: Explain why it is set to false. It cannot be changed (SetOnce).
 	annotation.isConstant = false;
 
 	// When possible member is not found, report proper error. Exact error message depends on many different cases.
@@ -3223,9 +3222,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 				"Using \"." + memberName + "(...)\" is deprecated. Use \"{" + memberName + ": ...}\" instead."
 			);
 
-		// Disallow push to array with nested mappings.
-		// TODO: Check what happens when push has no args. Why do we have to check arg num.
-		// TODO: Push should be disallowed regardless num of arg.
+		// Disallow push to array with nested mappings, but allow `push()`.
 		if (
 			funType->kind() == FunctionType::Kind::ArrayPush &&
 			arguments.value().numArguments() != 0 &&
@@ -3313,7 +3310,6 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 
 	// TODO some members might be pure, but for example `address(0x123).balance` is not pure
 	// although every subexpression is, so leaving this limited for now.
-	// If it's a type expression (`TypeType`).
 	// TODO: This should be merged with the `else if` for `TypeType` above, to keep it consistent.
 	if (auto tt = dynamic_cast<TypeType const*>(exprType))
 	{
@@ -3358,7 +3354,8 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 				// TODO: They should all be pure, but now we have a situation where this `this.foo.selector` is pure,
 				// TODO: but `a.foo.selector` is not pure, because purity flag is copied from `a` which is not pure,
 				// TODO: when is not a compile-time variable.
-				// TODO: Not sure yet, but this would mean that selector should always be pure if it is accessible. ??
+				// TODO: Selector should always be pure, except when the parent expression is a non constant function
+				// TODO: pointer.
 				bool isPure = *parentAccess->expression().annotation().isPure;
 				// Accessing a function selector using `super|this.f.selector`.
 				if (auto const* exprInt = dynamic_cast<Identifier const*>(&parentAccess->expression()))
