@@ -225,7 +225,7 @@ commands:
             - restore_cache:
                 keys:
                   # Reuse cache produced on develop-cache-test (prefix match; restores the most recent).
-                  - v1-ccache-{{ arch }}-develop-cache-test-
+                  - v1-{{ .Environment.CCACHE_KEY }}-ccache-{{ arch }}-develop-cache-test-
       # WARNING! If you edit anything between here and save_cache, remember to bump version or invalidate the cache manually.
       - when:
           condition:
