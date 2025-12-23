@@ -212,32 +212,48 @@ commands:
       # Before merging this PR we need to use an alternative develop branch to test the functionality, `develop-cache-test`
 
       # On `develop-cache-test` and `breaking` we intentionally do NOT restore any ccache, so every run starts from scratch.
-      # Other branches restore the most recent cache produced on `develop-cache-test`.
+      # Tags always skip ccache. Other branches restore the most recent cache produced on `develop-cache-test`.
       - when:
           condition:
-            not:
-              or:
-                - equal: ["develop-cache-test", << pipeline.git.branch >>]
-                - equal: ["breaking", << pipeline.git.branch >>]
+            and:
+              - equal: ["", << pipeline.git.tag >>]
+              - not:
+                  or:
+                    - equal: ["develop-cache-test", << pipeline.git.branch >>]
+                    - equal: ["breaking", << pipeline.git.branch >>]
           steps:
             - restore_cache:
                 keys:
                   # Reuse cache produced on develop-cache-test (prefix match; restores the most recent).
                   - v1-ccache-{{ arch }}-develop-cache-test-
       # WARNING! If you edit anything between here and save_cache, remember to bump version or invalidate the cache manually.
-      - run:
-          name: Build
-          command: |
-            export CCACHE_DIR="$HOME/.ccache"
-            export CCACHE_BASEDIR="$(pwd)"
-            export CCACHE_NOHASHDIR=1
-            mkdir -p "$CCACHE_DIR"
-            export CMAKE_OPTIONS="${CMAKE_OPTIONS:-} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
-            ccache -z
+      - when:
+          condition:
+            and:
+              - equal: ["", << pipeline.git.tag >>]
+          steps:
+            - run:
+                name: Build (ccache)
+                command: |
+                  export CCACHE_DIR="$HOME/.ccache"
+                  export CCACHE_BASEDIR="$(pwd)"
+                  export CCACHE_NOHASHDIR=1
+                  mkdir -p "$CCACHE_DIR"
+                  export CMAKE_OPTIONS="${CMAKE_OPTIONS:-} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+                  ccache -z
 
-            scripts/ci/build.sh
+                  scripts/ci/build.sh
 
-            ccache -s
+                  ccache -s
+      - when:
+          condition:
+            or:
+              - not:
+                  equal: ["", << pipeline.git.tag >>]
+          steps:
+            - run:
+                name: Build (no ccache)
+                command: scripts/ci/build.sh
 
       # On `develop-cache-test` we always generate a fresh cache by never restoring and by saving under a unique key.
       - when:
