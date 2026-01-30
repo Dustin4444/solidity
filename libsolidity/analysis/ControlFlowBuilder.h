@@ -72,6 +72,7 @@ private:
 	bool visit(FunctionTypeName const& _functionTypeName) override;
 	bool visit(InlineAssembly const& _inlineAssembly) override;
 	void visit(yul::Statement const& _statement) override;
+	void operator()(yul::Block const& _block) override;
 	void operator()(yul::If const& _if) override;
 	void operator()(yul::Switch const& _switch) override;
 	void operator()(yul::ForLoop const& _for) override;
@@ -172,6 +173,18 @@ private:
 	CFGNode* m_placeholderExit = nullptr;
 
 	InlineAssembly const* m_inlineAssembly = nullptr;
+	std::vector<std::map<yul::YulName, CFGNode*>> m_yulFunctionsDefinitions;
+
+	CFGNode* findFunctionDefinition(yul::YulName const& _name) const
+	{
+		for (auto const& functionScope : m_yulFunctionsDefinitions)
+		{
+			if (auto const& it = functionScope.find(_name);
+				it != functionScope.end())
+				return it->second;
+		}
+		return nullptr;
+	}
 
 	/// Helper class that replaces the break and continue jump destinations for the
 	/// current scope and restores the originals at the end of the scope.

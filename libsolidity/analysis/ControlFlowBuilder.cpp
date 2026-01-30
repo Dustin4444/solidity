@@ -462,8 +462,28 @@ void ControlFlowBuilder::visit(yul::Statement const& _statement)
 {
 	solAssert(m_currentNode && m_inlineAssembly, "");
 	solAssert(nativeLocationOf(_statement) == originLocationOf(_statement), "");
-	m_currentNode->location = langutil::SourceLocation::smallestCovering(m_currentNode->location, nativeLocationOf(_statement));
+	// Omit functions definitions as they need separated nodes, created in yul::Block and filled in
+	// yul::FunctionDefinition.
+	if (!std::holds_alternative<yul::FunctionDefinition>(_statement))
+		m_currentNode->location = langutil::SourceLocation::smallestCovering(m_currentNode->location, nativeLocationOf(_statement));
 	ASTWalker::visit(_statement);
+}
+
+void ControlFlowBuilder::operator()(yul::Block const& _block)
+{
+	solAssert(m_currentNode && m_inlineAssembly, "");
+	// Create new functions definitions scope.
+	m_yulFunctionsDefinitions.push_back({});
+	// Iterate trough functions definitions and assign them new graph nodes. They gonna be attached when called.
+	for (auto const& statement : _block.statements)
+	{
+		if (auto const* functionDefinition = std::get_if<yul::FunctionDefinition>(&statement))
+			m_yulFunctionsDefinitions.back()[functionDefinition->name] = newLabel();
+	}
+
+	walkVector(_block.statements);
+	// Delete functions definitions on scope exit. They cannot be available for lower scopes.
+	m_yulFunctionsDefinitions.pop_back();
 }
 
 void ControlFlowBuilder::operator()(yul::If const& _if)
@@ -583,6 +603,19 @@ void ControlFlowBuilder::operator()(yul::FunctionCall const& _functionCall)
 	solAssert(m_currentNode && m_inlineAssembly, "");
 	yul::ASTWalker::operator()(_functionCall);
 
+	if (auto const* identifier = std::get_if<yul::Identifier>(&_functionCall.functionName))
+	{
+		if (auto* functionNode = findFunctionDefinition(identifier->name))
+		{
+			// Connect function definition node to current node (the function is called from here).
+			connect(m_currentNode, functionNode);
+			// Set function exit to current node. We assume that the function always return. Which does not have to be
+			// true. It can revert or terminate.
+			// TODO: Analyze function control flow properly.
+			connect(functionNode, m_currentNode);
+		}
+	}
+
 	if (auto const* builtinFunction = resolveBuiltinFunction(_functionCall.functionName, m_inlineAssembly->dialect()))
 	{
 		if (builtinFunction->controlFlowSideEffects.canTerminate)
@@ -594,11 +627,21 @@ void ControlFlowBuilder::operator()(yul::FunctionCall const& _functionCall)
 	}
 }
 
-void ControlFlowBuilder::operator()(yul::FunctionDefinition const&)
+void ControlFlowBuilder::operator()(yul::FunctionDefinition const& _functionDefinition)
 {
 	solAssert(m_currentNode && m_inlineAssembly, "");
-	// External references cannot be accessed from within functions, so we can ignore their control flow.
+	// Create new node to which current node will be connected. This way we jump over the function definition.
+	auto newNode = newLabel();
+	connect(m_currentNode, newNode);
+	// Get already created earlier function definition node.
+	m_currentNode = findFunctionDefinition(_functionDefinition.name);
+	// All functions definitions should have been registered before we reach them. They are registered in yul::Block.
+	solAssert(m_currentNode, "Function definition does not exist.");
+	m_currentNode->location = langutil::SourceLocation::smallestCovering(m_currentNode->location, nativeLocationOf(_functionDefinition));
 	// TODO: we might still want to track if they always revert or return, though.
+	walkVector(_functionDefinition.body.statements);
+	// Continue building the graph with the new node. Function definition node will be connected when it is called.
+	m_currentNode = newNode;
 }
 
 void ControlFlowBuilder::operator()(yul::Leave const&)
