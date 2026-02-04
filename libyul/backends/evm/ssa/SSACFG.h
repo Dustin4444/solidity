@@ -67,6 +67,9 @@ public:
 			Unreachable
 		};
 		using ValueType = std::uint32_t;
+		struct Hash {
+			size_t operator()(ValueId const& _valueId) const { return std::hash<ValueType>{}(_valueId.m_value); }
+		};
 
 		constexpr ValueId() = default;
 		constexpr ValueId(ValueType const _value, Kind const _kind): m_value(_value), m_kind(_kind) {}

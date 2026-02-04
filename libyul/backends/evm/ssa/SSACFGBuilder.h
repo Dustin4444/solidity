@@ -18,7 +18,7 @@
 /**
 * Transformation of a Yul AST into a control flow graph.
 *
-* Based on https://doi.org/10.1007/978-3-642-37051-9_6
+* Based on https://doi.org/10.1007/978-3-642-	37051-9_6
 * Braun, Matthias, et al. "Simple and efficient construction of static single assignment form."
 * Compiler Construction: 22nd International Conference, CC 2013,
 * ETAPS 2013, Rome, Italy, March 16-24, 2013. Proceedings 22. Springer Berlin Heidelberg, 2013.
@@ -99,6 +99,7 @@ private:
 	SSACFG::BlockId m_currentBlock;
 	SSACFG::BasicBlock& currentBlock() { return m_graph.block(m_currentBlock); }
 	Scope* m_scope = nullptr;
+	std::unordered_map<SSACFG::ValueId, std::set<SSACFG::ValueId>, SSACFG::ValueId::Hash> m_phiUsers;
 	Scope::Function const& lookupFunction(YulName _name) const;
 	Scope::Variable const& lookupVariable(YulName _name) const;
 

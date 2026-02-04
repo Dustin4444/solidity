@@ -32,11 +32,13 @@
 #include <libsolutil/StringUtils.h>
 #include <libsolutil/Visitor.h>
 
+#include <range/v3/algorithm/find.hpp>
 #include <range/v3/algorithm/replace.hpp>
 #include <range/v3/range/conversion.hpp>
 #include <range/v3/view/drop_last.hpp>
 #include <range/v3/view/enumerate.hpp>
 #include <range/v3/view/filter.hpp>
+#include <range/v3/view/remove.hpp>
 #include <range/v3/view/reverse.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/zip.hpp>
@@ -110,25 +112,24 @@ SSACFG::ValueId SSACFGBuilder::tryRemoveTrivialPhi(SSACFG::ValueId _phi)
 
 	m_graph.block(phiInfo.block).phis.erase(_phi);
 
-	std::vector<SSACFG::ValueId> phiUses;
+	std::vector<SSACFG::ValueId> phiUsers = m_phiUsers[_phi] | ranges::views::remove(_phi) | ranges::to_vector;
+	for (auto const& phiUser: phiUsers)
+	{
+		yulAssert(phiUser.hasValue());
+		auto& phiUserInfo = m_graph.phiInfo(phiUser);
+		for (auto& arg: phiUserInfo.arguments)
+			if (arg == _phi)
+			{
+				arg = same;
+				m_phiUsers[same].insert(phiUser);
+			}
+	}
+	m_phiUsers.erase(_phi);
+	m_phiUsers[same].erase(_phi);
+
 	for (SSACFG::BlockId::ValueType blockIdValue = 0; blockIdValue < m_graph.numBlocks(); ++blockIdValue)
 	{
 		auto& block = m_graph.block(SSACFG::BlockId{blockIdValue});
-		for (auto blockPhi: block.phis)
-		{
-			yulAssert(blockPhi.hasValue());
-			yulAssert(blockPhi != _phi, "Phis should be defined in exactly one block, _phi was erased.");
-			auto& blockPhiInfo = m_graph.phiInfo(blockPhi);
-			bool usedInPhi = false;
-			for (auto& arg: blockPhiInfo.arguments)
-				if (arg == _phi)
-				{
-					arg = same;
-					usedInPhi = true;
-				}
-			if (usedInPhi)
-				phiUses.push_back(blockPhi);
-		}
 		for (auto& op: block.operations)
 			ranges::replace(op.inputs, _phi, same);
 		std::visit(util::GenericVisitor{
@@ -148,11 +149,12 @@ SSACFG::ValueId SSACFGBuilder::tryRemoveTrivialPhi(SSACFG::ValueId _phi)
 			[](SSACFG::BasicBlock::Terminated&) {}
 		}, block.exit);
 	}
+
 	for (auto& currentVariableDefs: m_currentDef | ranges::views::values)
 		ranges::replace(currentVariableDefs, _phi, same);
 
-	for (auto phiUse: phiUses)
-		tryRemoveTrivialPhi(phiUse);
+	for (auto phi: phiUsers)
+		tryRemoveTrivialPhi(phi);
 
 	return same;
 }
@@ -674,6 +676,7 @@ SSACFG::ValueId SSACFGBuilder::addPhiOperands(Scope::Variable const& _variable, 
 	{
 		auto const var = readVariable(_variable, pred);
 		m_graph.phiInfo(_phi).arguments.emplace_back(var);
+		m_phiUsers[var].insert(_phi);
 	}
 	// we call tryRemoveTrivialPhi explicitly to avoid removing trivial phis in unsealed blocks
 	return _phi;
