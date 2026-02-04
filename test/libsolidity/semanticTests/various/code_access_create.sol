@@ -26,5 +26,5 @@ contract C {
 // bytecodeFormat: legacy
 // ----
 // test() -> 7
-// gas legacy: 76647
+// gas legacy: 76609
 // gas legacy code: 24200

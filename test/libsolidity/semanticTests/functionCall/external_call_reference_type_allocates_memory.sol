@@ -1,3 +1,5 @@
+pragma abicoder v2;
+
 interface I {
     function getString() external returns (string memory);
     function getBytes() external returns (bytes memory);
@@ -68,7 +70,6 @@ contract C {
 }
 // ====
 // EVMVersion: >=byzantium
-// compileViaYul: true
 // ----
 // testString() -> 160
 // testBytes() -> 160

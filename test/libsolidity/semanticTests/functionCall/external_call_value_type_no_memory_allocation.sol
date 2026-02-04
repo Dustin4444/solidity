@@ -63,8 +63,6 @@ contract C {
         memDiff = freeMemory() - memBefore;  // Should be 0, not 320 (10 * 32)
     }
 }
-// ====
-// compileViaYul: true
 // ----
 // testBool() -> 0
 // testUint() -> 0

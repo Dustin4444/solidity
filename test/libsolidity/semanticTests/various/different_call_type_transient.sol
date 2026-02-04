@@ -47,5 +47,5 @@ contract Test {
 // testCall() -> 0, 8
 // testStatic() -> false
 // gas irOptimized: 96900597
-// gas legacy: 96901136
-// gas legacyOptimized: 96900725
+// gas legacy: 96901101
+// gas legacyOptimized: 96900687

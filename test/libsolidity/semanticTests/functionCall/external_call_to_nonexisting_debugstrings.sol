@@ -28,10 +28,10 @@ contract C {
 // constructor(), 1 ether ->
 // gas irOptimized: 97842
 // gas irOptimized code: 273800
-// gas legacy: 123258
-// gas legacy code: 682400
-// gas legacyOptimized: 106969
-// gas legacyOptimized code: 386400
+// gas legacy: 123018
+// gas legacy code: 679400
+// gas legacyOptimized: 106707
+// gas legacyOptimized code: 383200
 // f(uint256): 0 -> FAILURE, hex"08c379a0", 0x20, 37, "Target contract does not contain", " code"
 // f(uint256): 1 -> FAILURE, hex"08c379a0", 0x20, 37, "Target contract does not contain", " code"
 // f(uint256): 2 -> FAILURE, hex"08c379a0", 0x20, 37, "Target contract does not contain", " code"

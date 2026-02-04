@@ -22,6 +22,5 @@ contract C {
 }
 // ====
 // EVMVersion: >=byzantium
-// compileViaYul: true
 // ----
 // testReturndataAccessible() -> 32, 42

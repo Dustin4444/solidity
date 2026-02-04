@@ -32,7 +32,7 @@ contract C is SubA, SubB {
 // gas irOptimized: 21693
 // convertSubA() -> 1, 2
 // gas irOptimized: 22259
-// gas legacy: 23286
+// gas legacy: 23210
 // convertSubB() -> 1, 3
 // gas irOptimized: 22130
-// gas legacy: 23154
+// gas legacy: 23078

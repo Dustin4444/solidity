@@ -11,5 +11,5 @@ contract D {
 }
 // ----
 // f() -> 2
-// gas legacy: 76585
+// gas legacy: 76550
 // gas legacy code: 23600

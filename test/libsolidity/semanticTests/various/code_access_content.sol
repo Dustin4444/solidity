@@ -43,5 +43,5 @@ contract C {
 // gas legacy: 76575
 // gas legacy code: 23600
 // testCreation() -> true
-// gas legacy: 76999
+// gas legacy: 76961
 // gas legacy code: 23600

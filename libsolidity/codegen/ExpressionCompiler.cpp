@@ -2942,11 +2942,10 @@ void ExpressionCompiler::appendExternalFunctionCall(
 		utils().fetchFreeMemoryPointer();
 		// Stack: return_data_start
 
-		// The old decoder did not allocate any memory (i.e. did not touch the free
-		// memory pointer), but kept references to the return data for
-		// (statically-sized) arrays
+		// Only update free memory pointer if any return type needs memory (reference types).
+		// Value types are decoded directly to the stack via mload.
 		bool needToUpdateFreeMemoryPtr = false;
-		if (dynamicReturnSize || m_context.useABICoderV2())
+		if (dynamicReturnSize)
 			needToUpdateFreeMemoryPtr = true;
 		else
 			for (auto const& retType: returnTypes)

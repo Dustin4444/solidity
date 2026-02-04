@@ -43,13 +43,13 @@ contract D {
 // constructor() ->
 // gas irOptimized: 126462
 // gas irOptimized code: 207200
-// gas legacy: 149480
-// gas legacy code: 501200
-// gas legacyOptimized: 125846
-// gas legacyOptimized code: 203400
+// gas legacy: 148993
+// gas legacy code: 495200
+// gas legacyOptimized: 125590
+// gas legacyOptimized code: 200200
 // destroy() ->
 // createAndDestroy() ->
-// gas legacy: 67048
+// gas legacy: 67013
 // gas legacy code: 92600
-// gas legacyOptimized: 65677
+// gas legacyOptimized: 65639
 // gas legacyOptimized code: 39400
