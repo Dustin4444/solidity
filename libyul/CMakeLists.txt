@@ -97,6 +97,7 @@ add_library(yul
 	backends/evm/ssa/StackLayout.h
 	backends/evm/ssa/StackLayoutGenerator.cpp
 	backends/evm/ssa/StackLayoutGenerator.h
+	backends/evm/ssa/StackLayout.h
 	backends/evm/ssa/StackShuffler.cpp
 	backends/evm/ssa/StackShuffler.h
 	backends/evm/ssa/StackUtils.cpp
