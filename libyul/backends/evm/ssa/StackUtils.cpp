@@ -21,6 +21,7 @@
 #include <libyul/backends/evm/ssa/StackShuffler.h>
 
 #include <range/v3/numeric/accumulate.hpp>
+#include <range/v3/view/iota.hpp>
 
 #include <boost/container/flat_map.hpp>
 
@@ -125,6 +126,7 @@ CallSites solidity::yul::ssa::gatherCallSites(SSACFG const& _cfg)
 	{
 		auto const blockId = toVisit.back();
 		toVisit.pop_back();
+		visited[blockId.value] = true;
 		auto const& block = _cfg.block(blockId);
 		block.forEachExit([&toVisit, &visited](SSACFG::BlockId const& _exitBlockId){
 			if (!visited[_exitBlockId.value])
