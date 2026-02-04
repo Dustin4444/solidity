@@ -569,9 +569,6 @@ object \"C_54\" {
                         _13 := returndatasize()
                     }
 
-                    // update freeMemoryPointer according to dynamic return size
-                    finalize_allocation(_10, _13)
-
                     // decode return parameters from external try-call into retVars
                     expr_47 :=  abi_decode_tuple_t_int256_fromMemory(_10, add(_10, _13))
                 }
@@ -714,14 +711,6 @@ object \"C_54\" {
                             let _6 := 32
                             if gt(32, returndatasize()) { _6 := returndatasize() }
                             /// @src 0:79:510  \"contract C...\"
-                            let newFreePtr := add(_4, and(add(_6, 31), not(31)))
-                            if or(gt(newFreePtr, 0xffffffffffffffff), lt(newFreePtr, _4))
-                            {
-                                mstore(0, shl(224, 0x4e487b71))
-                                mstore(4, 0x41)
-                                revert(0, 0x24)
-                            }
-                            mstore(64, newFreePtr)
                             if slt(sub(/** @src 0:482:490  \"this.f()\" */ add(_4, _6), /** @src 0:79:510  \"contract C...\" */ _4), /** @src 0:482:490  \"this.f()\" */ 32)
                             /// @src 0:79:510  \"contract C...\"
                             { revert(0, 0) }
@@ -1406,9 +1395,6 @@ object \"D_72\" {
                         _13 := returndatasize()
                     }
 
-                    // update freeMemoryPointer according to dynamic return size
-                    finalize_allocation(_10, _13)
-
                     // decode return parameters from external try-call into retVars
                     expr_47 :=  abi_decode_tuple_t_int256_fromMemory(_10, add(_10, _13))
                 }
@@ -1558,14 +1544,6 @@ object \"D_72\" {
                             let _6 := 32
                             if gt(32, returndatasize()) { _6 := returndatasize() }
                             /// @src 1:91:181  \"contract D is C(3)...\"
-                            let newFreePtr := add(_4, and(add(_6, 31), not(31)))
-                            if or(gt(newFreePtr, 0xffffffffffffffff), lt(newFreePtr, _4))
-                            {
-                                mstore(0, shl(224, 0x4e487b71))
-                                mstore(4, 0x41)
-                                revert(0, 0x24)
-                            }
-                            mstore(64, newFreePtr)
                             if slt(sub(/** @src 0:482:490  \"this.f()\" */ add(_4, _6), /** @src 1:91:181  \"contract D is C(3)...\" */ _4), /** @src 0:482:490  \"this.f()\" */ 32)
                             /// @src 1:91:181  \"contract D is C(3)...\"
                             { revert(0, 0) }

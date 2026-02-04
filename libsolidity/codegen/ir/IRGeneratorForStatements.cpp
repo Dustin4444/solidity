@@ -49,6 +49,7 @@
 #include <libsolutil/Visitor.h>
 
 #include <range/v3/algorithm/all_of.hpp>
+#include <range/v3/algorithm/any_of.hpp>
 #include <range/v3/view/transform.hpp>
 
 using namespace solidity;
@@ -2704,8 +2705,10 @@ void IRGeneratorForStatements::appendExternalFunctionCall(
 				</supportsReturnData>
 			</isReturndataSizeDynamic>
 
-			// update freeMemoryPointer according to dynamic return size
-			<finalizeAllocation>(<pos>, <returnDataSizeVar>)
+			<?needToUpdateFreeMemoryPtr>
+				// update freeMemoryPointer according to dynamic return size
+				<finalizeAllocation>(<pos>, <returnDataSizeVar>)
+			</needToUpdateFreeMemoryPtr>
 
 			// decode return parameters from external try-call into retVars
 			<?+retVars> <retVars> := </+retVars> <abiDecode>(<pos>, add(<pos>, <returnDataSizeVar>))
@@ -2738,6 +2741,15 @@ void IRGeneratorForStatements::appendExternalFunctionCall(
 		templ("success", m_context.newYulVariable());
 	templ("allocateUnbounded", m_utils.allocateUnboundedFunction());
 	templ("finalizeAllocation", m_utils.finalizeAllocationFunction());
+
+	// Only update free memory pointer if any return type needs memory (reference types).
+	// Value types are decoded directly to the stack via mload.
+	bool needToUpdateFreeMemoryPtr = ranges::any_of(
+		returnInfo.returnTypes,
+		[](auto const& t) { return !t->decodingType()->isValueType(); }
+	);
+	templ("needToUpdateFreeMemoryPtr", needToUpdateFreeMemoryPtr);
+
 	templ("shl28", m_utils.shiftLeftFunction(8 * (32 - 4)));
 
 	templ("funSel", IRVariable(_functionCall.expression()).part("functionSelector").name());
