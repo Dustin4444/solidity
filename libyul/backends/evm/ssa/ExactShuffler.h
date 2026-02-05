@@ -1,6 +1,5 @@
 #pragma once
 #include "OperationForwardShuffler.h"
-#include "libyul/backends/evm/SSACFGStackLayout.h"
 #include "libyul/backends/evm/SSACFGStackShuffler.h"
 #include "libyul/backends/evm/ssa/SSACFG.h"
 #include "libyul/backends/evm/ssa/StackShuffler.h"

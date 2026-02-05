@@ -69,8 +69,6 @@ add_library(yul
 	backends/evm/OptimizedEVMCodeTransform.cpp
 	backends/evm/OptimizedEVMCodeTransform.h
 	backends/evm/SSACFGStackShuffler.h
-	backends/evm/SSACFGStackLayout.cpp
-	backends/evm/SSACFGStackLayout.h
 	backends/evm/SSACFGEVMCodeTransform.cpp
     backends/evm/SSACFGEVMCodeTransform.h
 	backends/evm/StackHelpers.h

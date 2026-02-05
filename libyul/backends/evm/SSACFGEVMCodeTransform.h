@@ -18,14 +18,16 @@
 
 #pragma once
 
-#include <libyul/backends/evm/EVMDialect.h>
-#include <libyul/backends/evm/ssa/ControlFlow.h>
-#include <libyul/backends/evm/ssa/SSACFG.h>
-#include <libyul/backends/evm/SSACFGStackLayout.h>
-#include <libyul/backends/evm/ssa/TerminationPathAnalysis.h>
+#include "ssa/StackLayout.h"
+
+
 #include <libyul/AST.h>
 #include <libyul/Exceptions.h>
 #include <libyul/Scope.h>
+#include <libyul/backends/evm/EVMDialect.h>
+#include <libyul/backends/evm/ssa/ControlFlow.h>
+#include <libyul/backends/evm/ssa/SSACFG.h>
+#include <libyul/backends/evm/ssa/TerminationPathAnalysis.h>
 
 #include <libsolutil/Visitor.h>
 
@@ -151,6 +153,7 @@ private:
 	BuiltinContext& m_builtinContext;
 	// ControlFlow const& m_controlFlow;
 	SSACFG const& m_cfg;
+	CallSites const m_callSites;
 	LivenessAnalysis const& m_liveness;
 	TerminationPathAnalysis m_junkBlockFinder;
 	SSACFGStackLayout const m_stackLayout;
