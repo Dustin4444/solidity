@@ -26,10 +26,11 @@
 #include <solc/Exceptions.h>
 
 #include "libyul/backends/evm/ssa/ControlFlow.h"
-#include "libyul/backends/evm/ssa/SSACFGBuilder.h"
 #include "libyul/backends/evm/ssa/LivenessAnalysis.h"
-#include "libyul/backends/evm/ssa/TerminationPathAnalysis.h"
+#include "libyul/backends/evm/ssa/SSACFGBuilder.h"
 #include "libyul/backends/evm/ssa/StackLayoutGenerator.h"
+#include "libyul/backends/evm/ssa/StackUtils.h"
+#include "libyul/backends/evm/ssa/TerminationPathAnalysis.h"
 #include "license.h"
 #include "solidity/BuildInfo.h"
 
@@ -1429,7 +1430,7 @@ void CommandLineInterface::assembleYul(yul::YulStack::Language _language, yul::Y
 				*obj.analysisInfo,
 				*obj.dialect(),
 				obj.code()->root(),
-				true
+				false
 			);
 
 			std::string mode = m_options.compiler.outputs.ssaCfgDot;
@@ -1452,13 +1453,10 @@ void CommandLineInterface::assembleYul(yul::YulStack::Language _language, yul::Y
 				// Generate stack layouts for all function graphs
 				std::vector<yul::ssa::SSACFGStackLayout> stackLayouts;
 				for (size_t index = 0; index < controlFlow->functionGraphs.size(); ++index)
-				{
-					yul::ssa::TerminationPathAnalysis terminationAnalysis(*controlFlow->functionGraphs[index], liveness.cfgLiveness[index]->topologicalSort());
 					stackLayouts.push_back(yul::ssa::StackLayoutGenerator::generate(
 						*liveness.cfgLiveness[index],
-						terminationAnalysis
+						yul::ssa::gatherCallSites(*controlFlow->functionGraphs[index])
 					));
-				}
 
 				// Build combined DOT output for all graphs
 				std::ostringstream output;
