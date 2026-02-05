@@ -59,6 +59,10 @@ public:
 
 	static bool typeSupportedByOldABIEncoder(Type const& _type, bool _isLibraryCall);
 
+	/// Checks that `_arrayLengthExpression` is allowed for array length value.
+	/// @returns a value of length or report an error.
+	static u256 checkArrayLengthExpression(Expression const& _arrayLengthExpression, langutil::ErrorReporter& _errorReporter);
+
 private:
 
 	bool visit(ContractDefinition const& _contract) override;
