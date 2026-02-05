@@ -26,8 +26,6 @@
 
 #include <test/Common.h>
 
-#include <libyul/backends/evm/SSACFGStackLayout.h>
-
 #include <liblangutil/Scanner.h>
 #include <libsolutil/AnsiColorized.h>
 #include <libsolutil/StringUtils.h>

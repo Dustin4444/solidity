@@ -23,6 +23,8 @@
 
 #include <libyul/backends/evm/SSACFGEVMCodeTransform.h>
 
+#include "ssa/StackUtils.h"
+
 #include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
 
 #include <libyul/backends/evm/ssa/SSACFGBuilder.h>
@@ -143,16 +145,22 @@ SSACFGEVMCodeTransform::SSACFGEVMCodeTransform
 	m_assembly(_assembly),
 	m_builtinContext(_builtinContext),
 	m_cfg(_cfg),
+	m_callSites(gatherCallSites(m_cfg)),
 	m_liveness(_liveness),
 	m_junkBlockFinder(_cfg, _liveness.topologicalSort()),
-	m_stackLayout(StackLayoutGenerator::generate(_liveness, m_junkBlockFinder)),
+	m_stackLayout(StackLayoutGenerator::generate(_liveness, m_callSites)),
 	m_assemblyCallbacks{
 		.cfg = &_cfg,
 		.assembly = &_assembly,
-		.callSites = &m_stackLayout.callSites,
+		.callSites = &m_callSites,
 		.returnLabels = &m_returnLabels
 	},
-	m_stackData(m_stackLayout.blockLayouts[m_cfg.entry.value].stackIn),
+	m_stackData([&]
+	{
+		auto const& entryLayout = m_stackLayout[m_cfg.entry];
+		yulAssert(entryLayout);
+		return entryLayout->stackIn;
+	}()),
 	m_stack(m_stackData, m_assemblyCallbacks),
 	m_functionLabels(std::move(_functionLabels)),
 	m_generatedBlocks(_cfg.numBlocks(), false)
@@ -184,17 +192,18 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 		std::cout << "\tGenerating for Block " << _block.value << " with label " << m_blockLabels[_block.value] << std::endl;
 
 	auto const& blockLayout = m_stackLayout[_block];
-	assertLayoutCompatibility(m_stack.data(), blockLayout.stackIn);
-	m_stackData = blockLayout.stackIn;
+	yulAssert(blockLayout);
+	assertLayoutCompatibility(m_stack.data(), blockLayout->stackIn);
+	m_stackData = blockLayout->stackIn;
 	m_stack = Stack(m_stackData, m_assemblyCallbacks); // this can set some stuff to junk
 	// todo assert on all exits that the stack height is fine
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 
-	yulAssert(m_cfg.block(_block).operations.size() == blockLayout.operationIn.size(), "We need as many stack layouts as we have operations");
+	yulAssert(m_cfg.block(_block).operations.size() == blockLayout->operationIn.size(), "We need as many stack layouts as we have operations");
 
 	// for each op with respective live-out, descend into op
 	size_t operationIndex = 0;
-	for (auto const& [operation, operationStackIn]: ranges::views::zip( m_cfg.block(_block).operations, blockLayout.operationIn))
+	for (auto const& [operation, operationStackIn]: ranges::views::zip( m_cfg.block(_block).operations, blockLayout->operationIn))
 	{
 		bool const hasReturnLabel = std::holds_alternative<SSACFG::Call>(operation.kind)
 									&& std::get<SSACFG::Call>(operation.kind).canContinue;
@@ -220,7 +229,7 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 			if (auto const* call = std::get_if<SSACFG::Call>(&operation.kind))
 				if (call->canContinue)
 				{
-					auto const callSiteID = m_stackLayout.callSites.callSiteID(&call->call.get());
+					auto const callSiteID = m_callSites.callSiteID(&call->call.get());
 					yulAssert(callSiteID.has_value());
 					requiredStackTop.emplace_back(Slot::makeFunctionCallReturnLabel(*callSiteID));
 				}
@@ -248,7 +257,7 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 		{
 			auto const returnLabelSlot = *(ranges::rbegin(m_stack.data()) + static_cast<std::ptrdiff_t>(operation.inputs.size()));
 			yulAssert(std::holds_alternative<SSACFG::Call>(operation.kind));
-			yulAssert(returnLabelSlot.isFunctionCallReturnLabel() && &m_stackLayout.callSites.functionCall(returnLabelSlot.functionCallReturnLabel()) == &std::get<SSACFG::Call>(operation.kind).call.get());
+			yulAssert(returnLabelSlot.isFunctionCallReturnLabel() && &m_callSites.functionCall(returnLabelSlot.functionCallReturnLabel()) == &std::get<SSACFG::Call>(operation.kind).call.get());
 		}
 
 		yulAssert(
@@ -277,7 +286,7 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 		++operationIndex;
 	}
 
-	shuffleStack(m_stackLayout[_block].stackOut);
+	shuffleStack(blockLayout->stackOut);
 
 	util::GenericVisitor exitVisitor{
 		[&](SSACFG::BasicBlock::MainExit const& /*_mainExit*/)
@@ -289,7 +298,8 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 			if constexpr (debugOutput)
 				std::cout << "\t\tJUMP Creating target stack for jump " << _block.value << " -> " << _jump.target.value << std::endl;
 
-			shuffleStack(m_stackLayout[_jump.target].stackIn, SSACFG::Edge{_block, _jump.target});
+			yulAssert(m_stackLayout[_jump.target]);
+			shuffleStack(m_stackLayout[_jump.target]->stackIn, SSACFG::Edge{_block, _jump.target});
 			m_assembly.appendJumpTo(m_blockLabels[_jump.target.value]);
 			if (!m_generatedBlocks[_jump.target.value])
 				(*this)(_jump.target);
@@ -301,16 +311,18 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 				m_assembly.appendJumpToIf(m_blockLabels[_conditionalJump.nonZero.value]);
 				// update symbolic stack by popping the condition
 				m_stack.pop<false>();
-				assertLayoutCompatibility(m_stack.data(), m_stackLayout[_conditionalJump.nonZero].stackIn);
+				yulAssert(m_stackLayout[_conditionalJump.nonZero]);
+				assertLayoutCompatibility(m_stack.data(), m_stackLayout[_conditionalJump.nonZero]->stackIn);
 			}
 
 			StackData const nonZeroStackData = m_stackData;
 
+			yulAssert(m_stackLayout[_conditionalJump.zero]);
 			if constexpr (debugOutput)
-				std::cout << "\t\tJUMPI Creating stack for zero layout (to Block " << _conditionalJump.zero.value << ") " << stackToString(m_stack.data()) << " -> " << stackToString(m_stackLayout[_conditionalJump.zero].stackIn) << std::endl;
+				std::cout << "\t\tJUMPI Creating stack for zero layout (to Block " << _conditionalJump.zero.value << ") " << stackToString(m_stack.data()) << " -> " << stackToString(m_stackLayout[_conditionalJump.zero]->stackIn) << std::endl;
 
 			shuffleStack(
-				m_stackLayout[_conditionalJump.zero].stackIn,
+				m_stackLayout[_conditionalJump.zero]->stackIn,
 				SSACFG::Edge{_block, _conditionalJump.zero}
 			);
 			m_assembly.appendJumpTo(m_blockLabels[_conditionalJump.zero.value]);

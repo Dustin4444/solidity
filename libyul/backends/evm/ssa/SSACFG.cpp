@@ -23,7 +23,7 @@
 #include <libyul/backends/evm/ssa/JunkAdmittingBlocksFinder.h>
 #include <libyul/backends/evm/ssa/io/DotExporterBase.h>
 #include <libyul/backends/evm/ssa/Stack.h>
-#include <libyul/backends/evm/SSACFGStackLayout.h>
+#include <libyul/backends/evm/ssa/StackLayout.h>
 
 #include <libsolutil/StringUtils.h>
 #include <libsolutil/Visitor.h>
@@ -104,11 +104,11 @@ protected:
 				auto const& blockLayout = (*m_stackLayout)[_blockId];
 				m_result << fmt::format(
 					"StackIn: {}\\l\\\n",
-					stackToString(blockLayout.stackIn)
+					stackToString(blockLayout->stackIn)
 				);
 				m_result << fmt::format(
 					"StackOut: {}\\l\\n",
-					stackToString(blockLayout.stackOut)
+					stackToString(blockLayout->stackOut)
 				);
 			}
 

@@ -24,6 +24,9 @@
 
 
 #include <libsolidity/interface/CompilerStack.h>
+
+#include "libyul/backends/evm/ssa/StackUtils.h"
+
 #include <libsolidity/interface/ImportRemapper.h>
 
 #include <libsolidity/analysis/ControlFlowAnalyzer.h>
@@ -1092,7 +1095,7 @@ std::optional<std::string> CompilerStack::ssaCfgDot(std::string const& _contract
 				ssa::TerminationPathAnalysis terminationAnalysis(*controlFlow->functionGraphs[index], liveness.cfgLiveness[index]->topologicalSort());
 				stackLayouts.push_back(ssa::StackLayoutGenerator::generate(
 					*liveness.cfgLiveness[index],
-					terminationAnalysis
+					ssa::gatherCallSites(*controlFlow->functionGraphs[index])
 				));
 			}
 
