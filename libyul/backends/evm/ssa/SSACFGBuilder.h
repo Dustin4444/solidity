@@ -99,7 +99,6 @@ private:
 	SSACFG::BlockId m_currentBlock;
 	SSACFG::BasicBlock& currentBlock() { return m_graph.block(m_currentBlock); }
 	Scope* m_scope = nullptr;
-	std::unordered_map<SSACFG::ValueId, std::set<SSACFG::ValueId>, SSACFG::ValueId::Hash> m_phiUsers;
 	Scope::Function const& lookupFunction(YulName _name) const;
 	Scope::Variable const& lookupVariable(YulName _name) const;
 
@@ -156,6 +155,13 @@ private:
 	);
 
 	FunctionDefinition const* findFunctionDefinition(Scope::Function const* _function) const;
+
+	std::vector<std::set<SSACFG::ValueId>> m_phiUsers;
+
+	void registerPhiUser(SSACFG::ValueId _phi, SSACFG::ValueId _user);
+	std::vector<SSACFG::ValueId> phiUsers(SSACFG::ValueId _phi);
+	void clearPhiUsers(SSACFG::ValueId _phi);
+	void unregisterPhiUser(SSACFG::ValueId _phi, SSACFG::ValueId _user);
 };
 
 }

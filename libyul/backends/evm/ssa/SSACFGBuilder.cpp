@@ -32,13 +32,13 @@
 #include <libsolutil/StringUtils.h>
 #include <libsolutil/Visitor.h>
 
+#include <range/v3/action/remove.hpp>
 #include <range/v3/algorithm/find.hpp>
 #include <range/v3/algorithm/replace.hpp>
 #include <range/v3/range/conversion.hpp>
 #include <range/v3/view/drop_last.hpp>
 #include <range/v3/view/enumerate.hpp>
 #include <range/v3/view/filter.hpp>
-#include <range/v3/view/remove.hpp>
 #include <range/v3/view/reverse.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/zip.hpp>
@@ -112,20 +112,21 @@ SSACFG::ValueId SSACFGBuilder::tryRemoveTrivialPhi(SSACFG::ValueId _phi)
 
 	m_graph.block(phiInfo.block).phis.erase(_phi);
 
-	std::vector<SSACFG::ValueId> phiUsers = m_phiUsers[_phi] | ranges::views::remove(_phi) | ranges::to_vector;
-	for (auto const& phiUser: phiUsers)
+	std::vector<SSACFG::ValueId> usersOfPhi = phiUsers(_phi) | ranges::actions::remove(_phi);
+	for (auto const& phiUser: usersOfPhi)
 	{
+		yulAssert(phiUser.isPhi());
 		yulAssert(phiUser.hasValue());
 		auto& phiUserInfo = m_graph.phiInfo(phiUser);
 		for (auto& arg: phiUserInfo.arguments)
 			if (arg == _phi)
 			{
 				arg = same;
-				m_phiUsers[same].insert(phiUser);
+				registerPhiUser(same, phiUser);
 			}
 	}
-	m_phiUsers.erase(_phi);
-	m_phiUsers[same].erase(_phi);
+	clearPhiUsers(_phi);
+	unregisterPhiUser(same, _phi);
 
 	for (SSACFG::BlockId::ValueType blockIdValue = 0; blockIdValue < m_graph.numBlocks(); ++blockIdValue)
 	{
@@ -153,7 +154,7 @@ SSACFG::ValueId SSACFGBuilder::tryRemoveTrivialPhi(SSACFG::ValueId _phi)
 	for (auto& currentVariableDefs: m_currentDef | ranges::views::values)
 		ranges::replace(currentVariableDefs, _phi, same);
 
-	for (auto phi: phiUsers)
+	for (auto phi: usersOfPhi)
 		tryRemoveTrivialPhi(phi);
 
 	return same;
@@ -676,7 +677,7 @@ SSACFG::ValueId SSACFGBuilder::addPhiOperands(Scope::Variable const& _variable, 
 	{
 		auto const var = readVariable(_variable, pred);
 		m_graph.phiInfo(_phi).arguments.emplace_back(var);
-		m_phiUsers[var].insert(_phi);
+		registerPhiUser(var, _phi);
 	}
 	// we call tryRemoveTrivialPhi explicitly to avoid removing trivial phis in unsealed blocks
 	return _phi;
@@ -786,4 +787,40 @@ FunctionDefinition const* SSACFGBuilder::findFunctionDefinition(Scope::Function 
 	if (it != m_functionDefinitions.end())
 		return std::get<1>(*it);
 	return nullptr;
+}
+
+void SSACFGBuilder::registerPhiUser(SSACFG::ValueId _phi, SSACFG::ValueId _user)
+{
+	if (!_phi.isPhi())
+		return;
+
+	yulAssert(_phi.hasValue());
+	yulAssert(_user.isPhi());
+	if (m_phiUsers.size() <= _phi.value())
+		m_phiUsers.resize(_phi.value() + 1);
+	m_phiUsers[_phi.value()].insert(_user);
+}
+
+std::vector<SSACFG::ValueId> SSACFGBuilder::phiUsers(SSACFG::ValueId _phi)
+{
+	yulAssert(_phi.hasValue());
+	if (!_phi.isPhi() || _phi.value() >= m_phiUsers.size())
+		return {};
+	return m_phiUsers[_phi.value()] | ranges::to_vector;
+}
+
+void SSACFGBuilder::clearPhiUsers(SSACFG::ValueId _phi)
+{
+	yulAssert(_phi.hasValue());
+	if (_phi.value() < m_phiUsers.size())
+		m_phiUsers[_phi.value()].clear();
+}
+
+void SSACFGBuilder::unregisterPhiUser(SSACFG::ValueId _phi, SSACFG::ValueId _user)
+{
+	if (!_phi.isPhi())
+		return;
+	yulAssert(_phi.hasValue());
+	if (_phi.value() < m_phiUsers.size())
+		m_phiUsers[_phi.value()].erase(_user);
 }
