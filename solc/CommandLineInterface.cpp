@@ -1430,7 +1430,7 @@ void CommandLineInterface::assembleYul(yul::YulStack::Language _language, yul::Y
 				*obj.analysisInfo,
 				*obj.dialect(),
 				obj.code()->root(),
-				true
+				false
 			);
 
 			std::string mode = m_options.compiler.outputs.ssaCfgDot;

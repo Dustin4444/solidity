@@ -79,17 +79,19 @@ add_library(yul
 	backends/evm/ssa/BridgeFinder.h
 	backends/evm/ssa/ControlFlow.cpp
 	backends/evm/ssa/ControlFlow.h
-	backends/evm/ssa/JunkAdmittingBlocksFinder.cpp
-	backends/evm/ssa/JunkAdmittingBlocksFinder.h
 	backends/evm/ssa/LivenessAnalysis.cpp
 	backends/evm/ssa/LivenessAnalysis.h
 	backends/evm/ssa/PhiInverse.cpp
+	backends/evm/ssa/JunkAdmittingBlocksFinder.cpp
+	backends/evm/ssa/JunkAdmittingBlocksFinder.h
 	backends/evm/ssa/PhiInverse.h
 	backends/evm/ssa/SSACFGLoopNestingForest.cpp
 	backends/evm/ssa/SSACFGLoopNestingForest.h
 	backends/evm/ssa/SSACFG.cpp
 	backends/evm/ssa/SSACFG.h
 	backends/evm/ssa/SSACFGBuilder.cpp
+	backends/evm/ssa/SSACFGLocalCSE.h
+	backends/evm/ssa/SSACFGLocalCSE.cpp
 	backends/evm/ssa/Stack.h
 	backends/evm/ssa/Stack.cpp
 	backends/evm/ssa/SSACFGBuilder.h

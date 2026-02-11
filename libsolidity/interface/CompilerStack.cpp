@@ -78,8 +78,6 @@
 #include <libyul/optimiser/Suite.h>
 #include <libyul/backends/evm/ssa/ControlFlow.h>
 #include <libyul/backends/evm/ssa/SSACFGBuilder.h>
-#include <libyul/backends/evm/ssa/LivenessAnalysis.h>
-#include <libyul/backends/evm/ssa/TerminationPathAnalysis.h>
 #include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
 
 #include <liblangutil/Scanner.h>
@@ -1092,7 +1090,6 @@ std::optional<std::string> CompilerStack::ssaCfgDot(std::string const& _contract
 			std::vector<ssa::SSACFGStackLayout> stackLayouts;
 			for (size_t index = 0; index < controlFlow->functionGraphs.size(); ++index)
 			{
-				ssa::TerminationPathAnalysis terminationAnalysis(*controlFlow->functionGraphs[index], liveness.cfgLiveness[index]->topologicalSort());
 				stackLayouts.push_back(ssa::StackLayoutGenerator::generate(
 					*liveness.cfgLiveness[index],
 					ssa::gatherCallSites(*controlFlow->functionGraphs[index])

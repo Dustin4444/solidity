@@ -27,7 +27,7 @@
 #include <libyul/backends/evm/EVMDialect.h>
 #include <libyul/backends/evm/ssa/ControlFlow.h>
 #include <libyul/backends/evm/ssa/SSACFG.h>
-#include <libyul/backends/evm/ssa/TerminationPathAnalysis.h>
+#include <libyul/backends/evm/ssa/JunkAdmittingBlocksFinder.h>
 
 #include <libsolutil/Visitor.h>
 
@@ -155,7 +155,7 @@ private:
 	SSACFG const& m_cfg;
 	CallSites const m_callSites;
 	LivenessAnalysis const& m_liveness;
-	TerminationPathAnalysis m_junkBlockFinder;
+	JunkAdmittingBlocksFinder m_junkBlockFinder;
 	SSACFGStackLayout const m_stackLayout;
 	std::vector<StackTooDeepError> m_stackErrors;
 	AssemblyCallbacks m_assemblyCallbacks;

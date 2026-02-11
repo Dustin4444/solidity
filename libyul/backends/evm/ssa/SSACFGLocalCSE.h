@@ -15,29 +15,28 @@
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 // SPDX-License-Identifier: GPL-3.0
+/**
+ * Local common subexpression elimination on the SSA CFG.
+ *
+ * Deduplicates identical movable builtin calls within each basic block,
+ * replacing duplicate outputs with the first occurrence's output.
+ */
 
 #pragma once
 
-#include <libyul/backends/evm/ssa/SSACFGTopologicalSort.h>
 #include <libyul/backends/evm/ssa/SSACFG.h>
-
-#include <cstdint>
-#include <vector>
 
 namespace solidity::yul::ssa
 {
 
-/// Identifies blocks where stack balance constraints can be relaxed.
-/// These are blocks that either terminate execution or are bridge vertices
-/// with no path back to a function return. In such blocks, adding extra stack slots ("junk")
-/// doesn't affect correctness since the stack state never needs to reconcile with other paths.
-class TerminationPathAnalysis
+struct ControlFlow;
+
+class SSACFGLocalCSE
 {
 public:
-	explicit TerminationPathAnalysis(SSACFG const& _cfg, ForwardSSACFGTopologicalSort const& _topologicalSort);
-	bool blockAllowsAdditionOfJunk(SSACFG::BlockId const& _blockId) const;
+	static void run(ControlFlow& _controlFlow);
 private:
-	std::vector<std::uint8_t> m_blockAllowsJunk;
+	static void run(SSACFG& _cfg);
 };
 
 }
