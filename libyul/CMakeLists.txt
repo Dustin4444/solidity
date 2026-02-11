@@ -74,6 +74,8 @@ add_library(yul
 	backends/evm/VariableReferenceCounter.h
 	backends/evm/VariableReferenceCounter.cpp
 	backends/evm/ssa/BridgeFinder.h
+	backends/evm/ssa/CodeTransform.cpp
+	backends/evm/ssa/CodeTransform.h
 	backends/evm/ssa/ControlFlow.cpp
 	backends/evm/ssa/ControlFlow.h
 	backends/evm/ssa/JunkAdmittingBlocksFinder.cpp
