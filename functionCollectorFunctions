@@ -1,0 +1,24 @@
+# Todos:
+- fromMemory and forUseOnStack emitted "_fromMemory" and "_onStack" suffixes. I want to add enums
+  instead of the bools that do the same. or add a wrapper around the bools that can be formatted differently.
+- introduce separator character between components that is otherwise illegal
+    - some names have changed (including missing in-between bits like "_to_")
+
+# ABIFunctions
+- arrayStoreLengthForEncodingFunction -> `array_storeLengthForEncoding_{ArrayType}_{EncodingOptions}``
+- calldataAccessFunction -> `calldata_access_{Type}`
+- abiDecodingFunctionFunctionType -> `abi_decode_{Type}_{fromMemory}_{forUseOnStack}`
+- abiDecodingFunctionStruct -> `abi_decode_{StructType}_{_fromMemory}`
+- abiDecodingFunctionCalldataStruct -> `abi_decode_{StructType}`
+- abiDecodingFunctionByteArrayAvailableLength -> `abi_decode_available_length_{ArrayType, fromMemory}`
+- abiDecodingFunctionCalldataArray -> `abi_decode_{ArrayType}`
+- abiDecodingFunctionArrayAvailableLength -> `abi_decode_available_length_{ArrayType, fromMemory}`
+- abiDecodingFunctionArray -> `abi_decode_{ArrayType}_{fromMemory}`
+- abiEncodingFunctionFunctionType -> `abi_encode_{FunctionType}_to_{FunctionType}_{EncodingOptions}`
+- abiEncodingFunctionStringLiteral -> `abi_encode_{Type}_to_{Type}_{EncodingOptions}`
+- abiEncodingFunctionStruct -> `abi_encode_{StructType}_to_{StructType}_{EncodingOptions}`
+- abiEncodingFunctionCompactStorageArray -> `abi_encode_{ArrayType}_{ArrayType}_{EncodingOptions}`
+- abiEncodingFunctionMemoryByteArray -> `abi_encode_{ArrayType}_{ArrayType}_{EncodingOptions}`
+- abiEncodingFunctionSimpleArray -> `abi_encode_{ArrayType}_{ArrayType}_{EncodingOptions}`
+- abiEncodingFunctionCalldataArrayWithoutCleanup -> `abi_encode_{Type}_{Type}_{EncodingOptions}`
+- abiEncodeAndReturnUpdatedPosFunction -> `abi_encodeUpdatedPos_{Type}_{Type}_{EncodingOptions}`

@@ -35,20 +35,13 @@ std::string MultiUseYulFunctionCollector::requestedFunctions()
 	std::string result = std::move(m_code);
 	m_code.clear();
 	m_requestedFunctions.clear();
+	m_keyToYulName.clear();
+	m_baseCounters.clear();
+	m_yulNames.clear();
+#ifndef NDEBUG
+	m_functionKeyDebugInfo.clear();
+#endif
 	return result;
-}
-
-std::string MultiUseYulFunctionCollector::createFunction(std::string const& _name, std::function<std::string()> const& _creator)
-{
-	if (!m_requestedFunctions.count(_name))
-	{
-		m_requestedFunctions.insert(_name);
-		std::string fun = _creator();
-		solAssert(!fun.empty(), "");
-		solAssert(fun.find("function " + _name + "(") != std::string::npos, "Function not properly named.");
-		m_code += std::move(fun);
-	}
-	return _name;
 }
 
 std::string MultiUseYulFunctionCollector::createFunction(
@@ -57,9 +50,14 @@ std::string MultiUseYulFunctionCollector::createFunction(
 )
 {
 	solAssert(!_name.empty(), "");
+	solAssert(_name.find('#') == std::string::npos, "Function name must not contain '#'.");
 	if (!m_requestedFunctions.count(_name))
 	{
 		m_requestedFunctions.insert(_name);
+		solAssert(
+			m_yulNames.insert(_name).second,
+			"Yul function name collides with existing name: " + _name
+		);
 		std::vector<std::string> arguments;
 		std::vector<std::string> returnParameters;
 		std::string body = _creator(arguments, returnParameters);

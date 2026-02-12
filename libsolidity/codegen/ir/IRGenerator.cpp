@@ -179,8 +179,7 @@ std::string IRGenerator::generate(
 		t(
 			"copyConstructorArguments",
 			m_utils.copyConstructorArgumentsToMemoryFunction(
-				_contract,
-				IRNames::creationObject(_contract)
+				_contract
 			)
 		);
 	}

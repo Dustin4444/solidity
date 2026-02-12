@@ -36,6 +36,7 @@
 #include <libsolutil/Visitor.h>
 #include <libsolutil/JSON.h>
 
+#include <fmt/format.h>
 #include <range/v3/view/subrange.hpp>
 #include <range/v3/view/map.hpp>
 
@@ -2696,5 +2697,16 @@ private:
 };
 
 /// @}
+
+/// Customization point for MultiUseYulFunctionCollector::buildName.
+inline std::string toKeyString(ContractDefinition const& _contract)
+{
+	return fmt::format(
+		"{}_object_{}_{}",
+		_contract.constructor()->id(),
+		_contract.name(),
+		_contract.id()
+	);
+}
 
 }

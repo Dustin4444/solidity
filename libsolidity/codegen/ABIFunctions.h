@@ -82,7 +82,7 @@ public:
 		TypePointers _targetTypes,
 		bool _encodeAsLibraryTypes = false,
 		bool _reversed = false
-	);
+	) const;
 
 	/// Specialization of tupleEncoder to _reversed = true
 	std::string tupleEncoderReversed(
@@ -108,7 +108,7 @@ public:
 		TypePointers const& _givenTypes,
 		TypePointers _targetTypes,
 		bool _reversed = false
-	);
+	) const;
 
 	/// Specialization of tupleEncoderPacked to _reversed = true
 	std::string tupleEncoderPackedReversed(TypePointers const& _givenTypes, TypePointers const& _targetTypes)
@@ -124,7 +124,7 @@ public:
 	/// Outputs: <value0> <value1> ... <valuen>
 	/// The values represent stack slots. If a type occupies more or less than one
 	/// stack slot, it takes exactly that number of values.
-	std::string tupleDecoder(TypePointers const& _types, bool _fromMemory = false);
+	std::string tupleDecoder(TypePointers const& _types, bool _fromMemory = false) const;
 
 	struct EncodingOptions
 	{
@@ -143,6 +143,9 @@ public:
 		/// @returns a string to uniquely identify the encoding options for the encoding
 		/// function name. Skips everything that has its default value.
 		std::string toFunctionNameSuffix() const;
+
+		/// Customization point for MultiUseYulFunctionCollector::buildName.
+		friend std::string toKeyString(EncodingOptions const& _options) { return _options.toFunctionNameSuffix(); }
 	};
 
 	/// Internal encoding function that is also used by some copying routines.
@@ -154,7 +157,7 @@ public:
 		Type const& _givenType,
 		Type const& _targetType,
 		EncodingOptions const& _options
-	);
+	) const;
 	/// Internal encoding function that is also used by some copying routines.
 	/// @returns the name of a function that internally calls `abiEncodingFunction`
 	/// but always returns the updated encoding position, even if the type is
@@ -163,17 +166,17 @@ public:
 		Type const& _givenType,
 		Type const& _targetType,
 		EncodingOptions const& _options
-	);
+	) const;
 
 	/// Decodes array in case of dynamic arrays with offset pointing to
 	/// data and length already on stack
 	/// signature: (dataOffset, length, dataEnd) -> decodedArray
-	std::string abiDecodingFunctionArrayAvailableLength(ArrayType const& _type, bool _fromMemory);
+	std::string abiDecodingFunctionArrayAvailableLength(ArrayType const& _type, bool _fromMemory) const;
 
 	/// Internal decoding function that is also used by some copying routines.
 	/// @returns the name of a function that decodes structs.
 	/// signature: (dataStart, dataEnd) -> decodedStruct
-	std::string abiDecodingFunctionStruct(StructType const& _type, bool _fromMemory);
+	std::string abiDecodingFunctionStruct(StructType const& _type, bool _fromMemory) const;
 
 private:
 	/// Part of @a abiEncodingFunction for array target type and given calldata array.
@@ -183,33 +186,33 @@ private:
 		Type const& _givenType,
 		Type const& _targetType,
 		EncodingOptions const& _options
-	);
+	) const;
 	/// Part of @a abiEncodingFunction for array target type and given memory array or
 	/// a given storage array with every item occupies one or multiple full slots.
 	std::string abiEncodingFunctionSimpleArray(
 		ArrayType const& _givenType,
 		ArrayType const& _targetType,
 		EncodingOptions const& _options
-	);
+	) const;
 	std::string abiEncodingFunctionMemoryByteArray(
 		ArrayType const& _givenType,
 		ArrayType const& _targetType,
 		EncodingOptions const& _options
-	);
+	) const;
 	/// Part of @a abiEncodingFunction for array target type and given storage array
 	/// where multiple items are packed into the same storage slot.
 	std::string abiEncodingFunctionCompactStorageArray(
 		ArrayType const& _givenType,
 		ArrayType const& _targetType,
 		EncodingOptions const& _options
-	);
+	) const;
 
 	/// Part of @a abiEncodingFunction for struct types.
 	std::string abiEncodingFunctionStruct(
 		StructType const& _givenType,
 		StructType const& _targetType,
 		EncodingOptions const& _options
-	);
+	) const;
 
 	// @returns the name of the ABI encoding function with the given type
 	// and queues the generation of the function to the requested functions.
@@ -218,13 +221,13 @@ private:
 		Type const& _givenType,
 		Type const& _targetType,
 		EncodingOptions const& _options
-	);
+	) const;
 
 	std::string abiEncodingFunctionFunctionType(
 		FunctionType const& _from,
 		Type const& _to,
 		EncodingOptions const& _options
-	);
+	) const;
 
 	/// @returns the name of the ABI decoding function for the given type
 	/// and queues the generation of the function to the requested functions.
@@ -236,34 +239,29 @@ private:
 		Type const& _type,
 		bool _fromMemory,
 		bool _forUseOnStack
-	);
+	) const;
 
 	/// Part of @a abiDecodingFunction for value types.
-	std::string abiDecodingFunctionValueType(Type const& _type, bool _fromMemory);
+	std::string abiDecodingFunctionValueType(Type const& _type, bool _fromMemory) const;
 	/// Part of @a abiDecodingFunction for "regular" array types.
-	std::string abiDecodingFunctionArray(ArrayType const& _type, bool _fromMemory);
+	std::string abiDecodingFunctionArray(ArrayType const& _type, bool _fromMemory) const;
 	/// Part of @a abiDecodingFunction for calldata array types.
-	std::string abiDecodingFunctionCalldataArray(ArrayType const& _type);
+	std::string abiDecodingFunctionCalldataArray(ArrayType const& _type) const;
 	/// Part of @a abiDecodingFunctionArrayAvailableLength
-	std::string abiDecodingFunctionByteArrayAvailableLength(ArrayType const& _type, bool _fromMemory);
+	std::string abiDecodingFunctionByteArrayAvailableLength(ArrayType const& _type, bool _fromMemory) const;
 	/// Part of @a abiDecodingFunction for calldata struct types.
-	std::string abiDecodingFunctionCalldataStruct(StructType const& _type);
+	std::string abiDecodingFunctionCalldataStruct(StructType const& _type) const;
 	/// Part of @a abiDecodingFunction for array types.
-	std::string abiDecodingFunctionFunctionType(FunctionType const& _type, bool _fromMemory, bool _forUseOnStack);
+	std::string abiDecodingFunctionFunctionType(FunctionType const& _type, bool _fromMemory, bool _forUseOnStack) const;
 	/// @returns the name of a function that retrieves an element from calldata.
-	std::string calldataAccessFunction(Type const& _type);
+	std::string calldataAccessFunction(Type const& _type) const;
 
 	/// @returns the name of a function used during encoding that stores the length
 	/// if the array is dynamically sized (and the options do not request in-place encoding).
 	/// It returns the new encoding position.
 	/// If the array is not dynamically sized (or in-place encoding was requested),
 	/// does nothing and just returns the position again.
-	std::string arrayStoreLengthForEncodingFunction(ArrayType const& _type, EncodingOptions const& _options);
-
-	/// Helper function that uses @a _creator to create a function and add it to
-	/// @a m_requestedFunctions if it has not been created yet and returns @a _name in both
-	/// cases.
-	std::string createFunction(std::string const& _name, std::function<std::string()> const& _creator);
+	std::string arrayStoreLengthForEncodingFunction(ArrayType const& _type, EncodingOptions const& _options) const;
 
 	/// @returns the size of the static part of the encoding of the given types.
 	static size_t headSize(TypePointers const& _targetTypes);
@@ -276,7 +274,7 @@ private:
 
 	/// @returns the name of a function that uses @param _message for revert reason
 	/// if m_revertStrings is debug.
-	std::string revertReasonIfDebugFunction(std::string const& _message = "");
+	std::string revertReasonIfDebugFunction(std::string const& _message = "") const;
 
 	langutil::EVMVersion m_evmVersion;
 	RevertStrings const m_revertStrings;

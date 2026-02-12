@@ -17,6 +17,8 @@
 // SPDX-License-Identifier: GPL-3.0
 #pragma once
 
+#include <libsolutil/Numeric.h>
+
 #include <string>
 
 namespace solidity::util
@@ -35,5 +37,9 @@ enum class PanicCode
 	ResourceError = 0x41, // resource error (too large allocation or too large array)
 	InvalidInternalFunction = 0x51, // calling invalid internal function
 };
+
+inline std::string toKeyString(PanicCode _code) {
+	return toCompactHexWithPrefix(static_cast<std::uint64_t>(_code));
+}
 
 }
