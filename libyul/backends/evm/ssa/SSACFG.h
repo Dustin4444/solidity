@@ -242,6 +242,14 @@ public:
 		return *m_unreachableValue;
 	}
 
+	std::optional<ValueId> lookupLiteral(u256 const& _value) const
+	{
+		auto it = m_literalMapping.find(_value);
+		if (it != m_literalMapping.end())
+			return it->second;
+		return std::nullopt;
+	}
+
 	ValueId newLiteral(langutil::DebugData::ConstPtr _debugData, u256 _value)
 	{
 		auto const it = m_literalMapping.find(_value);
