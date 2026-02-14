@@ -90,6 +90,8 @@ add_library(yul
 	backends/evm/ssa/SSACFG.h
 	backends/evm/ssa/SSACFGBuilder.cpp
 	backends/evm/ssa/SSACFGBuilder.h
+	backends/evm/ssa/SSACFGValidator.cpp
+	backends/evm/ssa/SSACFGValidator.h
 	backends/evm/ssa/Stack.cpp
 	backends/evm/ssa/Stack.h
 	backends/evm/ssa/StackLayout.h
