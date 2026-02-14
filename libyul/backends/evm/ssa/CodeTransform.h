@@ -25,6 +25,10 @@
 
 #include <cstddef>
 
+namespace solidity::yul
+{
+struct BuiltinContext;
+}
 namespace solidity::yul::ssa
 {
 
@@ -91,8 +95,24 @@ static_assert(StackManipulationCallbackConcept<AssemblyCallbacks>);
 class CodeTransform
 {
 public:
+	/// Use named labels for functions 1) Yes and check that the names are unique
+	/// 2) For none of the functions 3) for the first function of each name.
+	enum class UseNamedLabels { YesAndForceUnique, Never, ForFirstFunctionOfEachName };
+
+	static std::vector<StackTooDeepError> run(
+		AbstractAssembly& _assembly,
+		ControlFlowLiveness const& _liveness,
+		BuiltinContext& _builtinContext,
+		UseNamedLabels _useNamedLabelsForFunctions
+	);
 
 private:
+	CodeTransform(AbstractAssembly& _assembly, BuiltinContext& _builtinContext, SSACFG const& _cfg):
+		m_assembly(_assembly), m_builtinContext(_builtinContext), m_cfg(_cfg) {}
+
+	AbstractAssembly& m_assembly;
+	BuiltinContext& m_builtinContext;
+	SSACFG const& m_cfg;
 };
 
 }
