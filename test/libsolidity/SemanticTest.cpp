@@ -12,15 +12,13 @@
 	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "libsolidity/util/Compiler.h"
-#include "libsolutil/CommonData.h"
-#include <range/v3/algorithm/find_if.hpp>
 #include <test/libsolidity/SemanticTest.h>
 
-#include <libsolutil/Whiskers.h>
-#include <libyul/Exceptions.h>
-#include <test/Common.h>
-#include <test/libsolidity/util/BytesUtils.h>
+#include <functional>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <utility>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -34,17 +32,13 @@
 #include <range/v3/view/transform.hpp>
 #include <range/v3/range/conversion.hpp>
 
-#include <algorithm>
-#include <cctype>
-#include <format>
-#include <fstream>
-#include <functional>
-#include <memory>
-#include <optional>
-#include <stdexcept>
-#include <string>
-#include <utility>
-#include <vector>
+#include <libsolutil/CommonData.h>
+#include <libsolutil/Whiskers.h>
+#include <libyul/Exceptions.h>
+
+#include <test/Common.h>
+#include <test/libsolidity/util/Compiler.h>
+#include <test/libsolidity/util/BytesUtils.h>
 
 using namespace solidity;
 using namespace solidity::yul;
@@ -55,7 +49,6 @@ using namespace solidity::frontend::test;
 using namespace boost::algorithm;
 using namespace boost::unit_test;
 using namespace std::string_literals;
-namespace fs = boost::filesystem;
 
 std::ostream& solidity::frontend::test::operator<<(std::ostream& _output, RequiresYulOptimizer _requiresYulOptimizer)
 {
