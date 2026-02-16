@@ -13,6 +13,7 @@
 */
 
 #include "libsolidity/util/Compiler.h"
+#include "libsolutil/CommonData.h"
 #include <range/v3/algorithm/find_if.hpp>
 #include <test/libsolidity/SemanticTest.h>
 
@@ -27,12 +28,15 @@
 #include <boost/throw_exception.hpp>
 
 #include <range/v3/algorithm/find_if.hpp>
+#include <range/v3/view/chunk.hpp>
+#include <range/v3/view/enumerate.hpp>
 #include <range/v3/view/join.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/range/conversion.hpp>
 
 #include <algorithm>
 #include <cctype>
+#include <format>
 #include <fstream>
 #include <functional>
 #include <memory>
@@ -40,6 +44,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 using namespace solidity;
 using namespace solidity::yul;
@@ -191,12 +196,10 @@ std::vector<SideEffectHook> SemanticTest::makeSideEffectHooks() const
 		[](FunctionCall const& _call) -> std::vector<std::string>
 		{
 			if (_call.signature == "isoltest_side_effects_test")
-			{
-				std::vector<std::string> result;
-				for (auto const& argument: _call.arguments.parameters)
-					result.emplace_back(util::toHex(argument.rawBytes));
-				return result;
-			}
+				return _call.arguments.parameters | ranges::views::transform([](auto const& _param){
+					return util::toHex(_param.rawBytes);
+				}) | ranges::to<std::vector>();
+
 			return {};
 		},
 		bind(&SemanticTest::eventSideEffectHook, this, _1)
@@ -246,53 +249,49 @@ std::vector<std::string> SemanticTest::eventSideEffectHook(FunctionCall const&) 
 	std::vector<std::string> sideEffects;
 	for (LogRecord const& log: ExecutionFramework::recordedLogs())
 	{
-		auto contracts = m_compiler.output().contracts();
-		auto events = contracts |
-	    	ranges::views::transform([](auto const* contract) {
-	        	return ranges::views::all(contract->events);
-		    }) |
-		    ranges::views::join |
-		    ranges::to<std::vector<CompiledContract::Event>>();
+		soltestAssert(log.data.size() % 32 == 0, "");
+
+		std::stringstream sideEffect;
+
+		auto const& contracts = m_compiler.output().contracts();
+		auto const& topics = log.topics;
+		auto const& data = log.data;
+
+		auto const& events = contracts | ranges::views::transform([](auto const* contract) {
+	        return ranges::views::all(contract->events);
+		}) | ranges::views::join | ranges::to<std::vector<CompiledContract::Event>>();
 
 		CompiledContract::Event const* event = nullptr;
-		if (!log.topics.empty())
+		if (!topics.empty())
 		{
 			auto e = ranges::find_if(events, [&](auto const& _e) {
-		        return keccak256(_e.signature) == log.topics[0] && !_e.isAnonymous;
+		        return keccak256(_e.signature) == topics.front() && !_e.isAnonymous;
 		    });
 			event = (e != events.end()) ? &*e : nullptr;
 		}
 
-		std::stringstream sideEffect;
-		sideEffect << "emit ";
-		if (event)
-			sideEffect << event->signature;
-		else
-			sideEffect << "<anonymous>";
-
+		sideEffect << "emit " << (event ? event->signature : "<anonymous>");
 		if (m_contractAddress != log.creator)
 			sideEffect << " from 0x" << log.creator;
 
-		std::vector<std::string> eventStrings;
-		size_t index{0};
-		for (h256 const& topic: log.topics)
-		{
-			if (!event || index != 0)
-				eventStrings.push_back("#" + formatEventParameter(event, true, index, topic.asBytes()));
-			++index;
-		}
+		auto filteredTopics = topics | ranges::views::enumerate | ranges::views::filter([&](auto const& _topic) {
+			auto const& [index, _] = _topic;
+			return !event || index != 0;
+		});
+		auto formattedTopics = filteredTopics | ranges::views::transform([&](auto const& _topic) {
+			auto const& [index, topic] = _topic;
+		    return "#" + formatEventParameter(event, true, index, topic.asBytes());
+		});
 
-		soltestAssert(log.data.size() % 32 == 0, "");
-		for (size_t index = 0; index < log.data.size() / 32; ++index)
-		{
-			auto begin = log.data.begin() + static_cast<long>(index * 32);
-			bytes const& data = bytes{begin, begin + 32};
-			eventStrings.emplace_back(formatEventParameter(event, false, index, data));
-		}
+		auto chunkedData = data | ranges::views::chunk(32) | ranges::views::enumerate;
+		auto formattedData = chunkedData | ranges::views::transform([&](auto const& _data) {
+	       	auto const& [index, chunk] = _data;
+		    return formatEventParameter(event, false, index, bytes{chunk.begin(), chunk.end()});
+		});
 
-		if (!eventStrings.empty())
-			sideEffect << ": ";
-		sideEffect << joinHumanReadable(eventStrings);
+		auto params = ranges::views::concat(formattedTopics, formattedData) | ranges::to<std::vector>();
+		sideEffect << (!params.empty() ? ": " : "") << util::joinHumanReadable(params, ", ");
+
 		sideEffects.emplace_back(sideEffect.str());
 	}
 	return sideEffects;
