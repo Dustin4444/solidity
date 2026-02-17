@@ -107,6 +107,14 @@ public:
 	);
 
 private:
+	using FunctionLabels = std::map<Scope::Function const*, AbstractAssembly::LabelID>;
+
+	static FunctionLabels registerFunctionLabels(
+		AbstractAssembly& _assembly,
+		ControlFlow const& _controlFlow,
+		UseNamedLabels _useNamedLabelsForFunctions
+	);
+
 	CodeTransform(AbstractAssembly& _assembly, BuiltinContext& _builtinContext, SSACFG const& _cfg):
 		m_assembly(_assembly), m_builtinContext(_builtinContext), m_cfg(_cfg) {}
 
