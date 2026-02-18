@@ -30,7 +30,7 @@
 #include "libyul/backends/evm/ssa/SSACFGBuilder.h"
 #include "libyul/backends/evm/ssa/StackLayoutGenerator.h"
 #include "libyul/backends/evm/ssa/StackUtils.h"
-#include "libyul/backends/evm/ssa/TerminationPathAnalysis.h"
+#include "libyul/backends/evm/ssa/JunkAdmittingBlocksFinder.h"
 #include "license.h"
 #include "solidity/BuildInfo.h"
 

@@ -385,12 +385,8 @@ void SSACFGLocalCSE::run(SSACFG& _cfg)
 			for (auto& rv: ret->returnValues)
 				applySubstitution(substitutions, rv);
 
-		for (auto const& phiId: block.phis)
-		{
-			auto& phi = _cfg.phiInfo(phiId);
-			for (auto& arg: phi.arguments)
-				applySubstitution(substitutions, arg);
-		}
+		for (auto& upsilon: block.upsilons)
+			applySubstitution(substitutions, upsilon.value);
 	}
 
 	// Phase 3: Remove dead operations whose outputs were substituted away.

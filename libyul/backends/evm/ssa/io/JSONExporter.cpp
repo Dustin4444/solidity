@@ -115,13 +115,35 @@ Json toJson(SSACFG const& _cfg, SSACFG::BlockId _blockId, LivenessAnalysis const
 			| ranges::to<Json::array_t>();
 		for (auto const& phi: block.phis)
 		{
-			auto const& phiInfo = _cfg.phiInfo(phi);
 			Json phiJson = Json::object();
 			phiJson["op"] = "PhiFunction";
-			phiJson["in"] = toJson(_cfg, phiInfo.arguments);
+			// With Phi/Upsilon form the phi has no argument list; inputs come from
+			// Upsilon operations in predecessor blocks.  Collect them for display.
+			Json upsilonInputs = Json::array();
+			for (SSACFG::BlockId::ValueType bv = 0; bv < _cfg.numBlocks(); ++bv)
+				for (auto const& u: _cfg.block(SSACFG::BlockId{bv}).upsilons)
+					if (u.phi == phi)
+						upsilonInputs.push_back(
+							Json::object({
+								{"block", "Block" + std::to_string(bv)},
+								{"value", u.value.str(_cfg)}
+							})
+						);
+			phiJson["upsilons"] = upsilonInputs;
 			phiJson["out"] = toJson(_cfg, std::vector{phi});
 			blockJson["instructions"].push_back(phiJson);
 		}
+	}
+	if (!block.upsilons.empty())
+	{
+		Json upsilonsJson = Json::array();
+		for (auto const& u: block.upsilons)
+			upsilonsJson.push_back(Json::object({
+				{"op", "Upsilon"},
+				{"value", u.value.str(_cfg)},
+				{"phi", u.phi.str(_cfg)}
+			}));
+		blockJson["upsilons"] = upsilonsJson;
 	}
 	for (auto const& operation: block.operations)
 		blockJson["instructions"].push_back(toJson(blockJson, _cfg, operation));

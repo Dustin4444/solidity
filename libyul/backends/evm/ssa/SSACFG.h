@@ -124,6 +124,15 @@ public:
 	{
 		langutil::DebugData::ConstPtr debugData;
 	};
+	/// Upsilon assigns a value to a phi's shadow variable at a block exit.
+	/// Upsilon(value, phi) means: write `value` into the shadow of `phi`.
+	/// Lives in the predecessor block; the corresponding Phi lives in the successor.
+	struct Upsilon
+	{
+		langutil::DebugData::ConstPtr debugData;
+		ValueId value;  ///< value written to the phi's shadow variable
+		ValueId phi;    ///< target phi (must be a Phi-kind ValueId)
+	};
 
 	struct Operation {
 		std::vector<ValueId> outputs{};
@@ -155,6 +164,9 @@ public:
 		std::set<BlockId> entries;
 		std::set<ValueId> phis;
 		std::vector<Operation> operations;
+		/// Upsilon assignments placed at the block exit (before the terminator).
+		/// They feed phi shadow variables in successor blocks.
+		std::vector<Upsilon> upsilons;
 		std::variant<MainExit, Jump, ConditionalJump, FunctionReturn, Terminated> exit = MainExit{};
 		template<typename Callable>
 		void forEachExit(Callable&& _callable) const
@@ -191,7 +203,7 @@ public:
 	BlockId makeBlock(langutil::DebugData::ConstPtr _debugData)
 	{
 		BlockId blockId { static_cast<BlockId::ValueType>(m_blocks.size()) };
-		m_blocks.emplace_back(BasicBlock{std::move(_debugData), {}, {}, {}, BasicBlock::Terminated{}});
+		m_blocks.emplace_back(BasicBlock{std::move(_debugData), {}, {}, {}, {}, BasicBlock::Terminated{}});
 		return blockId;
 	}
 	BasicBlock& block(BlockId _id) { return m_blocks.at(_id.value); }
@@ -212,13 +224,13 @@ public:
 	struct PhiValue {
 		langutil::DebugData::ConstPtr debugData;
 		BlockId block;
-		std::vector<ValueId> arguments;
+		/// No arguments vector: phi is fed by Upsilon operations in predecessor blocks.
 	};
 	struct UnreachableValue {};
 	ValueId newPhi(BlockId const _definingBlock)
 	{
 		auto const& block = m_blocks.at(_definingBlock.value);
-		m_phis.emplace_back(PhiValue{debugDataOf(block), _definingBlock, std::vector<ValueId>{}});
+		m_phis.emplace_back(PhiValue{debugDataOf(block), _definingBlock});
 		auto const value = m_phis.size() - 1;
 		yulAssert(value < std::numeric_limits<ValueId::ValueType>::max());
 		return ValueId::makePhi(static_cast<ValueId::ValueType>(value));
@@ -263,14 +275,6 @@ public:
 		auto const literalId = ValueId::makeLiteral(static_cast<ValueId::ValueType>(value));
 		m_literalMapping.emplace(_value, literalId);
 		return literalId;
-	}
-
-	size_t phiArgumentIndex(BlockId const _source, BlockId const _target) const
-	{
-		auto const& targetBlock = block(_target);
-		auto idx = util::findOffset(targetBlock.entries, _source);
-		yulAssert(idx, fmt::format("Target block {} not found as entry in one of the exits of the current block {}.", _target.value, _source.value));
-		return *idx;
 	}
 
 	std::string toDot(

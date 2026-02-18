@@ -241,7 +241,7 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 			for (Stack<AssemblyCallbacks>::Depth depth {0}; depth.value < m_stack.size(); ++depth.value)
 				if (m_stack.slot(depth).isValueID() && !opLiveOutWithoutOutputs.contains(m_stack.slot(depth).valueID()) && ranges::find(requiredStackTop, m_stack.slot(depth)) == ranges::end(requiredStackTop))
 					m_stack.declareJunk(depth);
-			StackShuffler<AssemblyCallbacks>::shuffle(m_stack, requiredStackTop, opLiveOutWithoutOutputs, operationStackIn.size());
+			StackShuffler<AssemblyCallbacks>::shuffle(m_stack, operationStackIn, {}, operationStackIn.size());
 		}
 		else
 			DanielShuffler<Stack<AssemblyCallbacks>>::shuffle(m_stack, {}, operationStackIn);

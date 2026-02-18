@@ -31,12 +31,9 @@ ReversePhiFunctionTransform::ReversePhiFunctionTransform(
 	SSACFG::BlockId const _to
 )
 {
-	auto const argIndex = _cfg.phiArgumentIndex(_from, _to);
-	for (auto const& phiId: _cfg.block(_to).phis)
-	{
-		auto const& phiInfo = _cfg.phiInfo(phiId);
-		m_reversePhiMap[phiId] = phiInfo.arguments[argIndex];
-	}
+	for (auto const& upsilon: _cfg.block(_from).upsilons)
+		if (_cfg.phiInfo(upsilon.phi).block == _to)
+			m_reversePhiMap[upsilon.phi] = upsilon.value;
 }
 
 bool ReversePhiFunctionTransform::noOp() const
