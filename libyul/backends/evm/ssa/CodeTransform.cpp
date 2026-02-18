@@ -35,8 +35,26 @@ std::vector<solidity::yul::StackTooDeepError> CodeTransform::run
 	FunctionLabels const functionLabels = registerFunctionLabels(_assembly, controlFlow, _useNamedLabelsForFunctions);
 	CodeTransform mainCodeTransform(
 		_assembly,
-		_builtinContext, functionLabels, *controlFlow.mainGraph(), *_controlFlowLiveness.cfgLiveness.front()
+		_builtinContext,
+		functionLabels,
+		*controlFlow.mainGraph()
 	);
+	mainCodeTransform(controlFlow.mainGraph()->entry);
+
+	for (size_t functionIndex = 1; functionIndex < controlFlow.functionGraphMapping.size(); ++functionIndex)
+	{
+		auto const& functionAndGraph = controlFlow.functionGraphMapping[functionIndex];
+		auto const& [function, functionGraph] = functionAndGraph;
+		SSACFGEVMCodeTransform functionCodeTransform(
+			_assembly,
+			_builtinContext,
+			functionLabels,
+			*functionGraph,
+		);
+		functionCodeTransform.transformFunction(*function);
+		if (!functionCodeTransform.m_stackErrors.empty())
+			stackErrors.insert(stackErrors.end(), functionCodeTransform.m_stackErrors.begin(), functionCodeTransform.m_stackErrors.end());
+	}
 	return {};
 }
 CodeTransform::FunctionLabels CodeTransform::registerFunctionLabels(
@@ -63,4 +81,24 @@ CodeTransform::FunctionLabels CodeTransform::registerFunctionLabels(
 			_assembly.newLabelId();
 	}
 	return functionLabels;
+}
+CodeTransform::CodeTransform(
+	AbstractAssembly& _assembly,
+	BuiltinContext& _builtinContext,
+	FunctionLabels const& _functionLabels,
+	SSACFG const& _cfg,
+	std::optional<Scope::Function> const& _function
+):
+	m_assembly(_assembly),
+	m_builtinContext(_builtinContext),
+	m_functionLabels(_functionLabels),
+	m_cfg(_cfg)
+{
+	if (_function)
+	{
+		auto const findIt = m_functionLabels.find(&*_function);
+		yulAssert(findIt != m_functionLabels.end());
+		m_assembly.appendLabel(findIt->second);
+		m_assembly.setStackHeight(static_cast<int>(_function->numArguments));
+	}
 }

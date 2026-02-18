@@ -24,6 +24,7 @@
 #include <libevmasm/Instruction.h>
 
 #include <cstddef>
+#include <optional>
 
 namespace solidity::yul
 {
@@ -115,11 +116,11 @@ private:
 		UseNamedLabels _useNamedLabelsForFunctions
 	);
 
-	CodeTransform(AbstractAssembly& _assembly, BuiltinContext& _builtinContext, SSACFG const& _cfg):
-		m_assembly(_assembly), m_builtinContext(_builtinContext), m_cfg(_cfg) {}
+	CodeTransform(AbstractAssembly& _assembly, BuiltinContext& _builtinContext, FunctionLabels const& _functionLabels, SSACFG const& _cfg, std::optional<Scope::Function> const& _function);
 
 	AbstractAssembly& m_assembly;
 	BuiltinContext& m_builtinContext;
+	FunctionLabels const& m_functionLabels;
 	SSACFG const& m_cfg;
 };
 
