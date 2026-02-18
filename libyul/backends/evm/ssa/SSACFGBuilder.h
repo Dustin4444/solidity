@@ -16,9 +16,9 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 /**
-* Transformation of a Yul AST into a control flow graph.
+* Transformation of a Yul AST into a control flow graph in Phi/Upsilon SSA form.
 *
-* Based on https://doi.org/10.1007/978-3-642-37051-9_6
+* SSA construction is based on https://doi.org/10.1007/978-3-642-37051-9_6
 * Braun, Matthias, et al. "Simple and efficient construction of static single assignment form."
 * Compiler Construction: 22nd International Conference, CC 2013,
 * ETAPS 2013, Rome, Italy, March 16-24, 2013. Proceedings 22. Springer Berlin Heidelberg, 2013.
@@ -26,6 +26,14 @@
 * We have small deviations in Algorithms 2 and 4, as the paper's presentation leads to trivial phis being spuriously
 * removed from not yet sealed blocks via a call to addPhiOperands in Algorithm 4. Instead, we perform the deletion
 * of trivial phis only after a block has been sealed, i.e., all block's predecessors are present.
+*
+* The IR uses Phi/Upsilon form (as in WebKit's B3 JIT compiler, described at
+* https://gist.github.com/pizlonator/cf1e72b8600b1437dda8153ea3fdb963) rather than traditional
+* phi nodes with explicit argument lists. In Phi/Upsilon form each predecessor block emits an
+* Upsilon operation that writes a value to a phi's shadow variable; the Phi itself carries no
+* argument list and simply reads that shadow variable. This makes the phi pre-image relationship
+* explicit in the IR and means that adding or removing a predecessor never requires reindexing
+* phi arguments.
 */
 #pragma once
 
@@ -89,7 +97,10 @@ private:
 	SSACFG::ValueId zero();
 	SSACFG::ValueId readVariable(Scope::Variable const& _variable, SSACFG::BlockId _block);
 	SSACFG::ValueId readVariableRecursive(Scope::Variable const& _variable, SSACFG::BlockId _block);
-	SSACFG::ValueId addPhiOperands(Scope::Variable const& _variable, SSACFG::ValueId _phi);
+	/// Emit upsilons in each predecessor of _phi's block, filling _phi's shadow variable.
+	void addPhiOperands(Scope::Variable const& _variable, SSACFG::ValueId _phi);
+	/// Emit a single Upsilon(_value -> _phi) into block _block.
+	void emitUpsilon(SSACFG::BlockId _block, SSACFG::ValueId _value, SSACFG::ValueId _phi);
 	void writeVariable(Scope::Variable const& _variable, SSACFG::BlockId _block, SSACFG::ValueId _value);
 
 	static void eraseEmptyJumpBlocks(SSACFG& _cfg);

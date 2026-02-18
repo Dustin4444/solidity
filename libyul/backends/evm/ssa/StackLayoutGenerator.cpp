@@ -162,35 +162,40 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 	{
 		// we have more than one entry and need to unify or at the very least apply phi fct.
 		auto const& liveIn = m_liveness.liveIn(_blockId);
-		std::vector cumulativeCosts(parentExits.size(), std::numeric_limits<std::size_t>::max());
+		// Pre-compute each parent's phi-term proposal (declareJunk + handlePhiFunctions) once.
+		// All proposals share the same phi-value namespace, so the inner cost loop can compare
+		// them directly without a stackPreImage round-trip.
+		std::vector<StackData> proposals(parentExits.size());
+		for (std::size_t i = 0; i < parentExits.size(); ++i)
+		{
+			if (!parentExits[i].second)
+				continue;
+			proposals[i] = *parentExits[i].second;
+			{
+				StackType stack(proposals[i], {});
+				declareJunk(stack, liveIn);
+			}
+			handlePhiFunctions(proposals[i], PhiInverse(m_cfg, parentExits[i].first, _blockId), liveIn);
+		}
+		std::vector<std::size_t> cumulativeCosts(parentExits.size(), std::numeric_limits<std::size_t>::max());
 		for (std::size_t i = 0; i < parentExits.size(); ++i)
 		{
 			if (!parentExits[i].second)
 				continue;
 			std::size_t cumulativeCost = 0;
-			auto referenceStackIn = *parentExits[i].second;
-			{
-				StackType stack(referenceStackIn, {});
-				declareJunk(stack, liveIn);
-			}
-			handlePhiFunctions(referenceStackIn, PhiInverse(m_cfg, parentExits[i].first, _blockId), liveIn);
 			for (std::size_t j = 0; j < parentExits.size(); ++j)
 			{
-				if (j != i)
-				{
-					if (parentExits[j].second != nullptr)
-					{
-						auto otherStackIn = *parentExits[j].second;
-						StackType stack(otherStackIn, {});
-						StackShuffler<StackType::Callbacks>::shuffle(
-							stack,
-							stackPreImage(referenceStackIn, PhiInverse(m_cfg, parentExits[j].first, _blockId)),
-							{},
-							referenceStackIn.size()
-						);
-						cumulativeCost += stack.callbacks().numOps;
-					}
-				}
+				if (j == i || !parentExits[j].second)
+					continue;
+				auto proposalCopy = proposals[j];
+				StackType stack(proposalCopy, {});
+				StackShuffler<StackType::Callbacks>::shuffle(
+					stack,
+					proposals[i],
+					{},
+					proposals[i].size()
+				);
+				cumulativeCost += stack.callbacks().numOps;
 			}
 			cumulativeCosts[i] = cumulativeCost;
 		}
@@ -198,10 +203,7 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 			std::distance(cumulativeCosts.begin(), ranges::min_element(cumulativeCosts))
 		);
 		yulAssert(parentExits[argMin].second);
-		blockLayout.stackIn = *parentExits[argMin].second;
-		StackType stack(blockLayout.stackIn, {});
-		declareJunk(stack, liveIn);
-		handlePhiFunctions(blockLayout.stackIn, PhiInverse(m_cfg, parentExits[argMin].first, _blockId), liveIn);
+		blockLayout.stackIn = std::move(proposals[argMin]);
 	}
 	m_resultLayout[_blockId] = blockLayout;
 }
