@@ -1,7 +1,5 @@
 // Tests that this will not end up using a "bytes0" type
 // (which would assert)
-pragma abicoder               v2;
-
 
 contract C {
     function f() public pure returns (bytes memory, bytes memory) {
