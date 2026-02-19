@@ -1,5 +1,4 @@
-pragma abicoder               v2;
-
+pragma abicoder v2;
 
 contract C {
     function f(uint256[][] calldata a) external returns (uint256) {
@@ -11,10 +10,12 @@ contract C {
         return 42;
     }
 }
+// ====
+// revertStrings: debug
 // ----
 // f(uint256[][]): 0x20, 0x0 -> 42 # valid access stub #
-// f(uint256[][]): 0x20, 0x1 -> FAILURE # invalid on argument decoding #
+// f(uint256[][]): 0x20, 0x1 -> FAILURE, hex"08c379a0", 0x20, 43, "ABI decoding: invalid calldata a", "rray stride" # invalid on argument decoding #
 // f(uint256[][]): 0x20, 0x1, 0x20 -> 42 # invalid on outer access #
-// g(uint256[][]): 0x20, 0x1, 0x20 -> FAILURE
+// g(uint256[][]): 0x20, 0x1, 0x20 -> FAILURE, hex"08c379a0", 0x20, 0x1c, "Invalid calldata tail offset"
 // f(uint256[][]): 0x20, 0x1, 0x20, 0x2, 0x42 -> 42 # invalid on inner access #
-// g(uint256[][]): 0x20, 0x1, 0x20, 0x2, 0x42 -> FAILURE
+// g(uint256[][]): 0x20, 0x1, 0x20, 0x2, 0x42 -> FAILURE, hex"08c379a0", 0x20, 0x17, "Calldata tail too short"

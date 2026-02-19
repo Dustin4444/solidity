@@ -1,4 +1,4 @@
-pragma abicoder               v2;
+pragma abicoder v2;
 
 contract C {
 	struct S { int16 a; uint8 b; bytes2 c; }
@@ -10,6 +10,8 @@ contract C {
 		}
 	}
 }
+// ====
+// revertStrings: debug
 // ----
 // f((int16,uint8,bytes2)): 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01, 0xff, "ab" -> 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01, 0xff, "ab"
 // f((int16,uint8,bytes2)): 0xff010, 0xff, "ab" -> FAILURE

@@ -24,5 +24,7 @@ contract Test {
 		return decoded[0][0] + decoded[1][0];
 	}
 }
+// ====
+// revertStrings: debug
 // ----
-// withinArray() -> FAILURE
+// withinArray() -> FAILURE, hex"08c379a0", 0x20, 43, "ABI decoding: invalid calldata a", "rray stride"
