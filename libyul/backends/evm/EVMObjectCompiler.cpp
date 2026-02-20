@@ -41,14 +41,15 @@ void EVMObjectCompiler::compile(
 	Object const& _object,
 	AbstractAssembly& _assembly,
 	bool _optimize,
-	bool _ssaCfgCodegen
+	bool _ssaCfgCodegen,
+	bool _includeDebugData
 )
 {
 	EVMObjectCompiler compiler(_assembly);
-	compiler.run(_object, _optimize, _ssaCfgCodegen);
+	compiler.run(_object, _optimize, _ssaCfgCodegen, _includeDebugData);
 }
 
-void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool const _ssaCfgCodegen)
+void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool const _ssaCfgCodegen, bool const _includeDebugData)
 {
 	yulAssert(_object.dialect());
 	auto const* evmDialect = dynamic_cast<EVMDialect const*>(_object.dialect());
@@ -65,7 +66,7 @@ void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool const _s
 			auto subAssemblyAndID = m_assembly.createSubAssembly(isCreation, subObject->name);
 			context.subIDs[subObject->name] = subAssemblyAndID.second;
 			subObject->subId = subAssemblyAndID.second;
-			compile(*subObject, *subAssemblyAndID.first, _optimize, _ssaCfgCodegen);
+			compile(*subObject, *subAssemblyAndID.first, _optimize, _ssaCfgCodegen, _includeDebugData);
 		}
 		else
 		{
@@ -102,7 +103,8 @@ void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool const _s
 				*_object.analysisInfo,
 				*_object.dialect(),
 				_object.code()->root(),
-				false
+				false,
+				_includeDebugData
 			);
 			ssa::SSACFGLocalCSE::run(*controlFlow);
 			ssa::ControlFlowLiveness const liveness(*controlFlow);

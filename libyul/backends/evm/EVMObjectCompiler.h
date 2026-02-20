@@ -37,12 +37,13 @@ public:
 		Object const& _object,
 		AbstractAssembly& _assembly,
 		bool _optimize,
-		bool _ssaCfgCodegen
+		bool _ssaCfgCodegen,
+		bool _includeDebugData = false
 	);
 private:
 	EVMObjectCompiler(AbstractAssembly& _assembly): m_assembly(_assembly) {}
 
-	void run(Object const& _object, bool _optimize, bool _ssaCfgCodegen);
+	void run(Object const& _object, bool _optimize, bool _ssaCfgCodegen, bool _includeDebugData);
 
 	AbstractAssembly& m_assembly;
 };

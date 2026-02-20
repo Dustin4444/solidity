@@ -194,7 +194,7 @@ bool YulStack::analyzeParsed(Object& _object)
 
 void YulStack::compileEVM(AbstractAssembly& _assembly, bool const _optimize, bool const _ssaCfgCodegen) const
 {
-	EVMObjectCompiler::compile(*m_parserResult, _assembly, _optimize, _ssaCfgCodegen);
+	EVMObjectCompiler::compile(*m_parserResult, _assembly, _optimize, _ssaCfgCodegen, m_debugInfoSelection != langutil::DebugInfoSelection::None());
 }
 
 void YulStack::reparse()
@@ -402,7 +402,8 @@ Json YulStack::cfgJson() const
 			*_object.analysisInfo,
 			languageToDialect(m_language, m_evmVersion, m_eofVersion),
 			_object.code()->root(),
-			keepLiteralAssignments
+			keepLiteralAssignments,
+			m_debugInfoSelection != langutil::DebugInfoSelection::None()
 		);
 		std::unique_ptr<ssa::ControlFlowLiveness> liveness = std::make_unique<ssa::ControlFlowLiveness>(*controlFlow);
 		return ssa::io::json::exportControlFlow(*controlFlow, liveness.get());

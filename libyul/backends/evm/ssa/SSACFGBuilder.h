@@ -41,6 +41,7 @@
 #include <libyul/ControlFlowSideEffectsCollector.h>
 #include <libyul/backends/evm/ssa/SSACFG.h>
 #include <stack>
+#include <unordered_map>
 
 namespace solidity::yul
 {
@@ -56,7 +57,8 @@ class SSACFGBuilder
 		AsmAnalysisInfo const& _analysisInfo,
 		ControlFlowSideEffectsCollector const& _sideEffects,
 		Dialect const& _dialect,
-		bool _keepLiteralAssignments
+		bool _keepLiteralAssignments,
+		bool _includeDebugData
 	);
 public:
 	SSACFGBuilder(SSACFGBuilder const&) = delete;
@@ -65,7 +67,8 @@ public:
 		AsmAnalysisInfo const& _analysisInfo,
 		Dialect const& _dialect,
 		Block const& _block,
-		bool _keepLiteralAssignments
+		bool _keepLiteralAssignments,
+		bool _includeDebugData = false
 	);
 
 	void operator()(ExpressionStatement const& _statement);
@@ -111,6 +114,7 @@ private:
 	ControlFlowSideEffectsCollector const& m_sideEffects;
 	Dialect const& m_dialect;
 	bool const m_keepLiteralAssignments;
+	bool const m_includeDebugData;
 	std::vector<std::tuple<Scope::Function const*, FunctionDefinition const*>> m_functionDefinitions;
 	SSACFG::BlockId m_currentBlock;
 	SSACFG::BasicBlock& currentBlock() { return m_graph.block(m_currentBlock); }
@@ -132,10 +136,16 @@ private:
 	}
 	void sealBlock(SSACFG::BlockId _block);
 
-	std::map<
+	std::unordered_map<
 		Scope::Variable const*,
-		std::vector<std::optional<SSACFG::ValueId>>
+		std::vector<SSACFG::ValueId>
 	> m_currentDef;
+
+	/// Index: phi ValueId::value() → values of upsilons currently targeting that phi.
+	/// Maintained by emitUpsilon, tryRemoveTrivialPhi, and cleanUnreachable so that
+	/// the triviality check in tryRemoveTrivialPhi runs in O(upsilons for this phi)
+	/// rather than O(upsilons across all predecessor blocks).
+	std::vector<std::vector<SSACFG::ValueId>> m_upsilonValuesForPhi;
 
 	struct ForLoopInfo {
 		SSACFG::BlockId breakBlock;
@@ -143,7 +153,7 @@ private:
 	};
 	std::stack<ForLoopInfo> m_forLoopInfo;
 
-	std::optional<SSACFG::ValueId>& currentDef(Scope::Variable const& _variable, SSACFG::BlockId _block)
+	SSACFG::ValueId& currentDef(Scope::Variable const& _variable, SSACFG::BlockId _block)
 	{
 		auto& varDefs = m_currentDef[&_variable];
 		if (varDefs.size() <= _block.value)
@@ -171,6 +181,27 @@ private:
 	);
 
 	FunctionDefinition const* findFunctionDefinition(Scope::Function const* _function) const;
+
+public:
+	/// Counters accumulated across one top-level build() call.
+	/// Reset at the beginning of each build(); read after it returns.
+	struct Stats
+	{
+		size_t upsilonsEmitted{};           ///< emitUpsilon calls (= total phi edges)
+		size_t tryRemoveCalls{};            ///< tryRemoveTrivialPhi invocations (incl. recursive)
+		size_t tryRemoveSucceeded{};        ///< phis actually removed (trivial)
+		size_t trivialCheckIterations{};    ///< index-loop iterations in the triviality check
+		size_t replacementBlocksScanned{};  ///< block iterations in the O(numBlocks) replacement loop
+		size_t replacementUpsilonsScanned{};///< upsilon iterations inside that loop
+		size_t replacementOpInputsScanned{};///< op.inputs elements touched by ranges::replace
+		size_t cleanUnreachableRemovals{};  ///< upsilons dropped by cleanUnreachable
+		/// Nanoseconds spent inside tryRemoveTrivialPhi (all calls, including recursive).
+		/// Subtract tryRemoveNs from cleanUnreachableNs overlap carefully — they nest.
+		uint64_t tryRemoveNs{};
+		uint64_t cleanUnreachableNs{};      ///< ns in cleanUnreachable (includes tryRemoveNs called from it)
+	};
+	static Stats s_stats;
+	static void clearStats() { s_stats = {}; }
 };
 
 }

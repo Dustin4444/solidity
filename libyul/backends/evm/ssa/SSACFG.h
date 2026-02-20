@@ -37,6 +37,7 @@
 #include <functional>
 #include <list>
 #include <vector>
+#include <optional>
 
 namespace solidity::yul::ssa
 {
@@ -129,7 +130,6 @@ public:
 	/// Lives in the predecessor block; the corresponding Phi lives in the successor.
 	struct Upsilon
 	{
-		langutil::DebugData::ConstPtr debugData;
 		ValueId value;  ///< value written to the phi's shadow variable
 		ValueId phi;    ///< target phi (must be a Phi-kind ValueId)
 	};
@@ -168,8 +168,8 @@ public:
 		};
 		struct Terminated {};
 		langutil::DebugData::ConstPtr debugData;
-		std::set<BlockId> entries;
-		std::set<ValueId> phis;
+		std::vector<BlockId> entries;
+		std::vector<ValueId> phis;
 		std::vector<Operation> operations;
 		/// Upsilon assignments placed at the block exit (before the terminator).
 		/// They feed phi shadow variables in successor blocks.
@@ -231,29 +231,54 @@ public:
 		u256 value;
 	};
 	struct VariableValue {
-		langutil::DebugData::ConstPtr debugData;
 		BlockId definingBlock;
 	};
 	struct PhiValue {
-		langutil::DebugData::ConstPtr debugData;
 		BlockId block;
 		/// No arguments vector: phi is fed by Upsilon operations in predecessor blocks.
 	};
 	struct UnreachableValue {};
+	struct SSACFGDebugData
+	{
+		std::vector<langutil::DebugData::ConstPtr> variables; ///< index i = ValueId::makeVariable(i)
+		std::vector<langutil::DebugData::ConstPtr> phis;      ///< index i = ValueId::makePhi(i)
+	};
+
+	void enableDebugData() { m_debugData.emplace(); }
+	bool hasDebugData() const { return m_debugData.has_value(); }
+
+	langutil::DebugData::ConstPtr variableDebugData(ValueId const& _id) const
+	{
+		yulAssert(_id.isVariable());
+		if (m_debugData && _id.value() < m_debugData->variables.size())
+			return m_debugData->variables[_id.value()];
+		return nullptr;
+	}
+
+	langutil::DebugData::ConstPtr phiDebugData(ValueId const& _id) const
+	{
+		yulAssert(_id.isPhi());
+		if (m_debugData && _id.value() < m_debugData->phis.size())
+			return m_debugData->phis[_id.value()];
+		return nullptr;
+	}
+
 	ValueId newPhi(BlockId const _definingBlock)
 	{
-		auto const& block = m_blocks.at(_definingBlock.value);
-		m_phis.emplace_back(PhiValue{debugDataOf(block), _definingBlock});
+		m_phis.emplace_back(PhiValue{_definingBlock});
 		auto const value = m_phis.size() - 1;
 		yulAssert(value < std::numeric_limits<ValueId::ValueType>::max());
+		if (m_debugData)
+			m_debugData->phis.emplace_back(debugDataOf(m_blocks.at(_definingBlock.value)));
 		return ValueId::makePhi(static_cast<ValueId::ValueType>(value));
 	}
 	ValueId newVariable(BlockId const _definingBlock)
 	{
-		auto const& block = m_blocks.at(_definingBlock.value);
-		m_variables.emplace_back(VariableValue{debugDataOf(block), _definingBlock});
+		m_variables.emplace_back(VariableValue{_definingBlock});
 		auto const value = m_variables.size() - 1;
 		yulAssert(value < std::numeric_limits<ValueId::ValueType>::max());
+		if (m_debugData)
+			m_debugData->variables.emplace_back(debugDataOf(m_blocks.at(_definingBlock.value)));
 		return ValueId::makeVariable(static_cast<ValueId::ValueType>(value));
 	}
 
@@ -322,6 +347,7 @@ private:
 	std::vector<VariableValue> m_variables;
 	ValueId m_unreachableValue;
 	ValueId m_zero;
+	std::optional<SSACFGDebugData> m_debugData;
 public:
 	langutil::DebugData::ConstPtr debugData;
 	BlockId entry = BlockId{0};
