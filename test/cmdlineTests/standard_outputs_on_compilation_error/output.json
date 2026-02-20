@@ -150,6 +150,10 @@
                                                 "lValueRequested": false,
                                                 "leftHandSide": {
                                                     "id": 6,
+                                                    "isConstant": false,
+                                                    "isLValue": true,
+                                                    "isPure": false,
+                                                    "lValueRequested": true,
                                                     "name": "x",
                                                     "nodeType": "Identifier",
                                                     "overloadedDeclarations": [],

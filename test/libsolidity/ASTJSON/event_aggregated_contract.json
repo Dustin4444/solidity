@@ -53,6 +53,10 @@
                   "expression": {
                     "argumentTypes": [],
                     "id": 5,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
                     "name": "e",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -188,6 +192,10 @@
                   "lValueRequested": false,
                   "leftHandSide": {
                     "id": 16,
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": true,
                     "name": "c",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -269,6 +277,10 @@
                     "argumentTypes": [],
                     "expression": {
                       "id": 23,
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": false,
                       "name": "c",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],

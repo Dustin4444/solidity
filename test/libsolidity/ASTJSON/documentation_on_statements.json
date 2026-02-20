@@ -71,6 +71,10 @@
                         "lValueRequested": false,
                         "leftHandSide": {
                           "id": 17,
+                          "isConstant": false,
+                          "isLValue": true,
+                          "isPure": false,
+                          "lValueRequested": true,
                           "name": "x",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
@@ -123,6 +127,10 @@
                   "lValueRequested": false,
                   "leftExpression": {
                     "id": 11,
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": false,
                     "name": "i",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -225,6 +233,10 @@
                     "src": "151:3:1",
                     "subExpression": {
                       "id": 14,
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": true,
                       "name": "i",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
@@ -250,6 +262,10 @@
               {
                 "expression": {
                   "id": 23,
+                  "isConstant": false,
+                  "isLValue": true,
+                  "isPure": false,
+                  "lValueRequested": false,
                   "name": "x",
                   "nodeType": "Identifier",
                   "overloadedDeclarations": [],

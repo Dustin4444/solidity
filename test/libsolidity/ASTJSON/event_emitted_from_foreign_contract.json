@@ -106,6 +106,10 @@
                     {
                       "expression": {
                         "id": 13,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
                         "name": "msg",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
@@ -140,6 +144,10 @@
                     ],
                     "expression": {
                       "id": 10,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "lValueRequested": false,
                       "name": "C",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],

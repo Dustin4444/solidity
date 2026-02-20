@@ -278,6 +278,10 @@
               {
                 "expression": {
                   "id": 31,
+                  "isConstant": false,
+                  "isLValue": false,
+                  "isPure": false,
+                  "lValueRequested": false,
                   "name": "free1",
                   "nodeType": "Identifier",
                   "overloadedDeclarations": [],
@@ -295,6 +299,10 @@
               {
                 "expression": {
                   "id": 33,
+                  "isConstant": false,
+                  "isLValue": false,
+                  "isPure": false,
+                  "lValueRequested": false,
                   "name": "inr1",
                   "nodeType": "Identifier",
                   "overloadedDeclarations": [],
@@ -313,6 +321,10 @@
                 "expression": {
                   "expression": {
                     "id": 35,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "lValueRequested": false,
                     "name": "L",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -384,6 +396,10 @@
                     "components": [
                       {
                         "id": 43,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
                         "name": "free2",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
@@ -436,6 +452,10 @@
                     "components": [
                       {
                         "id": 47,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
                         "name": "inr2",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
@@ -742,6 +762,10 @@
                 "expression": {
                   "expression": {
                     "id": 80,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
                     "name": "this",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -774,6 +798,10 @@
               {
                 "expression": {
                   "id": 84,
+                  "isConstant": false,
+                  "isLValue": false,
+                  "isPure": false,
+                  "lValueRequested": false,
                   "name": "inr1",
                   "nodeType": "Identifier",
                   "overloadedDeclarations": [],
@@ -791,6 +819,10 @@
               {
                 "expression": {
                   "id": 86,
+                  "isConstant": false,
+                  "isLValue": false,
+                  "isPure": false,
+                  "lValueRequested": false,
                   "name": "free1",
                   "nodeType": "Identifier",
                   "overloadedDeclarations": [],
@@ -809,6 +841,10 @@
                 "expression": {
                   "expression": {
                     "id": 88,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "lValueRequested": false,
                     "name": "L",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -842,6 +878,10 @@
                 "expression": {
                   "expression": {
                     "id": 92,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "lValueRequested": false,
                     "name": "L",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -914,6 +954,10 @@
                       {
                         "expression": {
                           "id": 100,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
                           "name": "this",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
@@ -981,6 +1025,10 @@
                     "components": [
                       {
                         "id": 106,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
                         "name": "inr2",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
@@ -1033,6 +1081,10 @@
                     "components": [
                       {
                         "id": 110,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
                         "name": "free2",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
@@ -1086,6 +1138,10 @@
                       {
                         "expression": {
                           "id": 114,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
                           "name": "L",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
@@ -1154,6 +1210,10 @@
                       {
                         "expression": {
                           "id": 120,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
                           "name": "L",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
@@ -1299,6 +1359,10 @@
                   "expression": {
                     "argumentTypes": [],
                     "id": 133,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
                     "name": "access",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -1335,6 +1399,10 @@
                   "expression": {
                     "argumentTypes": [],
                     "id": 136,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
                     "name": "expression",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],

@@ -119,6 +119,10 @@
                 "initialValue": {
                   "baseExpression": {
                     "id": 13,
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": false,
                     "name": "m",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -132,6 +136,10 @@
                   "id": 15,
                   "indexExpression": {
                     "id": 14,
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": false,
                     "name": "arg",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -165,6 +173,10 @@
                   "lValueRequested": false,
                   "leftHandSide": {
                     "id": 17,
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": true,
                     "name": "r",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -179,6 +191,10 @@
                   "operator": "=",
                   "rightHandSide": {
                     "id": 18,
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": false,
                     "name": "arg",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -238,6 +254,10 @@
                   "arguments": [
                     {
                       "id": 25,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": false,
+                      "lValueRequested": false,
                       "name": "this",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
@@ -304,6 +324,10 @@
                   "leftHandSide": {
                     "baseExpression": {
                       "id": 28,
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": false,
                       "name": "m",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
@@ -317,6 +341,10 @@
                     "id": 30,
                     "indexExpression": {
                       "id": 29,
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": false,
                       "name": "c",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],

@@ -548,6 +548,10 @@
                       }
                     ],
                     "id": 30,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": false,
+                    "lValueRequested": false,
                     "name": "Transfer",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -737,6 +741,10 @@
                     ],
                     "expression": {
                       "id": 42,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "lValueRequested": false,
                       "name": "A",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
@@ -942,6 +950,10 @@
                     "expression": {
                       "expression": {
                         "id": 56,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": true,
+                        "lValueRequested": false,
                         "name": "A",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],

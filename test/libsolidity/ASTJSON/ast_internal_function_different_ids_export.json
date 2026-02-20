@@ -236,6 +236,10 @@
                       {
                         "expression": {
                           "id": 4,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
                           "name": "L",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
@@ -303,6 +307,10 @@
                     "components": [
                       {
                         "id": 10,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
                         "name": "free2",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
@@ -356,6 +364,10 @@
                       {
                         "expression": {
                           "id": 14,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
                           "name": "L",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
@@ -483,6 +495,10 @@
                       {
                         "expression": {
                           "id": 25,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
                           "name": "L",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
@@ -550,6 +566,10 @@
                     "components": [
                       {
                         "id": 31,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
                         "name": "free2",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
@@ -697,6 +717,10 @@
                       {
                         "expression": {
                           "id": 42,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
                           "name": "L",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
@@ -764,6 +788,10 @@
                     "components": [
                       {
                         "id": 48,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
                         "name": "free2",
                         "nodeType": "Identifier",
                         "overloadedDeclarations": [],
@@ -817,6 +845,10 @@
                       {
                         "expression": {
                           "id": 52,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
                           "name": "L",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],

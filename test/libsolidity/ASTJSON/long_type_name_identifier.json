@@ -110,6 +110,10 @@
                 "id": 12,
                 "initialValue": {
                   "id": 11,
+                  "isConstant": false,
+                  "isLValue": true,
+                  "isPure": false,
+                  "lValueRequested": false,
                   "name": "a",
                   "nodeType": "Identifier",
                   "overloadedDeclarations": [],

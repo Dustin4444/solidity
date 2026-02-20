@@ -78,6 +78,10 @@
                         "lValueRequested": false,
                         "leftHandSide": {
                           "id": 18,
+                          "isConstant": false,
+                          "isLValue": true,
+                          "isPure": false,
+                          "lValueRequested": true,
                           "name": "x",
                           "nodeType": "Identifier",
                           "overloadedDeclarations": [],
@@ -130,6 +134,10 @@
                   "lValueRequested": false,
                   "leftExpression": {
                     "id": 12,
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": false,
                     "name": "i",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -233,6 +241,10 @@
                     "src": "137:3:1",
                     "subExpression": {
                       "id": 15,
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": true,
                       "name": "i",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
@@ -259,6 +271,10 @@
                 "documentation": "tes \"t4\" ",
                 "expression": {
                   "id": 24,
+                  "isConstant": false,
+                  "isLValue": true,
+                  "isPure": false,
+                  "lValueRequested": false,
                   "name": "x",
                   "nodeType": "Identifier",
                   "overloadedDeclarations": [],

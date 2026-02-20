@@ -388,6 +388,10 @@
                     "src": "225:2:1",
                     "subExpression": {
                       "id": 42,
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": false,
                       "name": "a",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
@@ -407,6 +411,10 @@
                   "operator": "-",
                   "rightExpression": {
                     "id": 44,
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": false,
                     "name": "b",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],

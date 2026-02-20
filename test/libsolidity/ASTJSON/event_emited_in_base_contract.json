@@ -131,6 +131,10 @@
                     ],
                     "expression": {
                       "id": 8,
+                      "isConstant": false,
+                      "isLValue": false,
+                      "isPure": true,
+                      "lValueRequested": false,
                       "name": "L",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],

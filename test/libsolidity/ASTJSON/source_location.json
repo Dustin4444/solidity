@@ -95,6 +95,10 @@
                   "src": "47:3:1",
                   "subExpression": {
                     "id": 7,
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": true,
                     "name": "x",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],

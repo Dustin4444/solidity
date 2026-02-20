@@ -157,6 +157,10 @@
                   "lValueRequested": false,
                   "leftExpression": {
                     "id": 13,
+                    "isConstant": false,
+                    "isLValue": true,
+                    "isPure": false,
+                    "lValueRequested": false,
                     "name": "i",
                     "nodeType": "Identifier",
                     "overloadedDeclarations": [],
@@ -259,6 +263,10 @@
                     "src": "256:3:1",
                     "subExpression": {
                       "id": 16,
+                      "isConstant": false,
+                      "isLValue": true,
+                      "isPure": false,
+                      "lValueRequested": true,
                       "name": "i",
                       "nodeType": "Identifier",
                       "overloadedDeclarations": [],
