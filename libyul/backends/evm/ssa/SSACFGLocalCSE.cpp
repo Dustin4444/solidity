@@ -334,9 +334,9 @@ void SSACFGLocalCSE::run(SSACFG& _cfg)
 				// Build CSE key.
 				CSEKey key;
 				if (std::holds_alternative<SSACFG::LiteralAssignment>(operation.kind))
-					key = CSEKey{nullptr, operation.inputs};
+					key = CSEKey{nullptr, {operation.inputs.begin(), operation.inputs.end()}};
 				else
-					key = CSEKey{&builtin, operation.inputs};
+					key = CSEKey{&builtin, {operation.inputs.begin(), operation.inputs.end()}};
 
 				// Record this definition.
 				defBlock[operation.outputs[0]] = blockIdx;
