@@ -95,7 +95,8 @@ private:
 	void assign(std::vector<std::reference_wrapper<Scope::Variable const>> _variables, Expression const* _expression);
 	std::vector<SSACFG::ValueId> visitFunctionCall(FunctionCall const& _call);
 	void registerFunctionDefinition(FunctionDefinition const& _functionDefinition);
-	void buildFunctionGraph(Scope::Function const* _function, FunctionDefinition const* _functionDefinition);
+	void buildPendingFunctionGraphs();
+	void buildFunctionGraphInto(SSACFG& _cfg, Scope::Function const* _function, FunctionDefinition const* _functionDefinition);
 
 	SSACFG::ValueId zero();
 	SSACFG::ValueId readVariable(Scope::Variable const& _variable, SSACFG::BlockId _block);
@@ -116,6 +117,7 @@ private:
 	bool const m_keepLiteralAssignments;
 	bool const m_includeDebugData;
 	std::vector<std::tuple<Scope::Function const*, FunctionDefinition const*>> m_functionDefinitions;
+	std::vector<std::tuple<Scope::Function const*, FunctionDefinition const*>> m_pendingFunctionGraphs;
 	SSACFG::BlockId m_currentBlock;
 	SSACFG::BasicBlock& currentBlock() { return m_graph.block(m_currentBlock); }
 	Scope* m_scope = nullptr;
