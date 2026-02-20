@@ -95,8 +95,9 @@ private:
 	void assign(std::vector<std::reference_wrapper<Scope::Variable const>> _variables, Expression const* _expression);
 	std::vector<SSACFG::ValueId> visitFunctionCall(FunctionCall const& _call);
 	void registerFunctionDefinition(FunctionDefinition const& _functionDefinition);
-	void buildPendingFunctionGraphs();
-	void buildFunctionGraphInto(SSACFG& _cfg, Scope::Function const* _function, FunctionDefinition const* _functionDefinition);
+	void buildFunctionGraph(Scope::Function const* _function, FunctionDefinition const* _functionDefinition);
+	SSACFG::ValueId canonicalize(SSACFG::ValueId _v);
+	void applyPhiSubstitutions();
 
 	SSACFG::ValueId zero();
 	SSACFG::ValueId readVariable(Scope::Variable const& _variable, SSACFG::BlockId _block);
@@ -117,7 +118,6 @@ private:
 	bool const m_keepLiteralAssignments;
 	bool const m_includeDebugData;
 	std::vector<std::tuple<Scope::Function const*, FunctionDefinition const*>> m_functionDefinitions;
-	std::vector<std::tuple<Scope::Function const*, FunctionDefinition const*>> m_pendingFunctionGraphs;
 	SSACFG::BlockId m_currentBlock;
 	SSACFG::BasicBlock& currentBlock() { return m_graph.block(m_currentBlock); }
 	Scope* m_scope = nullptr;
@@ -148,6 +148,20 @@ private:
 	/// the triviality check in tryRemoveTrivialPhi runs in O(upsilons for this phi)
 	/// rather than O(upsilons across all predecessor blocks).
 	std::vector<std::vector<SSACFG::ValueId>> m_upsilonValuesForPhi;
+
+	/// phi_id → canonical replacement (empty/default if not yet substituted).
+	/// Set lazily by tryRemoveTrivialPhi; consumed by canonicalize() and applyPhiSubstitutions().
+	std::vector<SSACFG::ValueId> m_phiSubstitution;
+
+	/// phi_id → block IDs that contain upsilons targeting this phi.
+	/// Maintained by emitUpsilon; used by tryRemoveTrivialPhi Pass 2 to erase targeting upsilons
+	/// in O(predecessor_count) rather than O(numBlocks).
+	std::vector<std::vector<SSACFG::BlockId>> m_phiTargetBlocks;
+
+	/// phi_id → phis whose upsilon values include this phi_id.
+	/// Maintained by emitUpsilon; used by tryRemoveTrivialPhi Pass 1 to find cascades
+	/// in O(upsilons_for_phi) rather than O(numBlocks × upsilons_per_block).
+	std::vector<std::vector<SSACFG::ValueId>> m_reversePhiUpsilonValues;
 
 	struct ForLoopInfo {
 		SSACFG::BlockId breakBlock;
@@ -194,6 +208,7 @@ public:
 		/// Subtract tryRemoveNs from cleanUnreachableNs overlap carefully — they nest.
 		uint64_t tryRemoveNs{};
 		uint64_t cleanUnreachableNs{};      ///< ns in cleanUnreachable (includes tryRemoveNs called from it)
+		uint64_t applyPhiSubstitutionsNs{}; ///< ns in applyPhiSubstitutions (single sweep after build)
 	};
 	static Stats s_stats;
 	static void clearStats() { s_stats = {}; }
