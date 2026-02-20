@@ -1006,13 +1006,13 @@ bool ASTJsonExporter::visit(Identifier const& _node)
 	Json overloads = Json::array();
 	for (auto const& dec: _node.annotation().overloadedDeclarations)
 		overloads.emplace_back(nodeId(*dec));
-	setJsonNode(_node, "Identifier", {
+	std::vector<std::pair<std::string, Json>> attributes = {
 		std::make_pair("name", _node.name()),
 		std::make_pair("referencedDeclaration", idOrNull(_node.annotation().referencedDeclaration)),
 		std::make_pair("overloadedDeclarations", overloads),
-		std::make_pair("typeDescriptions", typePointerToJson(_node.annotation().type)),
-		std::make_pair("argumentTypes", typePointerToJson(_node.annotation().arguments))
-	});
+	};
+	appendExpressionAttributes(attributes, _node.annotation());
+	setJsonNode(_node, "Identifier", std::move(attributes));
 	return false;
 }
 
