@@ -24,6 +24,9 @@
 #include <libyul/backends/evm/ssa/ControlFlow.h>
 
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 #include <libyul/AST.h>
 #include <libyul/AsmAnalysisInfo.h>
@@ -95,6 +98,7 @@ std::unique_ptr<ControlFlow> SSACFGBuilder::build(
 	mainGraph.block(builder.m_currentBlock).exit = SSACFG::BasicBlock::MainExit{};
 	controlFlow->functionGraphs.at(0)->block(builder.m_currentBlock).exit = SSACFG::BasicBlock::MainExit{};
 	builder.cleanUnreachable();
+	builder.buildPendingFunctionGraphs();
 	return controlFlow;
 }
 
@@ -267,17 +271,12 @@ void SSACFGBuilder::cleanUnreachable()
 	);
 }
 
-void SSACFGBuilder::buildFunctionGraph(
+void SSACFGBuilder::buildFunctionGraphInto(
+	SSACFG& cfg,
 	Scope::Function const* _function,
 	FunctionDefinition const* _functionDefinition
 )
 {
-	m_controlFlow.functionGraphs.emplace_back(std::make_unique<SSACFG>());
-	auto& cfg = *m_controlFlow.functionGraphs.back();
-	if (m_includeDebugData)
-		cfg.enableDebugData();
-	m_controlFlow.functionGraphMapping.emplace_back(_function, &cfg);
-
 	yulAssert(m_info.scopes.at(&_functionDefinition->body), "");
 	Scope* virtualFunctionScope = m_info.scopes.at(m_info.virtualBlocks.at(_functionDefinition).get()).get();
 	yulAssert(virtualFunctionScope, "");
@@ -313,6 +312,64 @@ void SSACFGBuilder::buildFunctionGraph(
 	builder.cleanUnreachable();
 }
 
+void SSACFGBuilder::buildPendingFunctionGraphs()
+{
+	auto const n = m_pendingFunctionGraphs.size();
+	if (n == 0) return;
+
+	// Pre-allocate all slots on the main thread to avoid races on functionGraphs/functionGraphMapping.
+	size_t const baseIdx = m_controlFlow.functionGraphs.size();
+	m_controlFlow.functionGraphs.reserve(baseIdx + n);
+	m_controlFlow.functionGraphMapping.reserve(baseIdx + n);
+	for (auto const& [func, funcDef]: m_pendingFunctionGraphs)
+	{
+		m_controlFlow.functionGraphs.emplace_back(std::make_unique<SSACFG>());
+		auto& cfg = *m_controlFlow.functionGraphs.back();
+		if (m_includeDebugData)
+			cfg.enableDebugData();
+		m_controlFlow.functionGraphMapping.emplace_back(func, &cfg);
+	}
+
+	std::mutex mtx;
+	std::condition_variable cv;
+	size_t nextIdx = 0;
+	size_t doneCount = 0;
+
+	auto doWork = [&]() {
+		for (;;)
+		{
+			size_t idx;
+			{
+				std::unique_lock lock(mtx);
+				if (nextIdx >= n) break;
+				idx = nextIdx++;
+			}
+			auto const& [func, funcDef] = m_pendingFunctionGraphs[idx];
+			buildFunctionGraphInto(*m_controlFlow.functionGraphs[baseIdx + idx], func, funcDef);
+			{
+				std::lock_guard lock(mtx);
+				if (++doneCount == n)
+					cv.notify_one();
+			}
+		}
+	};
+
+	unsigned const nWorkers = std::min(
+		static_cast<unsigned>(n),
+		std::max(1u, std::thread::hardware_concurrency())
+	) - 1;  // main thread is one worker
+
+	std::vector<std::jthread> threads;
+	threads.reserve(nWorkers);
+	for (unsigned i = 0; i < nWorkers; ++i)
+		threads.emplace_back([&](std::stop_token) { doWork(); });
+	doWork();  // main thread participates
+
+	std::unique_lock lock(mtx);
+	cv.wait(lock, [&] { return doneCount == n; });
+	// jthreads auto-join on destruction of 'threads'
+}
+
 void SSACFGBuilder::operator()(ExpressionStatement const& _expressionStatement)
 {
 	auto const* functionCall = std::get_if<FunctionCall>(&_expressionStatement.expression);
@@ -340,7 +397,7 @@ void SSACFGBuilder::operator()(VariableDeclaration const& _variableDeclaration)
 void SSACFGBuilder::operator()(FunctionDefinition const& _functionDefinition)
 {
 	Scope::Function const& function = lookupFunction(_functionDefinition.name);
-	buildFunctionGraph(&function, &_functionDefinition);
+	m_pendingFunctionGraphs.emplace_back(&function, &_functionDefinition);
 }
 
 void SSACFGBuilder::operator()(If const& _if)
