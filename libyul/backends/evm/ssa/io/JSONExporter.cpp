@@ -35,7 +35,8 @@ using namespace solidity::yul::ssa::io::json;
 
 namespace
 {
-Json toJson(SSACFG const& _cfg, std::vector<SSACFG::ValueId> const& _values)
+template<typename Container>
+Json toJson(SSACFG const& _cfg, Container const& _values)
 {
 	Json ret = Json::array();
 	for (auto const& value: _values)

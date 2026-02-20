@@ -444,16 +444,14 @@ void SSACFGBuilder::operator()(Switch const& _switch)
 				BuiltinName{{}, *equalityBuiltinHandle},
 				{*_case.value /* skip second argument */ }
 			});
-			auto outputValue = m_graph.newVariable(m_currentBlock);
-			currentBlock().operations.emplace_back(SSACFG::Operation{
-				{outputValue},
-				SSACFG::BuiltinCall{
-					debugDataOf(_case),
-					m_dialect.builtin(*equalityBuiltinHandle),
-					ghostCall
-				},
-				{m_graph.newLiteral(debugDataOf(_case), _case.value->value.value()), expression}
-			});
+			auto const caseDebugData = debugDataOf(_case);
+			auto const outputValue = m_graph.newVariable(m_currentBlock);
+			auto const literalVal = m_graph.newLiteral(caseDebugData, _case.value->value.value());
+			auto& op = currentBlock().operations.emplace_back(); // uses_allocator: inherits arena from vector
+			op.outputs.push_back(outputValue);
+			op.kind = SSACFG::BuiltinCall{caseDebugData, m_dialect.builtin(*equalityBuiltinHandle), ghostCall};
+			op.inputs.push_back(literalVal);
+			op.inputs.push_back(expression);
 			return outputValue;
 		};
 
@@ -636,12 +634,10 @@ void SSACFGBuilder::assign(std::vector<std::reference_wrapper<Scope::Variable co
 	{
 		if (m_keepLiteralAssignments && value.isLiteral())
 		{
-			SSACFG::Operation assignment{
-				.outputs = {m_graph.newVariable(m_currentBlock)},
-				.kind = SSACFG::LiteralAssignment{},
-				.inputs = {value}
-			};
-			currentBlock().operations.emplace_back(assignment);
+			auto& assignment = currentBlock().operations.emplace_back(); // uses_allocator: inherits arena from vector
+			assignment.outputs.push_back(m_graph.newVariable(m_currentBlock));
+			assignment.kind = SSACFG::LiteralAssignment{};
+			assignment.inputs.push_back(value);
 			writeVariable(var, m_currentBlock, assignment.outputs.back());
 		}
 		else
@@ -657,7 +653,8 @@ std::vector<SSACFG::ValueId> SSACFGBuilder::visitFunctionCall(FunctionCall const
 		[&](BuiltinName const& _builtinName)
 		{
 			auto const& builtin = m_dialect.builtin(_builtinName.handle);
-			SSACFG::Operation result{{}, SSACFG::BuiltinCall{_call.debugData, builtin, _call}, {}};
+			SSACFG::Operation result{m_graph.allocator()};
+			result.kind = SSACFG::BuiltinCall{_call.debugData, builtin, _call};
 			result.inputs.reserve(_call.arguments.size());
 			result.outputs.reserve(builtin.numReturns);
 			for (auto&& [idx, arg]: _call.arguments | ranges::views::enumerate | ranges::views::reverse)
@@ -675,7 +672,8 @@ std::vector<SSACFG::ValueId> SSACFGBuilder::visitFunctionCall(FunctionCall const
 			auto const* definition = findFunctionDefinition(&function);
 			yulAssert(definition);
 			canContinue = m_sideEffects.functionSideEffects().at(definition).canContinue;
-			SSACFG::Operation result{{}, SSACFG::Call{debugDataOf(_call), function, _call, canContinue}, {}};
+			SSACFG::Operation result{m_graph.allocator()};
+			result.kind = SSACFG::Call{debugDataOf(_call), function, _call, canContinue};
 			result.inputs.reserve(_call.arguments.size());
 			result.outputs.reserve(function.numReturns);
 			for (auto const& arg: _call.arguments | ranges::views::reverse)
@@ -685,7 +683,8 @@ std::vector<SSACFG::ValueId> SSACFGBuilder::visitFunctionCall(FunctionCall const
 			return result;
 		}
 	}, _call.functionName);
-	auto results = operation.outputs;
+	// Capture results before the move (pmr::vector → std::vector, ValueId is trivially copyable).
+	std::vector<SSACFG::ValueId> results(operation.outputs.begin(), operation.outputs.end());
 	currentBlock().operations.emplace_back(std::move(operation));
 	if (!canContinue)
 	{

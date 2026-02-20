@@ -36,6 +36,7 @@
 #include <deque>
 #include <functional>
 #include <list>
+#include <memory_resource>
 #include <vector>
 #include <optional>
 
@@ -47,7 +48,8 @@ class LivenessAnalysis;
 class SSACFG
 {
 public:
-	SSACFG(): m_zero(newLiteral(nullptr, 0)) {}
+	SSACFG(): m_blocks(&m_arena), m_literals(&m_arena), m_phis(&m_arena), m_variables(&m_arena), m_zero(newLiteral(nullptr, 0)) {}
+	std::pmr::polymorphic_allocator<> allocator() { return &m_arena; }
 	SSACFG(SSACFG const&) = delete;
 	SSACFG(SSACFG&&) = delete;
 	SSACFG& operator=(SSACFG const&) = delete;
@@ -135,12 +137,27 @@ public:
 	};
 
 	struct Operation {
-		std::vector<ValueId> outputs{};
-		std::variant<BuiltinCall, Call, LiteralAssignment> kind;
-		std::vector<ValueId> inputs{};
+		using allocator_type = std::pmr::polymorphic_allocator<>;
+
+		std::pmr::vector<ValueId> outputs;
+		std::variant<BuiltinCall, Call, LiteralAssignment> kind{LiteralAssignment{}};
+		std::pmr::vector<ValueId> inputs;
+
+		explicit Operation(allocator_type _alloc = {})
+			: outputs(_alloc), kind(LiteralAssignment{}), inputs(_alloc) {}
+		Operation(Operation const& _other, allocator_type _alloc)
+			: outputs(_other.outputs, _alloc), kind(_other.kind), inputs(_other.inputs, _alloc) {}
+		Operation(Operation&& _other, allocator_type _alloc)
+			: outputs(std::move(_other.outputs), _alloc), kind(std::move(_other.kind)), inputs(std::move(_other.inputs), _alloc) {}
+		Operation(Operation const&) = default;
+		Operation(Operation&&) = default;
+		Operation& operator=(Operation const&) = default;
+		Operation& operator=(Operation&&) = default;
 	};
 	struct BasicBlock
 	{
+		using allocator_type = std::pmr::polymorphic_allocator<>;
+
 		struct MainExit {};
 		struct ConditionalJump
 		{
@@ -168,13 +185,29 @@ public:
 		};
 		struct Terminated {};
 		langutil::DebugData::ConstPtr debugData;
-		std::vector<BlockId> entries;
-		std::vector<ValueId> phis;
-		std::vector<Operation> operations;
+		std::pmr::vector<BlockId> entries;
+		std::pmr::vector<ValueId> phis;
+		std::pmr::vector<Operation> operations;
 		/// Upsilon assignments placed at the block exit (before the terminator).
 		/// They feed phi shadow variables in successor blocks.
-		std::vector<Upsilon> upsilons;
-		std::variant<MainExit, Jump, ConditionalJump, JumpTable, FunctionReturn, Terminated> exit = MainExit{};
+		std::pmr::vector<Upsilon> upsilons;
+		std::variant<MainExit, Jump, ConditionalJump, JumpTable, FunctionReturn, Terminated> exit{Terminated{}};
+
+		explicit BasicBlock(allocator_type _alloc = {})
+			: entries(_alloc), phis(_alloc), operations(_alloc), upsilons(_alloc) {}
+		BasicBlock(langutil::DebugData::ConstPtr _debugData, allocator_type _alloc = {})
+			: debugData(std::move(_debugData)), entries(_alloc), phis(_alloc), operations(_alloc), upsilons(_alloc) {}
+		BasicBlock(BasicBlock const&) = delete;
+		BasicBlock& operator=(BasicBlock const&) = delete;
+		BasicBlock(BasicBlock&&) noexcept = default;
+		BasicBlock& operator=(BasicBlock&&) = default;
+		BasicBlock(BasicBlock&& _other, allocator_type _alloc)
+			: debugData(std::move(_other.debugData))
+			, entries(std::move(_other.entries), _alloc)
+			, phis(std::move(_other.phis), _alloc)
+			, operations(std::move(_other.operations), _alloc)
+			, upsilons(std::move(_other.upsilons), _alloc)
+			, exit(std::move(_other.exit)) {}
 		template<typename Callable>
 		void forEachExit(Callable&& _callable) const
 		{
@@ -216,7 +249,8 @@ public:
 	BlockId makeBlock(langutil::DebugData::ConstPtr _debugData)
 	{
 		BlockId blockId { static_cast<BlockId::ValueType>(m_blocks.size()) };
-		m_blocks.emplace_back(BasicBlock{std::move(_debugData), {}, {}, {}, {}, BasicBlock::Terminated{}});
+		// uses_allocator protocol: pmr::vector passes &m_arena to BasicBlock(debugData, alloc)
+		m_blocks.emplace_back(std::move(_debugData));
 		return blockId;
 	}
 	BasicBlock& block(BlockId _id) { return m_blocks.at(_id.value); }
@@ -224,7 +258,8 @@ public:
 	size_t numBlocks() const { return m_blocks.size(); }
 
 private:
-	std::vector<BasicBlock> m_blocks;
+	std::pmr::monotonic_buffer_resource m_arena;
+	std::pmr::vector<BasicBlock> m_blocks;
 public:
 	struct LiteralValue {
 		langutil::DebugData::ConstPtr debugData;
@@ -341,10 +376,10 @@ public:
 	}
 
 private:
-	std::vector<LiteralValue> m_literals;
+	std::pmr::vector<LiteralValue> m_literals;
 	std::map<u256, ValueId> m_literalMapping;
-	std::vector<PhiValue> m_phis;
-	std::vector<VariableValue> m_variables;
+	std::pmr::vector<PhiValue> m_phis;
+	std::pmr::vector<VariableValue> m_variables;
 	ValueId m_unreachableValue;
 	ValueId m_zero;
 	std::optional<SSACFGDebugData> m_debugData;

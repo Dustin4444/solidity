@@ -80,7 +80,7 @@ private:
 		SSACFG::BlockId const& _neighbor,
 		size_t& _time,
 		SSACFG::BlockId const& _vertex,
-		std::vector<SSACFG::BlockId> const& _vertexEntries,
+		std::pmr::vector<SSACFG::BlockId> const& _vertexEntries,
 		std::optional<SSACFG::BlockId> const& _parent
 	)
 	{
