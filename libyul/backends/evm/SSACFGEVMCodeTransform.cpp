@@ -40,6 +40,7 @@
 #include <range/v3/view/take_last.hpp>
 #include <range/v3/view/zip.hpp>
 
+#include <memory>
 #include <variant>
 
 using namespace solidity;
@@ -61,13 +62,65 @@ std::vector<StackTooDeepError> SSACFGEVMCodeTransform::run(
 	auto const& controlFlow = _liveness.controlFlow.get();
 	auto functionLabels = registerFunctionLabels(_assembly, controlFlow, _useNamedLabelsForFunctions);
 
-	SSACFGEVMCodeTransform mainCodeTransform(
+	// Phase 1: construct all transforms (runs StackLayoutGenerator, determines spill sets).
+	// Use new directly since constructor is private (run() is a member and has access).
+	auto mainCodeTransform = std::unique_ptr<SSACFGEVMCodeTransform>(new SSACFGEVMCodeTransform(
 		_assembly,
 		_builtinContext,
 		functionLabels,
 		*controlFlow.mainGraph(),
 		*_liveness.cfgLiveness.front()
-	);
+	));
+
+	yulAssert(controlFlow.functionGraphMapping.size() == _liveness.cfgLiveness.size());
+	std::vector<std::unique_ptr<SSACFGEVMCodeTransform>> fnTransforms;
+	fnTransforms.reserve(controlFlow.functionGraphMapping.size() - 1);
+	for (size_t functionIndex = 1; functionIndex < controlFlow.functionGraphMapping.size(); ++functionIndex)
+	{
+		auto const& functionAndGraph = controlFlow.functionGraphMapping[functionIndex];
+		auto const& functionLiveness = _liveness.cfgLiveness[functionIndex];
+		auto const& [function, functionGraph] = functionAndGraph;
+		fnTransforms.push_back(std::unique_ptr<SSACFGEVMCodeTransform>(new SSACFGEVMCodeTransform(
+			_assembly,
+			_builtinContext,
+			functionLabels,
+			*functionGraph,
+			*functionLiveness
+		)));
+	}
+
+	// Phase 2: assign static spill addresses
+	// Derive initialFMP from the memoryguard literal in the main SSACFG.
+	// May be > 0x80 if StackLimitEvader has already reserved memory below that point.
+	std::size_t const initialFMP = [&]() -> std::size_t {
+		auto const* mainGraph = controlFlow.mainGraph();
+		for (size_t i = 0; i < mainGraph->numBlocks(); ++i)
+			for (auto const& op : mainGraph->block(SSACFG::BlockId{i}).operations)
+				if (auto const* builtin = std::get_if<SSACFG::BuiltinCall>(&op.kind))
+					if (builtin->builtin.get().name == "memoryguard")
+					{
+						auto const* lit = std::get_if<Literal>(&builtin->call.get().arguments.front());
+						yulAssert(lit);
+						return static_cast<std::size_t>(lit->value.value());
+					}
+		return 0x80; // no memoryguard (pure assembly)
+	}();
+	std::size_t base = initialFMP;
+
+	auto assignSpillBase = [&](SSACFGEVMCodeTransform& _t)
+	{
+		_t.m_spillBaseAddress = base;
+		_t.m_assemblyCallbacks.spillSet = &_t.m_stackLayout.spillSet;
+		_t.m_assemblyCallbacks.spillBaseAddress = base;
+		base += _t.m_stackLayout.spillSet.size() * 32;
+	};
+	assignSpillBase(*mainCodeTransform);
+	for (auto& ft: fnTransforms)
+		assignSpillBase(*ft);
+
+	// Phase 3: set adjusted FMP on main transform so memoryguard interception emits the right value
+	mainCodeTransform->m_newFMP = base;
+
 	if constexpr (debugOutput)
 	{
 		std::cout << "\n\n\n";
@@ -78,28 +131,18 @@ std::vector<StackTooDeepError> SSACFGEVMCodeTransform::run(
 		std::fflush(nullptr);
 	}
 
-	mainCodeTransform(controlFlow.mainGraph()->entry);
+	(*mainCodeTransform)(controlFlow.mainGraph()->entry);
 
 	std::vector<StackTooDeepError> stackErrors;
-	if (!mainCodeTransform.m_stackErrors.empty())
-		stackErrors = std::move(mainCodeTransform.m_stackErrors);
+	if (!mainCodeTransform->m_stackErrors.empty())
+		stackErrors = std::move(mainCodeTransform->m_stackErrors);
 
-	yulAssert(controlFlow.functionGraphMapping.size() == _liveness.cfgLiveness.size());
-	for (size_t functionIndex = 1; functionIndex < controlFlow.functionGraphMapping.size(); ++functionIndex)
+	for (size_t i = 0; i < fnTransforms.size(); ++i)
 	{
-		auto const& functionAndGraph = controlFlow.functionGraphMapping[functionIndex];
-		auto const& functionLiveness = _liveness.cfgLiveness[functionIndex];
-		auto const& [function, functionGraph] = functionAndGraph;
-		SSACFGEVMCodeTransform functionCodeTransform(
-			_assembly,
-			_builtinContext,
-			functionLabels,
-			*functionGraph,
-			*functionLiveness
-		);
-		functionCodeTransform.transformFunction(*function);
-		if (!functionCodeTransform.m_stackErrors.empty())
-			stackErrors.insert(stackErrors.end(), functionCodeTransform.m_stackErrors.begin(), functionCodeTransform.m_stackErrors.end());
+		auto const& [function, functionGraph] = controlFlow.functionGraphMapping[i + 1];
+		fnTransforms[i]->transformFunction(*function);
+		if (!fnTransforms[i]->m_stackErrors.empty())
+			stackErrors.insert(stackErrors.end(), fnTransforms[i]->m_stackErrors.begin(), fnTransforms[i]->m_stackErrors.end());
 	}
 	return stackErrors;
 }
@@ -196,6 +239,8 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 	assertLayoutCompatibility(m_stack.data(), blockLayout->stackIn);
 	m_stackData = blockLayout->stackIn;
 	m_stack = Stack(m_stackData, m_assemblyCallbacks); // this can set some stuff to junk
+	if (!m_stackLayout.spillSet.empty())
+		m_stack.setSpillSet(&m_stackLayout.spillSet);
 	// todo assert on all exits that the stack height is fine
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 
@@ -241,7 +286,10 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 			for (Stack<AssemblyCallbacks>::Depth depth {0}; depth.value < m_stack.size(); ++depth.value)
 				if (m_stack.slot(depth).isValueID() && !opLiveOutWithoutOutputs.contains(m_stack.slot(depth).valueID()) && ranges::find(requiredStackTop, m_stack.slot(depth)) == ranges::end(requiredStackTop))
 					m_stack.declareJunk(depth);
-			StackShuffler<AssemblyCallbacks>::shuffle(m_stack, operationStackIn, {}, operationStackIn.size());
+			{
+			auto culprit = StackShuffler<AssemblyCallbacks>::shuffle(m_stack, operationStackIn, {}, operationStackIn.size());
+			yulAssert(!culprit.has_value(), "Unexpected stack-too-deep during code transform; spill set should have been computed in layout phase");
+		}
 		}
 		else
 			DanielShuffler<Stack<AssemblyCallbacks>>::shuffle(m_stack, {}, operationStackIn);
@@ -269,6 +317,23 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 
 		// Perform the operation.
 		performOperation(operation);
+
+		// Mstore each spilled output while it's still on the EVM stack.
+		// Net EVM effect per spill: DUP(n) +1, PUSH(addr) +1, MSTORE -2 = 0.
+		if (!m_stackLayout.spillSet.empty())
+		{
+			auto const& spills = m_stackLayout.spillSet;
+			for (std::size_t i = 0; i < operation.outputs.size(); ++i)
+			{
+				auto const vid = operation.outputs[i];
+				if (!spills.count(vid))
+					continue;
+				std::size_t const dupN = operation.outputs.size() - i; // 1-indexed depth from top
+				m_assembly.appendInstruction(evmasm::dupInstruction(static_cast<unsigned>(dupN)));
+				m_assembly.appendConstant(m_spillBaseAddress + 32 * spills.at(vid));
+				m_assembly.appendInstruction(evmasm::Instruction::MSTORE);
+			}
+		}
 
 		// Assert that the operation produced its proclaimed output.
 		// yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
@@ -380,6 +445,14 @@ void SSACFGEVMCodeTransform::performOperation(SSACFG::Operation const& _operatio
 		[&](SSACFG::BuiltinCall const& _builtin) {
 			if constexpr (debugOutput)
 				std::cout << "\t\t\tBuiltin call: " << _builtin.builtin.get().name << ": " << stackToString(m_stack.data());
+			// Intercept memoryguard: emit the adjusted FMP instead of the literal 0x80
+			// so that mstore(0x40, memoryguard(0x80)) correctly initializes the FMP
+			// to account for the spill region.
+			if (_builtin.builtin.get().name == "memoryguard" && !m_stackLayout.spillSet.empty())
+			{
+				m_assembly.appendConstant(m_newFMP);
+				return;
+			}
 			m_assembly.setSourceLocation(originLocationOf(_builtin));
 			static_cast<BuiltinFunctionForEVM const&>(_builtin.builtin.get()).generateCode(
 				_builtin.call,

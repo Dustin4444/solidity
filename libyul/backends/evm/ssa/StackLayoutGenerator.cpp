@@ -189,7 +189,8 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 					continue;
 				auto proposalCopy = proposals[j];
 				StackType stack(proposalCopy, {});
-				StackShuffler<StackType::Callbacks>::shuffle(
+				// Ignore culprit for cost estimation; the real shuffle with retry is done in visitBlock
+				(void)StackShuffler<StackType::Callbacks>::shuffle(
 					stack,
 					proposals[i],
 					{},
@@ -220,6 +221,25 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 	StackType stack(currentStackData, {});
 	bool const junkCanBeAdded = m_junkAdmittingBlocksFinder->allowsAdditionOfJunk(_blockId);
 
+	// Retry loop that adds spilled values until shuffle succeeds
+	auto shuffleDetectingSpills = [&](StackType& _stack, StackData const& _args,
+		LivenessAnalysis::LivenessData const& _liveOut, std::size_t _targetSize)
+	{
+		for (;;)
+		{
+			auto culprit = StackShuffler<StackType::Callbacks>::shuffle(_stack, _args, _liveOut, _targetSize);
+			if (!culprit)
+				break;
+			yulAssert(culprit->isValueID() && culprit->valueID().isVariable(),
+				"cannot spill phi or non-variable value");
+			auto const vid = culprit->valueID();
+			if (!m_resultLayout.spillSet.count(vid))
+				m_resultLayout.spillSet[vid] = static_cast<uint32_t>(m_resultLayout.spillSet.size());
+			// Inform the stack that this value is now freely generatable (via mload)
+			_stack.setSpillSet(&m_resultLayout.spillSet);
+		}
+	};
+
 	auto const& operationsLiveOut = m_liveness.operationsLiveOut(_blockId);
 	blockLayout.operationIn.reserve(block.operations.size());
 	for (std::size_t operationIndex = 0; operationIndex < block.operations.size(); ++operationIndex)
@@ -249,12 +269,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				stack.declareJunk(depth);
 
 		std::size_t const targetSize = findOptimalTargetSize(stack.data(), requiredStackTop, opLiveOutWithoutOutputs, junkCanBeAdded);
-		StackShuffler<StackType::Callbacks>::shuffle(
-			stack,
-			requiredStackTop,
-			opLiveOutWithoutOutputs,
-			targetSize
-		);
+		shuffleDetectingSpills(stack, requiredStackTop, opLiveOutWithoutOutputs, targetSize);
 
 		blockLayout.operationIn.push_back(currentStackData);
 		for (std::size_t i = 0; i < requiredStackTop.size(); ++i)
@@ -277,9 +292,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 		{
 			auto const condition = Slot::makeValueID(cjump->condition);
 			auto const targetSize = findOptimalTargetSize(stack.data(), {condition}, blockLiveOut, false);
-			StackShuffler<StackType::Callbacks>::shuffle(
-				stack, {condition}, blockLiveOut, targetSize
-			);
+			shuffleDetectingSpills(stack, {condition}, blockLiveOut, targetSize);
 		}
 
 		yulAssert(!stack.empty() && stack.top().isValueID() && stack.top().valueID() == cjump->condition);

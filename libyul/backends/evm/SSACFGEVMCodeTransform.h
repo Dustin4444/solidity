@@ -62,8 +62,15 @@ struct AssemblyCallbacks
 			case StackSlot::Kind::ValueID:
 			{
 				auto const id = _slot.valueID();
-				yulAssert(id.isLiteral(), fmt::format("Tried bringing up v{}", id.value()));
-				assembly->appendConstant(cfg->literalInfo(id).value);
+				if (id.isLiteral())
+				{
+					assembly->appendConstant(cfg->literalInfo(id).value);
+					return;
+				}
+				// Non-literal Op value → mload from spill memory
+				yulAssert(spillSet && spillSet->count(id), fmt::format("non-literal non-spilled value v{} pushed", id.value()));
+				assembly->appendConstant(spillBaseAddress + 32 * spillSet->at(id));
+				assembly->appendInstruction(evmasm::Instruction::MLOAD);
 				return;
 			}
 			case StackSlot::Kind::Junk:
@@ -101,6 +108,8 @@ struct AssemblyCallbacks
 	AbstractAssembly* assembly;
 	CallSites const* callSites;
 	std::map<FunctionCall const*, AbstractAssembly::LabelID> const* returnLabels;
+	SpillSet const* spillSet = nullptr;
+	std::size_t spillBaseAddress = 0;
 };
 static_assert(StackManipulationCallbackConcept<AssemblyCallbacks>);
 
@@ -156,7 +165,9 @@ private:
 	CallSites const m_callSites;
 	LivenessAnalysis const& m_liveness;
 	JunkAdmittingBlocksFinder m_junkBlockFinder;
-	SSACFGStackLayout const m_stackLayout;
+	SSACFGStackLayout m_stackLayout;
+	std::size_t m_spillBaseAddress = 0;
+	std::size_t m_newFMP = 0x80;  // adjusted memoryguard value when spills are needed
 	std::vector<StackTooDeepError> m_stackErrors;
 	AssemblyCallbacks m_assemblyCallbacks;
 	StackData m_stackData;

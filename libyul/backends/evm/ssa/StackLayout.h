@@ -39,6 +39,8 @@ struct BlockLayout
 class SSACFGStackLayout
 {
 public:
+	SpillSet spillSet;
+
 	SSACFGStackLayout(std::size_t const _numBlocks): m_blockLayouts(_numBlocks) {}
 
 	std::optional<BlockLayout>& operator[](SSACFG::BlockId const& _blockId)

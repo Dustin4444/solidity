@@ -25,6 +25,7 @@
 #include <range/v3/view/reverse.hpp>
 
 #include <cstdint>
+#include <map>
 #include <type_traits>
 
 namespace solidity::yul
@@ -131,6 +132,9 @@ static_assert(std::is_trivial_v<StackSlot>, "Want to have no init/cpy overhead")
 using StackData = std::vector<StackSlot>;
 std::string slotToString(StackSlot const& _slot);
 std::string stackToString(StackData const& _stackData);
+
+/// Maps a spilled ValueId to its slot index within the function's spill memory region.
+using SpillSet = std::map<SSACFG::ValueId, std::uint32_t>;
 
 template<typename StackManipulationCallback>
 concept StackManipulationCallbackConcept = requires(
@@ -272,10 +276,16 @@ public:
 		return Depth{static_cast<size_t>(std::distance(ranges::begin(rview), it))};
 	}
 
-	static bool constexpr canBeFreelyGenerated(Slot const& _slot)
+	bool canBeFreelyGenerated(Slot const& _slot) const
 	{
-		return _slot.isLiteralValueID() || _slot.isJunk() || _slot.isFunctionCallReturnLabel();
+		if (_slot.isLiteralValueID() || _slot.isJunk() || _slot.isFunctionCallReturnLabel())
+			return true;
+		if (m_spillSet && _slot.isValueID())
+			return m_spillSet->count(_slot.valueID()) > 0;
+		return false;
 	}
+
+	void setSpillSet(SpillSet const* _s) { m_spillSet = _s; }
 
 	Slot const& operator[](Offset const& _index) const noexcept { return (*m_data)[_index.value]; }
 	auto begin() const { return ranges::begin(*m_data); }
@@ -304,6 +314,7 @@ public:
 private:
 	Data* m_data;
 	Callbacks m_callbacks;
+	SpillSet const* m_spillSet = nullptr;
 };
 
 }
