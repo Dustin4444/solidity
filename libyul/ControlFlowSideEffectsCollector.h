@@ -21,6 +21,7 @@
 #include <libyul/optimiser/ASTWalker.h>
 #include <libyul/ControlFlowSideEffects.h>
 
+#include <deque>
 #include <list>
 #include <optional>
 #include <set>
@@ -74,7 +75,7 @@ private:
 	void newConnectedNode();
 	ControlFlowNode* newNode();
 
-	std::vector<std::shared_ptr<ControlFlowNode>> m_nodes;
+	std::deque<ControlFlowNode> m_nodes;
 
 	ControlFlowNode* m_currentNode = nullptr;
 	ControlFlowNode const* m_leave = nullptr;
