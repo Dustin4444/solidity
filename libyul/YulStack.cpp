@@ -328,7 +328,7 @@ YulStack::assembleEVMWithDeployed(std::optional<std::string_view> _deployName)
 	{
 		compileEVM(adapter, optimize);
 
-		assembly.optimise(evmasm::Assembly::OptimiserSettings::translateSettings(m_optimiserSettings));
+		if (false) assembly.optimise(evmasm::Assembly::OptimiserSettings::translateSettings(m_optimiserSettings));  // disabled: no asm optimizer
 
 		std::optional<evmasm::SubAssemblyID> subIndex;
 
