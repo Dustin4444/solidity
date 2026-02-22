@@ -1637,7 +1637,7 @@ void CompilerStack::generateIR(ContractDefinition const& _contract, bool _unopti
 	YulStack stack = loadGeneratedIR(*compiledContract.yulIR);
 	if (!_unoptimizedOnly)
 	{
-		if (false) stack.optimize();  // disabled: no Yul optimizer
+		stack.optimize();  // runs only "u" (UnusedPruner) when --optimize is absent
 		compiledContract.yulIROptimized = stack.print();
 	}
 }
