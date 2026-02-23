@@ -73,4 +73,26 @@ struct StackTooDeepError: virtual YulException
 		"Yul assertion failed" \
 	)
 
+/// Throws an exception with a given description and extra information about the location the
+/// exception was thrown from.
+/// @param _exceptionType The type of the exception to throw (not an instance).
+/// @param _description The message that describes the error.
+#define yulThrow(_exceptionType, _description) \
+	::boost::throw_exception( \
+		_exceptionType() << \
+		::solidity::util::errinfo_comment((_description)) << \
+		::boost::throw_function(ETH_FUNC) << \
+		::boost::throw_file(__FILE__) << \
+		::boost::throw_line(__LINE__) \
+	)
+
+/// Throws an exception if condition is not met with a given description and extra information about the location the
+/// exception was thrown from.
+/// @param _condition if condition is not met, specified exception will be thrown.
+/// @param _exceptionType The type of the exception to throw (not an instance).
+/// @param _description The message that describes the error.
+#define yulRequire(_condition, _exceptionType, _description) \
+	if (!(_condition)) \
+		yulThrow(_exceptionType, (_description))
+
 }
