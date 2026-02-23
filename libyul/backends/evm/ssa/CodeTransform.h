@@ -18,8 +18,12 @@
 
 #pragma once
 
+#include "PhiInverse.h"
+
+
 #include <libyul/backends/evm/AbstractAssembly.h>
 #include <libyul/backends/evm/ssa/Stack.h>
+#include <libyul/backends/evm/ssa/StackLayout.h>
 
 #include <libevmasm/Instruction.h>
 
@@ -72,11 +76,7 @@ struct AssemblyCallbacks
 		}
 		case StackSlot::Kind::FunctionReturnLabel:
 		{
-			//auto const* maybeLabel = util::valueOrNullptr(*returnLabels, _label.functionCall);
-			//yulAssert(maybeLabel);
-			//assembly->appendLabelReference(*maybeLabel);
-			// todo
-			return;
+			yulAssert(false, "Cannot produce function return label.");
 		}
 		}
 	}
@@ -100,7 +100,7 @@ public:
 	/// 2) For none of the functions 3) for the first function of each name.
 	enum class UseNamedLabels { YesAndForceUnique, Never, ForFirstFunctionOfEachName };
 
-	static std::vector<StackTooDeepError> run(
+	static void run(
 		AbstractAssembly& _assembly,
 		ControlFlowLiveness const& _liveness,
 		BuiltinContext& _builtinContext,
@@ -116,12 +116,40 @@ private:
 		UseNamedLabels _useNamedLabelsForFunctions
 	);
 
-	CodeTransform(AbstractAssembly& _assembly, BuiltinContext& _builtinContext, FunctionLabels const& _functionLabels, SSACFG const& _cfg, std::optional<Scope::Function> const& _function);
+	CodeTransform(
+		AbstractAssembly& _assembly,
+		BuiltinContext& _builtinContext,
+		FunctionLabels const& _functionLabels,
+		CallSites const& _callSites,
+		SSACFG const& _cfg,
+		SSACFGStackLayout const& _stackLayout,
+		std::optional<Scope::Function> const& _function,
+		ControlFlow::FunctionGraphID _graphID);
+
+	void operator()(SSACFG::BlockId _blockId);
+	void operator()(SSACFG::Operation const& _operation, StackData const& _operationInputLayout);
+	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::MainExit const& _mainExit);
+	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::ConditionalJump const& _conditionalJump);
+	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::Jump const& _jump);
+	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::FunctionReturn const& _functionReturn);
+	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::Terminated const& _terminated);
+
+	void prepareBlockExitStack(StackData const& _target, PhiInverse const& _phiInverse);
 
 	AbstractAssembly& m_assembly;
 	BuiltinContext& m_builtinContext;
 	FunctionLabels const& m_functionLabels;
+	CallSites const& m_callSites;
 	SSACFG const& m_cfg;
+	SSACFGStackLayout const& m_stackLayout;
+
+	ControlFlow::FunctionGraphID m_functionGraphID;
+	std::vector<std::uint8_t> m_blockIsTransformed;
+	std::vector<AbstractAssembly::LabelID> m_blockLabels;
+	AssemblyCallbacks m_assemblyCallbacks;
+	StackData m_stackData;
+	Stack<AssemblyCallbacks> m_stack;
+	std::map<FunctionCall const*, AbstractAssembly::LabelID> m_returnLabels;
 };
 
 }

@@ -18,10 +18,22 @@
 
 #include <libyul/backends/evm/ssa/CodeTransform.h>
 
+#include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
+#include <libyul/backends/evm/ssa/StackShuffler.h>
+#include <libyul/backends/evm/ssa/StackUtils.h>
+
+#include <libyul/backends/evm/EVMBuiltins.h>
+
+#include <libsolutil/Visitor.h>
+
+#include <range/v3/to_container.hpp>
+#include <range/v3/view/take_last.hpp>
+#include <range/v3/view/zip.hpp>
+
 using namespace solidity::yul::ssa;
 
 
-std::vector<solidity::yul::StackTooDeepError> CodeTransform::run
+void CodeTransform::run
 (
 	AbstractAssembly& _assembly,
 	ControlFlowLiveness const& _controlFlowLiveness,
@@ -33,29 +45,28 @@ std::vector<solidity::yul::StackTooDeepError> CodeTransform::run
 	ControlFlow const& controlFlow = _controlFlowLiveness.controlFlow.get();
 	yulAssert(controlFlow.functionGraphs.size() == _controlFlowLiveness.cfgLiveness.size());
 	FunctionLabels const functionLabels = registerFunctionLabels(_assembly, controlFlow, _useNamedLabelsForFunctions);
-	CodeTransform mainCodeTransform(
-		_assembly,
-		_builtinContext,
-		functionLabels,
-		*controlFlow.mainGraph()
-	);
-	mainCodeTransform(controlFlow.mainGraph()->entry);
 
-	for (size_t functionIndex = 1; functionIndex < controlFlow.functionGraphMapping.size(); ++functionIndex)
+	for (std::size_t functionIndex = 0; functionIndex < controlFlow.functionGraphMapping.size(); ++functionIndex)
 	{
-		auto const& functionAndGraph = controlFlow.functionGraphMapping[functionIndex];
-		auto const& [function, functionGraph] = functionAndGraph;
-		SSACFGEVMCodeTransform functionCodeTransform(
+		auto const& [function, cfg] = controlFlow.functionGraphMapping[functionIndex];
+		yulAssert(cfg);
+		auto const callSites = gatherCallSites(*cfg);
+		auto const& liveness = _controlFlowLiveness.cfgLiveness[functionIndex];
+		yulAssert(liveness);
+		auto const graphID = static_cast<ControlFlow::FunctionGraphID>(functionIndex);
+		auto const& stackLayout = StackLayoutGenerator::generate(*liveness, callSites, graphID);
+		CodeTransform transform(
 			_assembly,
 			_builtinContext,
 			functionLabels,
-			*functionGraph,
+			callSites,
+			*cfg,
+			stackLayout,
+			function ? std::make_optional(*function) : std::nullopt,
+			graphID
 		);
-		functionCodeTransform.transformFunction(*function);
-		if (!functionCodeTransform.m_stackErrors.empty())
-			stackErrors.insert(stackErrors.end(), functionCodeTransform.m_stackErrors.begin(), functionCodeTransform.m_stackErrors.end());
+		transform(cfg->entry);
 	}
-	return {};
 }
 CodeTransform::FunctionLabels CodeTransform::registerFunctionLabels(
 	AbstractAssembly& _assembly, ControlFlow const& _controlFlow, UseNamedLabels _useNamedLabelsForFunctions)
@@ -86,19 +97,284 @@ CodeTransform::CodeTransform(
 	AbstractAssembly& _assembly,
 	BuiltinContext& _builtinContext,
 	FunctionLabels const& _functionLabels,
+	CallSites const& _callSites,
 	SSACFG const& _cfg,
-	std::optional<Scope::Function> const& _function
+	SSACFGStackLayout const& _stackLayout,
+	std::optional<Scope::Function> const& _function,
+	ControlFlow::FunctionGraphID _graphID
 ):
 	m_assembly(_assembly),
 	m_builtinContext(_builtinContext),
 	m_functionLabels(_functionLabels),
-	m_cfg(_cfg)
+	m_callSites(_callSites),
+	m_cfg(_cfg),
+	m_stackLayout(_stackLayout),
+	m_functionGraphID(_graphID),
+	m_blockIsTransformed(_cfg.numBlocks(), false),
+	m_blockLabels([this] {
+		std::vector<AbstractAssembly::LabelID> blockLabels;
+		blockLabels.reserve(m_cfg.numBlocks());
+		for (std::size_t i = 0; i < m_cfg.numBlocks(); ++i)
+			blockLabels.push_back(m_assembly.newLabelId());
+		return blockLabels;
+	}()),
+	m_assemblyCallbacks{
+		.cfg = &_cfg,
+		.assembly = &_assembly,
+		.callSites = &_callSites,
+		.returnLabels = &m_returnLabels
+	},
+	m_stackData([&]
+	{
+		auto const& entryLayout = m_stackLayout[m_cfg.entry];
+		yulAssert(entryLayout);
+		return entryLayout->stackIn;
+	}()),
+	m_stack(m_stackData, m_assemblyCallbacks)
 {
 	if (_function)
 	{
 		auto const findIt = m_functionLabels.find(&*_function);
 		yulAssert(findIt != m_functionLabels.end());
 		m_assembly.appendLabel(findIt->second);
-		m_assembly.setStackHeight(static_cast<int>(_function->numArguments));
+		// +1 for the return label that the caller pushed below the arguments
+		m_assembly.setStackHeight(static_cast<int>(_function->numArguments + 1));
 	}
+	StackData expectedStackTop;
+	{
+		if (_function)
+			expectedStackTop.push_back(StackSlot::makeFunctionReturnLabel(m_functionGraphID));
+		expectedStackTop.reserve(expectedStackTop.size() + m_cfg.arguments.size());
+		for (auto const& [_, valueID]: m_cfg.arguments | ranges::views::reverse)
+			expectedStackTop.push_back(StackSlot::makeValueID(valueID));
+	}
+	auto const compatibility = checkLayoutCompatibility(m_stack.data(), expectedStackTop);
+	yulRequire(compatibility.ok(), CodegenException, compatibility.formatErrors());
+}
+
+void CodeTransform::operator()(SSACFG::BlockId const _blockId)
+{
+	yulAssert(!m_blockIsTransformed[_blockId.value], "Each block is transformed exactly once.");
+	m_blockIsTransformed[_blockId.value] = true;
+
+	m_assembly.appendLabel(m_blockLabels[_blockId.value]);
+
+	auto const& blockLayout = m_stackLayout[_blockId];
+	yulAssert(blockLayout);
+	{
+		auto const blockInCompatibility = checkLayoutCompatibility(m_stack.data(), blockLayout->stackIn);
+		yulRequire(blockInCompatibility.ok(), CodegenException, blockInCompatibility.formatErrors());
+	}
+	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
+
+	auto const& block = m_cfg.block(_blockId);
+	yulAssert(block.operations.size() == blockLayout->operationIn.size(), "We need as many operation stack layouts as we have operations");
+
+	for (std::size_t operationIndex = 0; operationIndex < block.operations.size(); ++operationIndex)
+	{
+		SSACFG::Operation const& operation = block.operations[operationIndex];
+		auto const& operationInLayout = blockLayout->operationIn[operationIndex];
+
+		// perform the operation
+		(*this)(operation, operationInLayout);
+	}
+
+	// we should have arrived at the block output layout
+	{
+		auto const blockOutCompatibility = checkLayoutCompatibility(m_stack.data(), blockLayout->stackOut);
+		yulRequire(blockOutCompatibility.ok(), CodegenException, blockOutCompatibility.formatErrors());
+	}
+
+	// handle the block exit
+	std::visit(util::GenericVisitor{ [this, &_blockId](auto const& exit) { (*this)(_blockId, exit); } }, block.exit);
+}
+
+void CodeTransform::operator()(SSACFG::Operation const& _operation, StackData const& _operationInputLayout)
+{
+	bool const hasReturnLabel =
+			std::holds_alternative<SSACFG::Call>(_operation.kind) &&
+			std::get<SSACFG::Call>(_operation.kind).canContinue;
+
+
+	if (hasReturnLabel) {
+		auto const [it, inserted] = m_returnLabels.try_emplace(&std::get<SSACFG::Call>(_operation.kind).call.get(), 0);
+		yulAssert(inserted, "Call sites should be unique.");
+		it->second = m_assembly.newLabelId();
+	}
+
+	// check that the stack is compatible with the operation input layout
+	{
+		auto const operationInCompatibility = checkLayoutCompatibility(m_stack.data(), _operationInputLayout);
+		yulRequire(operationInCompatibility.ok(), CodegenException, operationInCompatibility.formatErrors());
+	}
+
+	// check that the assembly stack height corresponds to the stack size before shuffling
+	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
+
+	// prepare stack for operation
+	StackShuffler<AssemblyCallbacks>::shuffle(m_stack, _operationInputLayout);
+
+	// check that the assembly stack height corresponds to the stack size after shuffling
+	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
+
+	// Assert that we have the inputs of the operation on stack top.
+	yulAssert(m_stack.size() >= _operation.inputs.size() + (hasReturnLabel ? 1 : 0));
+	for (auto const& [stackEntry, input]: ranges::views::zip(
+		m_stack | ranges::views::take_last(_operation.inputs.size()),
+		_operation.inputs
+	))
+		yulAssert(stackEntry.isValueID() && stackEntry.valueID() == input);
+
+	// if the function can continue (doesn't always abort), make sure we have the correct return label slot in place
+	if (hasReturnLabel)
+	{
+		yulAssert(m_stack.size() > _operation.inputs.size());
+		auto const returnLabelSlot = m_stack.slot(StackDepth{_operation.inputs.size()});
+		yulAssert(std::holds_alternative<SSACFG::Call>(_operation.kind));
+		yulAssert(
+			returnLabelSlot.isFunctionCallReturnLabel() &&
+			&m_callSites.functionCall(returnLabelSlot.functionCallReturnLabel()) == &std::get<SSACFG::Call>(_operation.kind).call.get()
+		);
+	}
+
+	// height of the stack sans function return label and operation inputs
+	std::size_t const baseHeight = m_stack.size() - _operation.inputs.size() - (hasReturnLabel ? 1 : 0);
+
+	// generate code for the operation
+	std::visit(util::GenericVisitor{
+		[&](SSACFG::BuiltinCall const& _builtin) {
+			m_assembly.setSourceLocation(originLocationOf(_builtin));
+			static_cast<BuiltinFunctionForEVM const&>(_builtin.builtin.get()).generateCode(
+				_builtin.call,
+				m_assembly,
+				m_builtinContext
+			);
+		},
+		[&](SSACFG::Call const& _call) {
+			auto const* returnLabel = util::valueOrNullptr(m_returnLabels, &_call.call.get());
+			// check that if we have a return label, the call can continue
+			yulAssert(!!returnLabel == _call.canContinue);
+			m_assembly.setSourceLocation(originLocationOf(_call));
+			m_assembly.appendJumpTo(
+				m_functionLabels.at(&_call.function.get()),
+				static_cast<int>(_call.function.get().numReturns - _call.function.get().numArguments) - (_call.canContinue ? 1 : 0),
+				AbstractAssembly::JumpType::IntoFunction
+			);
+			// if we have a return label, append it to assembly and pop the label from the stack
+			// it might also be one of the inputs that is popped here but then the label will be popped below with
+			// the other inputs
+			if (returnLabel)
+			{
+				m_assembly.appendLabel(*returnLabel);
+				m_stack.pop<false>();
+			}
+		},
+		[&](SSACFG::LiteralAssignment const&){}
+	}, _operation.kind);
+	// simulate that the inputs are consumed
+	for (size_t i = 0; i < _operation.inputs.size(); ++i)
+		m_stack.pop<false>();
+	// simulate that the outputs are produced
+	for (auto value: _operation.outputs)
+		m_stack.push<false>(StackSlot::makeValueID(value));
+
+	// Assert that the operation produced its proclaimed output.
+	yulAssert(m_stack.size() == baseHeight + _operation.outputs.size());
+	for (auto const& [stackEntry, output]: ranges::views::zip(
+		m_stack.data() | ranges::views::take_last(_operation.outputs.size()),
+		_operation.outputs
+	))
+		yulAssert(stackEntry.isValueID() && stackEntry.valueID() == output);
+	yulAssert(
+		static_cast<int>(m_stack.size()) == m_assembly.stackHeight(),
+		fmt::format("symbolic stack size = {} =/= {} = assembly stack height", m_stack.size(), m_assembly.stackHeight())
+	);
+}
+
+void CodeTransform::operator()(SSACFG::BlockId const&, SSACFG::BasicBlock::MainExit const&)
+{
+	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
+	m_assembly.appendInstruction(evmasm::Instruction::STOP);
+}
+
+void CodeTransform::operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::ConditionalJump const& _conditionalJump)
+{
+	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
+	// condition must be at the top of the stack
+	yulAssert(m_stack.top().isValueID() && m_stack.top().valueID() == _conditionalJump.condition);
+	// emit JUMPI to nonZero block
+	m_assembly.appendJumpToIf(m_blockLabels[_conditionalJump.nonZero.value]);
+	// update symbolic stack by popping the condition as it'll be consumed by JUMPI
+	m_stack.pop<false>();
+
+	{
+		// restore stack to previous state once zero-path is handled
+		ScopedSaveAndRestore restoreStack(m_stackData, StackData(m_stackData));
+		yulAssert(m_stackLayout[_conditionalJump.zero]);
+
+		// transform stack to a state in which we can jump to the zero branch
+		prepareBlockExitStack(
+			m_stackLayout[_conditionalJump.zero]->stackIn,
+			PhiInverse(m_cfg, _currentBlock, _conditionalJump.zero)
+		);
+		m_assembly.appendJumpTo(m_blockLabels[_conditionalJump.zero.value]);
+
+		if (!m_blockIsTransformed[_conditionalJump.zero.value])
+			(*this)(_conditionalJump.zero);
+	}
+	{
+		yulAssert(m_stackLayout[_conditionalJump.nonZero]);
+		auto const compatibility = checkLayoutCompatibility(m_stack.data(), m_stackLayout[_conditionalJump.nonZero]->stackIn);
+		yulRequire(compatibility.ok(), CodegenException, compatibility.formatErrors());
+
+		m_assembly.setStackHeight(static_cast<int>(m_stack.size()));
+		if (!m_blockIsTransformed[_conditionalJump.nonZero.value])
+			(*this)(_conditionalJump.nonZero);
+	}
+}
+
+void CodeTransform::operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::Jump const& _jump)
+{
+	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
+	yulAssert(m_stackLayout[_jump.target]);
+	prepareBlockExitStack(m_stackLayout[_jump.target]->stackIn, PhiInverse(m_cfg, _currentBlock, _jump.target));
+	m_assembly.appendJumpTo(m_blockLabels[_jump.target.value]);
+	if (!m_blockIsTransformed[_jump.target.value])
+		(*this)(_jump.target);
+}
+
+void CodeTransform::operator()(SSACFG::BlockId const&, SSACFG::BasicBlock::FunctionReturn const&)
+{
+	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
+	// We must be inside a function (not the main graph) to have a FunctionReturn exit.
+	yulAssert(m_cfg.function);
+	// Stack is already in the correct layout ([rv..., FunctionReturnLabel(top)]),
+	// verified by the stackOut compatibility check before the exit handler is called.
+	// Verify the label on top belongs to this function's graph, not some other one.
+	yulAssert(
+		!m_stack.empty() &&
+		m_stack.top().isFunctionReturnLabel() &&
+		m_stack.top().functionReturnLabel() == m_functionGraphID
+	);
+	m_assembly.appendJump(0, AbstractAssembly::JumpType::OutOfFunction);
+}
+
+void CodeTransform::operator()(SSACFG::BlockId const&, SSACFG::BasicBlock::Terminated const&)
+{
+	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
+	// To be sure just emit another INVALID - should be removed by optimizer.
+	m_assembly.appendInstruction(evmasm::Instruction::INVALID);
+}
+
+void CodeTransform::prepareBlockExitStack(StackData const& _target, PhiInverse const& _phiInverse)
+{
+	// pull back target to live in current variable space
+	auto const pulledBackTarget = stackPreImage(_target, _phiInverse);
+	// shuffle to target
+	StackShuffler<AssemblyCallbacks>::shuffle(m_stack, pulledBackTarget);
+	// check that shuffling was successful
+	auto const compatibility = checkLayoutCompatibility(m_stackData, pulledBackTarget);
+	yulRequire(compatibility.ok(), CodegenException, compatibility.formatErrors());
+	// now we can simply set the target to the actual one which will take care of the application of phi functions
+	m_stackData = _target;
 }

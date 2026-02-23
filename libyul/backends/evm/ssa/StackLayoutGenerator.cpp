@@ -23,10 +23,12 @@
 #include <libyul/backends/evm/ssa/StackShuffler.h>
 #include <libyul/backends/evm/ssa/StackUtils.h>
 
+#include <range/v3/algorithm/contains.hpp>
 #include <range/v3/algorithm/count.hpp>
 #include <range/v3/algorithm/min_element.hpp>
 #include <range/v3/algorithm/replace.hpp>
 #include <range/v3/to_container.hpp>
+#include <range/v3/view/transform.hpp>
 
 #include <boost/container/flat_map.hpp>
 #include <queue>
@@ -77,15 +79,16 @@ void declareJunk(StackType& _stack, LivenessAnalysis::LivenessData const& _live)
 
 }
 
-SSACFGStackLayout StackLayoutGenerator::generate(LivenessAnalysis const& _liveness, CallSites const& _callSites)
+SSACFGStackLayout StackLayoutGenerator::generate(LivenessAnalysis const& _liveness, CallSites const& _callSites, ControlFlow::FunctionGraphID _graphID)
 {
-	return StackLayoutGenerator(_liveness, _callSites).m_resultLayout;
+	return StackLayoutGenerator(_liveness, _callSites, _graphID).m_resultLayout;
 }
 
-StackLayoutGenerator::StackLayoutGenerator(LivenessAnalysis const& _liveness, CallSites const& _callSites):
+StackLayoutGenerator::StackLayoutGenerator(LivenessAnalysis const& _liveness, CallSites const& _callSites, ControlFlow::FunctionGraphID _graphID):
 	m_cfg(_liveness.cfg()),
 	m_liveness(_liveness),
 	m_callSites(_callSites),
+	m_functionGraphID(_graphID),
 	m_junkAdmittingBlocksFinder(std::make_unique<JunkAdmittingBlocksFinder>(_liveness.cfg(), _liveness.topologicalSort())),
 	m_resultLayout(m_cfg.numBlocks())
 {
@@ -131,11 +134,11 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 	if (_blockId == m_cfg.entry)
 	{
 		if (m_cfg.function)
-			blockLayout.stackIn =
-				m_cfg.arguments |
-				ranges::views::reverse |
-				ranges::views::transform([](auto&& _variableAndValueId) -> Slot { return Slot::makeValueID(std::get<1>(_variableAndValueId)); }) |
-				ranges::to<std::vector>;
+		{
+			blockLayout.stackIn.push_back(Slot::makeFunctionReturnLabel(m_functionGraphID));
+			for (auto const& [_, valueID]: m_cfg.arguments | ranges::views::reverse)
+				blockLayout.stackIn.push_back(Slot::makeValueID(valueID));
+		}
 		m_resultLayout[_blockId] = blockLayout;
 		return;
 	}
@@ -304,6 +307,22 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				declareJunk(zeroStack, zeroLiveIn);
 			}
 		}
+	}
+
+	// for user-defined functions that do return to the parent control flow, bring the return label to the top
+	if (auto const* functionReturn = std::get_if<SSACFG::BasicBlock::FunctionReturn>(&block.exit))
+	{
+		std::vector<Slot> returnTarget =
+			functionReturn->returnValues
+			| ranges::views::transform(Slot::makeValueID)
+			| ranges::to<std::vector>;
+		returnTarget.push_back(Slot::makeFunctionReturnLabel(m_functionGraphID));
+
+		for (StackOffset offset{0}; offset < stack.size(); ++offset.value)
+			if (stack[offset].isValueID() && !ranges::contains(returnTarget, stack[offset]))
+				stack.declareJunk(offset);
+
+		StackShuffler<StackType::Callbacks>::shuffle(stack, returnTarget);
 	}
 
 	blockLayout.stackOut = currentStackData;

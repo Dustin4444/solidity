@@ -162,7 +162,8 @@ frontend::test::TestCase::TestResult StackLayoutGeneratorTest::run(std::ostream&
 			auto const& cfg = *controlFlow->functionGraphs[index];
 			SSACFGStackLayout const layout = StackLayoutGenerator::generate(
 				LivenessAnalysis(cfg),
-				gatherCallSites(cfg)
+				gatherCallSites(cfg),
+				static_cast<ControlFlow::FunctionGraphID>(index)
 			);
 			StackLayoutDotExporter exporter(cfg, index, layout);
 			if (cfg.function)
