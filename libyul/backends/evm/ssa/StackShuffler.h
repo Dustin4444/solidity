@@ -169,6 +169,14 @@ public:
 		yulAssert(i < maxIterations, fmt::format("Maximum iterations reached on {}", stackToString(_stack.data())));
 	}
 
+	static void shuffle(
+		Stack<Callback>& _stack,
+		StackData const& _target
+	)
+	{
+		shuffle(_stack, _target, {}, _target.size());
+	}
+
 private:
 	/// Make a local step in stack space that should bring us closer to the target. Returns true if more shuffling
 	/// is required, returns false if finished.
