@@ -145,7 +145,7 @@ void printBuildStats(std::vector<BenchInput> const& _inputs)
 	constexpr int W_NUM   = 10;
 	constexpr int W_RATIO =  8;
 
-	auto hr = [&]{ std::cerr << std::string(W_NAME + 7*W_NUM + 3*W_RATIO + 3, '-') << "\n"; };
+	auto hr = [&]{ std::cerr << std::string(W_NAME + 7*W_NUM + 3*W_RATIO + 4, '-') << "\n"; };
 
 	std::cerr << "\n";
 	hr();
@@ -164,6 +164,7 @@ void printBuildStats(std::vector<BenchInput> const& _inputs)
 		<< std::setw(W_NUM)  << "unreach"
 		<< std::setw(W_NUM+2)<< "tryRm_us"
 		<< std::setw(W_NUM+2)<< "clean_us"
+		<< std::setw(W_NUM+2)<< "apSubs_us"
 		<< "\n";
 	hr();
 
@@ -198,18 +199,20 @@ void printBuildStats(std::vector<BenchInput> const& _inputs)
 			<< std::setw(W_NUM)  << s.cleanUnreachableRemovals
 			<< std::setw(W_NUM)  << (s.tryRemoveNs / 1000) << "us"
 			<< std::setw(W_NUM)  << (s.cleanUnreachableNs / 1000) << "us"
+			<< std::setw(W_NUM)  << (s.applyPhiSubstitutionsNs / 1000) << "us"
 			<< "\n";
 
-		totals.upsilonsEmitted           += s.upsilonsEmitted;
-		totals.tryRemoveCalls            += s.tryRemoveCalls;
-		totals.tryRemoveSucceeded        += s.tryRemoveSucceeded;
-		totals.trivialCheckIterations    += s.trivialCheckIterations;
-		totals.replacementBlocksScanned  += s.replacementBlocksScanned;
-		totals.replacementUpsilonsScanned  += s.replacementUpsilonsScanned;
-		totals.replacementOpInputsScanned  += s.replacementOpInputsScanned;
-		totals.cleanUnreachableRemovals    += s.cleanUnreachableRemovals;
-		totals.tryRemoveNs                 += s.tryRemoveNs;
-		totals.cleanUnreachableNs          += s.cleanUnreachableNs;
+		totals.upsilonsEmitted              += s.upsilonsEmitted;
+		totals.tryRemoveCalls               += s.tryRemoveCalls;
+		totals.tryRemoveSucceeded           += s.tryRemoveSucceeded;
+		totals.trivialCheckIterations       += s.trivialCheckIterations;
+		totals.replacementBlocksScanned     += s.replacementBlocksScanned;
+		totals.replacementUpsilonsScanned   += s.replacementUpsilonsScanned;
+		totals.replacementOpInputsScanned   += s.replacementOpInputsScanned;
+		totals.cleanUnreachableRemovals     += s.cleanUnreachableRemovals;
+		totals.tryRemoveNs                  += s.tryRemoveNs;
+		totals.cleanUnreachableNs           += s.cleanUnreachableNs;
+		totals.applyPhiSubstitutionsNs      += s.applyPhiSubstitutionsNs;
 	}
 
 	hr();
@@ -237,6 +240,7 @@ void printBuildStats(std::vector<BenchInput> const& _inputs)
 		<< std::setw(W_NUM)  << totals.cleanUnreachableRemovals
 		<< std::setw(W_NUM)  << (totals.tryRemoveNs / 1000) << "us"
 		<< std::setw(W_NUM)  << (totals.cleanUnreachableNs / 1000) << "us"
+		<< std::setw(W_NUM)  << (totals.applyPhiSubstitutionsNs / 1000) << "us"
 		<< "\n";
 	hr();
 	std::cerr << "\n";
@@ -282,6 +286,7 @@ int main(int argc, char** argv)
 	printBuildStats(statsInputs);
 
 	for (auto const& input: inputs)
+	{
 		benchmark::RegisterBenchmark(
 			"BM_BuildSSACFG/" + input.name,
 			[obj = input.object](benchmark::State& state)
@@ -290,9 +295,24 @@ int main(int argc, char** argv)
 				{
 					auto cfg = buildSSACFG(*obj);
 					benchmark::DoNotOptimize(cfg);
+					benchmark::ClobberMemory();
 				}
 			}
 		);
+		benchmark::RegisterBenchmark(
+			"BM_Liveness/" + input.name,
+			[obj = input.object](benchmark::State& state)
+			{
+				auto cfg = buildSSACFG(*obj);
+				for (auto _: state)
+				{
+					auto liveness = computeLiveness(*cfg);
+					benchmark::DoNotOptimize(liveness);
+					benchmark::ClobberMemory();
+				}
+			}
+		);
+	}
 
 	::benchmark::Initialize(&benchArgc, benchArgv.data());
 	if (::benchmark::ReportUnrecognizedArguments(benchArgc, benchArgv.data()))
