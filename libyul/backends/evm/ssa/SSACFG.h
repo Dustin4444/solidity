@@ -135,13 +135,6 @@ public:
 			langutil::DebugData::ConstPtr debugData{};
 			BlockId target;
 		};
-		struct JumpTable
-		{
-			langutil::DebugData::ConstPtr debugData{};
-			ValueId value;
-			std::map<u256, BlockId> cases;
-			BlockId defaultCase;
-		};
 		struct FunctionReturn
 		{
 			langutil::DebugData::ConstPtr debugData{};
@@ -152,7 +145,7 @@ public:
 		std::set<BlockId> entries;
 		std::set<ValueId> phis;
 		std::vector<Operation> operations;
-		std::variant<MainExit, Jump, ConditionalJump, JumpTable, FunctionReturn, Terminated> exit = MainExit{};
+		std::variant<MainExit, Jump, ConditionalJump, FunctionReturn, Terminated> exit = MainExit{};
 		template<typename Callable>
 		void forEachExit(Callable&& _callable) const
 		{
@@ -162,12 +155,6 @@ public:
 			{
 				_callable(conditionalJump->nonZero);
 				_callable(conditionalJump->zero);
-			}
-			else if (auto* jumpTable = std::get_if<JumpTable>(&exit))
-			{
-				for (auto _case: jumpTable->cases | ranges::views::values)
-					_callable(_case);
-				_callable(jumpTable->defaultCase);
 			}
 		}
 
