@@ -111,6 +111,12 @@ private:
 		markActiveAsUsed();
 	}
 
+	void registerReturnDataSizeCall(FunctionCall const& _functionCall);
+	void invalidateReturnDataSize(FunctionCall const& _functionCall);
+	bool isValidReturnDataSize(FunctionCall const* _returnDataSizeFunctionCall) const
+	{
+		return m_validReturnDataSizeCalls.contains(_returnDataSizeFunctionCall);
+	}
 	std::vector<Operation> operationsFromFunctionCall(FunctionCall const& _functionCall) const;
 	void applyOperation(Operation const& _operation);
 	bool knownUnrelated(Operation const& _op1, Operation const& _op2) const;
@@ -129,6 +135,10 @@ private:
 	std::map<Statement const*, Operation> m_storeOperations;
 
 	KnowledgeBase mutable m_knowledgeBase;
+
+	// Contains valid return data size calls. Call is valid until any of invalidating return data size instruction is
+	// called. Currently, they are CALL, STATICCALL or DELEGATECALL.
+	std::set<FunctionCall const*> m_validReturnDataSizeCalls;
 };
 
 }
