@@ -21,8 +21,12 @@
 #include <libyul/backends/evm/ssa/StackShuffler.h>
 
 #include <range/v3/numeric/accumulate.hpp>
+#include <range/v3/view/iota.hpp>
+#include <range/v3/view/zip.hpp>
 
 #include <boost/container/flat_map.hpp>
+
+#include <fmt/ranges.h>
 
 using namespace solidity::yul::ssa;
 
@@ -139,5 +143,32 @@ CallSites solidity::yul::ssa::gatherCallSites(SSACFG const& _cfg)
 				if (call->canContinue)
 					result.addCallSite(&call->call.get());
 	}
+	return result;
+}
+
+std::string ValidationResult::formatErrors() const
+{
+	return fmt::format("{}", fmt::join(m_errors, "\n"));
+}
+
+ValidationResult solidity::yul::ssa::checkLayoutCompatibility(StackData const& _current, StackData const& _desired)
+{
+	ValidationResult result;
+	if (_current.size() != _desired.size())
+		return result.addError(fmt::format(
+			"size mismatch: {} = len({}) =/= len({}) = {}",
+			_current.size(), stackToString(_current), stackToString(_desired), _desired.size()
+		));
+	for (auto&& [index, currentSlot, desiredSlot]: ranges::zip_view(ranges::views::iota(0), _current, _desired))
+		if (!desiredSlot.isJunk() && currentSlot != desiredSlot)
+			result.addError(fmt::format(
+				"stack element mismatch: {} = {}[{}] =/= {}[{}] = {}",
+				slotToString(currentSlot),
+				stackToString(_current),
+				index,
+				stackToString(_desired),
+				index,
+				slotToString(desiredSlot)
+			));
 	return result;
 }
