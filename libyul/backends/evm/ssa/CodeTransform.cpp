@@ -351,6 +351,7 @@ void CodeTransform::operator()(SSACFG::BlockId const&, SSACFG::BasicBlock::Funct
 	// Stack is already in the correct layout ([rv..., FunctionReturnLabel(top)]),
 	// verified by the stackOut compatibility check before the exit handler is called.
 	// Verify the label on top belongs to this function's graph, not some other one.
+	// todo verify that the return variables are the right ones as per function signature
 	yulAssert(
 		!m_stack.empty() &&
 		m_stack.top().isFunctionReturnLabel() &&
