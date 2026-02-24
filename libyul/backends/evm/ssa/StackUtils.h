@@ -41,8 +41,8 @@ private:
 struct CountingInstructionsCallbacks
 {
 	std::size_t numOps = 0;
-	void swap(std::size_t) { ++numOps; }
-	void dup(std::size_t) { ++numOps; }
+	void swap(StackDepth) { ++numOps; }
+	void dup(StackDepth) { ++numOps; }
 	void push(StackSlot const&) { ++numOps; }
 	void pop() { ++numOps; }
 };
