@@ -111,8 +111,10 @@ private:
 		markActiveAsUsed();
 	}
 
-	void registerReturnDataSizeCall(FunctionCall const& _functionCall);
-	void invalidateReturnDataSize(FunctionCall const& _functionCall);
+	/// Updates the state of valid `returndatasize` calls.
+	/// Invalidates the current state when `_functionCall` is one of the invalidating calls  (CALL, STATICCALL,
+	/// DELEGATECALL, or CODECAL). Adds a new valid call when `_functionCall` is `returndatasize`.
+	void updateReturnDataSizeCalls(FunctionCall const& _functionCall);
 	bool isValidReturnDataSize(FunctionCall const* _returnDataSizeFunctionCall) const
 	{
 		return m_validReturnDataSizeCalls.contains(_returnDataSizeFunctionCall);
@@ -136,8 +138,8 @@ private:
 
 	KnowledgeBase mutable m_knowledgeBase;
 
-	// Contains valid return data size calls. Call is valid until any of invalidating return data size instruction is
-	// called. Currently, they are CALL, STATICCALL or DELEGATECALL.
+	// Contains valid return data size calls. Call is valid until any of the invalidating return data size instructions
+	// is called. Currently, they are CALL, STATICCALL, DELEGATECALL or CODECALL.
 	std::set<FunctionCall const*> m_validReturnDataSizeCalls;
 };
 

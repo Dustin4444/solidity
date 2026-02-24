@@ -106,8 +106,7 @@ void UnusedStoreEliminator::operator()(FunctionCall const& _functionCall)
 	if (auto builtin = resolveBuiltinFunction(_functionCall.functionName, m_dialect))
 	{
 		sideEffects = builtin->controlFlowSideEffects;
-		registerReturnDataSizeCall(_functionCall);
-		invalidateReturnDataSize(_functionCall);
+		updateReturnDataSizeCalls(_functionCall);
 	}
 	else
 	{
@@ -441,24 +440,18 @@ std::optional<YulName> UnusedStoreEliminator::identifierNameIfSSA(Expression con
 	return std::nullopt;
 }
 
-void UnusedStoreEliminator::invalidateReturnDataSize(FunctionCall const& _functionCall)
+void UnusedStoreEliminator::updateReturnDataSizeCalls(FunctionCall const& _functionCall)
 {
-	auto const instruction = toEVMInstruction(m_dialect, _functionCall.functionName);
-	if (
-		instruction &&
-		(
+	if (auto const instruction = toEVMInstruction(m_dialect, _functionCall.functionName))
+	{
+		if (
 			*instruction == evmasm::Instruction::STATICCALL ||
 			*instruction == evmasm::Instruction::CALL ||
 			*instruction == evmasm::Instruction::DELEGATECALL ||
 			*instruction == evmasm::Instruction::CALLCODE
 		)
-	)
-		m_validReturnDataSizeCalls.clear();
-}
-
-void UnusedStoreEliminator::registerReturnDataSizeCall(FunctionCall const& _functionCall)
-{
-	auto const instruction = toEVMInstruction(m_dialect, _functionCall.functionName);
-	if (instruction == evmasm::Instruction::RETURNDATASIZE)
-		m_validReturnDataSizeCalls.insert(&_functionCall);
+			m_validReturnDataSizeCalls.clear();
+		else if (*instruction == evmasm::Instruction::RETURNDATASIZE)
+			m_validReturnDataSizeCalls.insert(&_functionCall);
+	}
 }
