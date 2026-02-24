@@ -194,8 +194,8 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 	auto const& blockLayout = m_stackLayout[_block];
 	yulAssert(blockLayout);
 	assertLayoutCompatibility(m_stack.data(), blockLayout->stackIn);
-	m_stackData = blockLayout->stackIn;
-	m_stack = Stack(m_stackData, m_assemblyCallbacks); // this can set some stuff to junk
+	//m_stackData = blockLayout->stackIn;
+	//m_stack = Stack(m_stackData, m_assemblyCallbacks); // this can set some stuff to junk
 	// todo assert on all exits that the stack height is fine
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 
@@ -238,9 +238,9 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 			auto opLiveOutWithoutOutputs = opLiveOut;
 			for (auto const& output: operation.outputs)
 				opLiveOutWithoutOutputs.erase(output);
-			for (Stack<AssemblyCallbacks>::Depth depth {0}; depth.value < m_stack.size(); ++depth.value)
+			/*for (Stack<AssemblyCallbacks>::Depth depth {0}; depth.value < m_stack.size(); ++depth.value)
 				if (m_stack.slot(depth).isValueID() && !opLiveOutWithoutOutputs.contains(m_stack.slot(depth).valueID()) && ranges::find(requiredStackTop, m_stack.slot(depth)) == ranges::end(requiredStackTop))
-					m_stack.declareJunk(depth);
+					m_stack.declareJunk(depth);*/
 			StackShuffler<AssemblyCallbacks>::shuffle(m_stack, operationStackIn, {}, operationStackIn.size());
 		}
 		else
@@ -423,7 +423,7 @@ void SSACFGEVMCodeTransform::performOperation(SSACFG::Operation const& _operatio
 		std::cout << " -> " << stackToString(m_stack.data()) << std::endl;
 }
 
-void SSACFGEVMCodeTransform::assertLayoutCompatibility(StackData const& _current, StackData const& _desired) const
+void SSACFGEVMCodeTransform::assertLayoutCompatibility(StackData const& _current, StackData const& _desired)
 {
 	yulAssert(
 		_current.size() == _desired.size(),

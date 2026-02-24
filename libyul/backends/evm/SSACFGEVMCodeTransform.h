@@ -140,7 +140,7 @@ private:
 
 	void operator()(SSACFG::BlockId _block);
 	void performOperation(SSACFG::Operation const& _operation);
-	void assertLayoutCompatibility(StackData const& _current, StackData const& _desired) const;
+	static void assertLayoutCompatibility(StackData const& _current, StackData const& _desired);
 
 	AbstractAssembly::LabelID functionLabel(Scope::Function const& _function) const
 	{
