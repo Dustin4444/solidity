@@ -5,7 +5,7 @@ Language Features:
 Compiler Features:
 
 Bugfixes:
- * Yul Optimizer: Fix ``UnusedStoreEliminator`` incorrectly removing ``returndatacopy`` operations when the length comes from a stale ``returndatasize()`` call that was invalidated by subsequent call opcodes.
+ * Yul Optimizer: Fix `UnusedStoreEliminator` incorrectly removing `returndatacopy` operations when the length comes from a stale `returndatasize()` call that was invalidated by subsequent call opcodes.
 
 
 ### 0.8.34 (2026-02-18)
