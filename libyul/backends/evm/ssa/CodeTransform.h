@@ -123,7 +123,7 @@ private:
 		CallSites const& _callSites,
 		SSACFG const& _cfg,
 		SSACFGStackLayout const& _stackLayout,
-		std::optional<Scope::Function> const& _function,
+		Scope::Function const* _function,
 		ControlFlow::FunctionGraphID _graphID);
 
 	void operator()(SSACFG::BlockId _blockId);

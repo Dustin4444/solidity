@@ -62,7 +62,7 @@ void CodeTransform::run
 			callSites,
 			*cfg,
 			stackLayout,
-			function ? std::make_optional(*function) : std::nullopt,
+			function,
 			graphID
 		);
 		transform(cfg->entry);
@@ -100,7 +100,7 @@ CodeTransform::CodeTransform(
 	CallSites const& _callSites,
 	SSACFG const& _cfg,
 	SSACFGStackLayout const& _stackLayout,
-	std::optional<Scope::Function> const& _function,
+	Scope::Function const* _function,
 	ControlFlow::FunctionGraphID _graphID
 ):
 	m_assembly(_assembly),
@@ -134,7 +134,7 @@ CodeTransform::CodeTransform(
 {
 	if (_function)
 	{
-		auto const findIt = m_functionLabels.find(&*_function);
+		auto const findIt = m_functionLabels.find(_function);
 		yulAssert(findIt != m_functionLabels.end());
 		m_assembly.appendLabel(findIt->second);
 		// +1 for the return label that the caller pushed below the arguments
@@ -202,12 +202,6 @@ void CodeTransform::operator()(SSACFG::Operation const& _operation, StackData co
 		it->second = m_assembly.newLabelId();
 	}
 
-	// check that the stack is compatible with the operation input layout
-	{
-		auto const operationInCompatibility = checkLayoutCompatibility(m_stack.data(), _operationInputLayout);
-		yulRequire(operationInCompatibility.ok(), CodegenException, operationInCompatibility.formatErrors());
-	}
-
 	// check that the assembly stack height corresponds to the stack size before shuffling
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 
@@ -216,6 +210,12 @@ void CodeTransform::operator()(SSACFG::Operation const& _operation, StackData co
 
 	// check that the assembly stack height corresponds to the stack size after shuffling
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
+
+	// check that the stack is compatible with the operation input layout
+	{
+		auto const operationInCompatibility = checkLayoutCompatibility(m_stack.data(), _operationInputLayout);
+		yulRequire(operationInCompatibility.ok(), CodegenException, operationInCompatibility.formatErrors());
+	}
 
 	// Assert that we have the inputs of the operation on stack top.
 	yulAssert(m_stack.size() >= _operation.inputs.size() + (hasReturnLabel ? 1 : 0));
