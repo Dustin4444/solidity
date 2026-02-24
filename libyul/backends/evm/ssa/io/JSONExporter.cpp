@@ -160,9 +160,6 @@ Json exportBlock(SSACFG const& _cfg, SSACFG::BlockId _entryId, LivenessAnalysis 
 			},
 			[&](SSACFG::BasicBlock::Terminated const&) {
 				exitBlockJson["type"] = "Terminated";
-			},
-			[&](SSACFG::BasicBlock::JumpTable const&) {
-				yulAssert(false);
 			}
 		}, _cfg.block(_blockId).exit);
 		blockJson["exit"] = exitBlockJson;
