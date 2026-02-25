@@ -69,6 +69,14 @@ public:
 	/// bit operators applied to fractional values.
 	static std::optional<rational> evaluateUnaryOperator(Token _operator, rational const& _input);
 
+	/// Evaluates `_arrayLengthExpression` and checks if the value is allowed as an array length.
+	/// @returns length if it can be evaluated without errors. Otherwise, returns nullopt and adds an error to the
+	/// error reporter.
+	static std::optional<u256> evaluateAndCheckArrayLengthExpression(
+		Expression const& _arrayLengthExpression,
+		langutil::ErrorReporter& _errorReporter
+	);
+
 private:
 	explicit ConstantEvaluator(langutil::ErrorReporter& _errorReporter): m_errorReporter(_errorReporter) {}
 

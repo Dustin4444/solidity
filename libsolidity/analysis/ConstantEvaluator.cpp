@@ -228,6 +228,39 @@ std::optional<rational> ConstantEvaluator::evaluateUnaryOperator(Token _operator
 	}
 }
 
+std::optional<u256> ConstantEvaluator::evaluateAndCheckArrayLengthExpression(Expression const& _arrayLengthExpression, ErrorReporter& _errorReporter)
+{
+	std::optional<rational> lengthValue;
+	if (_arrayLengthExpression.annotation().type && _arrayLengthExpression.annotation().type->category() == Type::Category::RationalNumber)
+		lengthValue = dynamic_cast<RationalNumberType const&>(*_arrayLengthExpression.annotation().type).value();
+	else if (std::optional<TypedRational> value = evaluate(_errorReporter, _arrayLengthExpression))
+		lengthValue = value->value;
+
+	if (!lengthValue)
+		_errorReporter.typeError(
+			5462_error,
+			_arrayLengthExpression.location(),
+			"Invalid array length, expected integer literal or constant expression."
+		);
+	else if (*lengthValue == 0)
+		_errorReporter.typeError(1406_error, _arrayLengthExpression.location(), "Array with zero length specified.");
+	else if (lengthValue->denominator() != 1)
+		_errorReporter.typeError(3208_error, _arrayLengthExpression.location(), "Array with fractional length specified.");
+	else if (*lengthValue < 0)
+		_errorReporter.typeError(3658_error, _arrayLengthExpression.location(), "Array with negative length specified.");
+	else if (lengthValue > TypeProvider::uint256()->max())
+		_errorReporter.typeError(
+			1847_error,
+			_arrayLengthExpression.location(),
+			"Array length too large, maximum is 2**256 - 1."
+		);
+	else
+		return u256(lengthValue->numerator());
+
+	solAssert(lengthValue || _errorReporter.hasErrors(), "Must have reported errors.");
+	return std::nullopt;
+}
+
 namespace
 {
 

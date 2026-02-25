@@ -20,12 +20,13 @@
 
 #include <libsolidity/analysis/ConstantEvaluator.h>
 
+#include <libsolidity/analysis/TypeChecker.h>
+
 #include <libsolidity/ast/TypeProvider.h>
 
 #include <liblangutil/ErrorReporter.h>
 
 #include <libsolutil/Algorithms.h>
-#include <libsolutil/Visitor.h>
 
 #include <range/v3/view/transform.hpp>
 
@@ -333,38 +334,21 @@ void DeclarationTypeChecker::endVisit(ArrayTypeName const& _typeName)
 		return;
 	}
 
-	if (Expression const* length = _typeName.length())
+	if (Expression const* lengthExpression = _typeName.length())
 	{
-		std::optional<rational> lengthValue;
-		if (length->annotation().type && length->annotation().type->category() == Type::Category::RationalNumber)
-			lengthValue = dynamic_cast<RationalNumberType const&>(*length->annotation().type).value();
-		else if (std::optional<ConstantEvaluator::TypedRational> value = ConstantEvaluator::evaluate(m_errorReporter, *length))
-			lengthValue = value->value;
-
-		if (!lengthValue)
-			m_errorReporter.typeError(
-				5462_error,
-				length->location(),
-				"Invalid array length, expected integer literal or constant expression."
-			);
-		else if (*lengthValue == 0)
-			m_errorReporter.typeError(1406_error, length->location(), "Array with zero length specified.");
-		else if (lengthValue->denominator() != 1)
-			m_errorReporter.typeError(3208_error, length->location(), "Array with fractional length specified.");
-		else if (*lengthValue < 0)
-			m_errorReporter.typeError(3658_error, length->location(), "Array with negative length specified.");
-		else if (lengthValue > TypeProvider::uint256()->max())
-			m_errorReporter.typeError(
-				1847_error,
-				length->location(),
-				"Array length too large, maximum is 2**256 - 1."
-			);
-
-		_typeName.annotation().type = TypeProvider::array(
-			DataLocation::Storage,
-			baseType,
-			lengthValue ? u256(lengthValue->numerator()) : u256(0)
-		);
+		if (
+			auto const maybeLengthValue =
+			ConstantEvaluator::evaluateAndCheckArrayLengthExpression(*lengthExpression, m_errorReporter)
+		)
+			_typeName.annotation().type = TypeProvider::array(DataLocation::Storage, baseType, *maybeLengthValue);
+		else
+		{
+			solAssert(m_errorReporter.hasErrors(), "Must have reported errors.");
+			// TODO: Consider `evaluateAndCheckArrayLengthExpression` issuing fatal error.
+			// TODO: It would prevent of passing dummy length value here. `_typeName.annotation().type` must be set.
+			// TODO: Otherwise, `endVisit(VariableDeclaration...)` would fail.
+			_typeName.annotation().type = TypeProvider::array(DataLocation::Storage, baseType, 0);
+		}
 	}
 	else
 		_typeName.annotation().type = TypeProvider::array(DataLocation::Storage, baseType);

@@ -22,10 +22,12 @@
  */
 
 #include <libsolidity/analysis/TypeChecker.h>
+#include <libsolidity/analysis/ConstantEvaluator.h>
+
 #include <libsolidity/ast/AST.h>
 #include <libsolidity/ast/ASTUtils.h>
-#include <libsolidity/ast/UserDefinableOperators.h>
 #include <libsolidity/ast/TypeProvider.h>
+#include <libsolidity/ast/UserDefinableOperators.h>
 
 #include <libyul/AsmAnalysis.h>
 #include <libyul/AsmAnalysisInfo.h>
@@ -36,9 +38,7 @@
 #include <libsolutil/Algorithms.h>
 #include <libsolutil/StringUtils.h>
 #include <libsolutil/Views.h>
-#include <libsolutil/Visitor.h>
 
-#include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
 #include <fmt/format.h>
@@ -3470,9 +3470,40 @@ bool TypeChecker::visit(IndexAccess const& _access)
 	case Type::Category::TypeType:
 	{
 		TypeType const& typeType = dynamic_cast<TypeType const&>(*baseType);
-		if (auto const* contractType = dynamic_cast<ContractType const*>(typeType.actualType()))
+
+		switch (typeType.actualType()->category())
+		{
+		case Type::Category::Contract:
+		{
+			auto const* contractType = reinterpret_cast<ContractType const*>(typeType.actualType());
 			if (contractType->contractDefinition().isLibrary())
 				m_errorReporter.typeError(2876_error, _access.location(), "Index access for library types and arrays of libraries are not possible.");
+			break;
+		}
+		case Type::Category::Address:
+		case Type::Category::Integer:
+		case Type::Category::FixedBytes:
+		case Type::Category::Struct:
+		case Type::Category::Array:
+		case Type::Category::Enum:
+		case Type::Category::UserDefinedValueType:
+		case Type::Category::Bool:
+			break;
+		case Type::Category::Mapping:
+		case Type::Category::RationalNumber:
+		case Type::Category::StringLiteral:
+		case Type::Category::FixedPoint:
+		case Type::Category::ArraySlice:
+		case Type::Category::Function:
+		case Type::Category::Tuple:
+		case Type::Category::TypeType:
+		case Type::Category::Modifier:
+		case Type::Category::Magic:
+		case Type::Category::Module:
+		case Type::Category::InaccessibleDynamic:
+			solAssert(false, "Unexpected type of array size expression.");
+		}
+
 		if (!index)
 			resultType = TypeProvider::typeType(TypeProvider::array(DataLocation::Memory, typeType.actualType()));
 		else
