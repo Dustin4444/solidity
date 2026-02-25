@@ -77,32 +77,54 @@ u256 readZeroExtended(bytes const& _data, u256 const& _offset)
 namespace solidity::yul::test
 {
 
+template<typename T>
 void copyZeroExtended(
-	std::map<u256, uint8_t>& _target,
+	T& _target,
 	bytes const& _source,
 	size_t _targetOffset,
 	size_t _sourceOffset,
 	size_t _size
 )
 {
-	for (size_t i = 0; i < _size; ++i)
-		_target[_targetOffset + i] = (_sourceOffset + i < _source.size() ? _source[_sourceOffset + i] : 0);
+	if (_size == 0)
+		return;
+	// Erase the target range (positions become implicitly zero).
+	size_t const tgtUpper = _targetOffset + _size;
+	_target.erase(_target.lower_bound(_targetOffset), (tgtUpper >= _targetOffset) ? _target.lower_bound(tgtUpper) : _target.end());
+	// Collect only non-zero bytes from the source range (keys are already in sorted order).
+	// Bytes past _source.size() are treated as zero and therefore skipped.
+	std::vector<typename T::value_type> toInsert;
+	size_t const srcUpper = _sourceOffset + _size;
+	size_t const srcEnd = std::min(srcUpper >= _sourceOffset ? srcUpper : _source.size(), _source.size());
+	for (size_t i = _sourceOffset; i < srcEnd; ++i)
+		if (_source[i] != 0)
+			toInsert.emplace_back(u256(_targetOffset) + (i - _sourceOffset), _source[i]);
+	_target.insert(toInsert.begin(), toInsert.end());
 }
 
+template<typename T, typename T2>
 void copyZeroExtendedWithOverlap(
-	std::map<u256, uint8_t>& _target,
-	std::map<u256, uint8_t> const& _source,
+	T& _target,
+	T2 const& _source,
 	size_t _targetOffset,
 	size_t _sourceOffset,
 	size_t _size
 )
 {
-	if (_targetOffset >= _sourceOffset)
-		for (size_t i = _size; i > 0; --i)
-			_target[_targetOffset + i - 1] = (_source.count(_sourceOffset + i - 1) != 0 ? _source.at(_sourceOffset + i - 1) : 0);
-	else
-		for (size_t i = 0; i < _size; ++i)
-			_target[_targetOffset + i] = (_source.count(_sourceOffset + i) != 0 ? _source.at(_sourceOffset + i) : 0);
+	if (_size == 0)
+		return;
+	// Collect only the entries that actually exist in the source range, already shifted
+	// to their target keys. We snapshot before erasing to handle the case where
+	// _target and _source alias the same map (e.g. MCOPY).
+	size_t const srcUpper = _sourceOffset + _size;
+	size_t const tgtUpper = _targetOffset + _size;
+	std::vector<typename T::value_type> toInsert;
+	for (auto it = _source.lower_bound(_sourceOffset), end = (srcUpper >= _sourceOffset) ? _source.lower_bound(srcUpper) : _source.end(); it != end; ++it)
+		toInsert.emplace_back(u256(_targetOffset) + (it->first - u256(_sourceOffset)), it->second);
+	// Erase the target range (positions with no source entry become implicitly zero).
+	_target.erase(_target.lower_bound(_targetOffset), (tgtUpper >= _targetOffset) ? _target.lower_bound(tgtUpper) : _target.end());
+	// Write the collected entries into the target.
+	_target.insert(toInsert.begin(), toInsert.end());
 }
 
 }
@@ -140,7 +162,17 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::SMOD:
 		return arg[1] == 0 ? 0 : s2u(u2s(arg[0]) % u2s(arg[1]));
 	case Instruction::EXP:
+	{
+		// Square-and-multiply costs O(bits in exponent). Charge one extra per bit.
+		if (arg[1] != 0)
+		{
+			size_t const bits = static_cast<size_t>(msb(arg[1])) + 1;
+			m_state.numInstructions += bits;
+			if (m_state.maxInstructions > 0 && m_state.numInstructions >= m_state.maxInstructions)
+				BOOST_THROW_EXCEPTION(InstructionLimitReached());
+		}
 		return exp256(arg[0], arg[1]);
+	}
 	case Instruction::NOT:
 		return ~arg[0];
 	case Instruction::LT:
@@ -204,6 +236,10 @@ u256 EVMInstructionInterpreter::eval(
 	// --------------- blockchain stuff ---------------
 	case Instruction::KECCAK256:
 	{
+		// Keccak is expensive; count it as 50 instructions total (1 already counted in evalBuiltin).
+		m_state.numInstructions += 49;
+		if (m_state.maxInstructions > 0 && m_state.numInstructions >= m_state.maxInstructions)
+			BOOST_THROW_EXCEPTION(InstructionLimitReached());
 		if (!accessMemory(arg[0], arg[1]))
 			return u256("0x1234cafe1234cafe1234cafe") + arg[0];
 		uint64_t offset = uint64_t(arg[0] & uint64_t(-1));
@@ -230,6 +266,7 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::CALLDATASIZE:
 		return m_state.calldata.size();
 	case Instruction::CALLDATACOPY:
+		chargeCopyCost(arg[2]);
 		if (accessMemory(arg[0], arg[2]))
 			copyZeroExtended(
 				m_state.memory, m_state.calldata,
@@ -240,6 +277,7 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::CODESIZE:
 		return m_state.code.size();
 	case Instruction::CODECOPY:
+		chargeCopyCost(arg[2]);
 		if (accessMemory(arg[0], arg[2]))
 			copyZeroExtended(
 				m_state.memory, m_state.code,
@@ -262,6 +300,7 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::EXTCODEHASH:
 		return u256(keccak256(h256(arg[0] + 1)));
 	case Instruction::EXTCODECOPY:
+		chargeCopyCost(arg[3]);
 		if (accessMemory(arg[1], arg[3]))
 			// TODO this way extcodecopy and codecopy do the same thing.
 			copyZeroExtended(
@@ -273,6 +312,7 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::RETURNDATASIZE:
 		return m_state.returndata.size();
 	case Instruction::RETURNDATACOPY:
+		chargeCopyCost(arg[2]);
 		if (accessMemory(arg[0], arg[2]))
 			copyZeroExtended(
 				m_state.memory, m_state.returndata,
@@ -281,6 +321,7 @@ u256 EVMInstructionInterpreter::eval(
 		logTrace(_instruction, arg);
 		return 0;
 	case Instruction::MCOPY:
+		chargeCopyCost(arg[2]);
 		if (accessMemory(arg[1], arg[2]) && accessMemory(arg[0], arg[2]))
 			copyZeroExtendedWithOverlap(
 				m_state.memory,
@@ -393,6 +434,7 @@ u256 EVMInstructionInterpreter::eval(
 		) ? 1 : 0;
 	case Instruction::RETURN:
 	{
+		chargeCopyCost(arg[1]);
 		m_state.returndata = {};
 		if (accessMemory(arg[0], arg[1]))
 			m_state.returndata = m_state.readMemory(arg[0], arg[1]);
@@ -514,6 +556,10 @@ u256 EVMInstructionInterpreter::evalBuiltin(
 	std::vector<u256> const& _evaluatedArguments
 )
 {
+	m_state.numInstructions++;
+	if (m_state.maxInstructions > 0 && m_state.numInstructions >= m_state.maxInstructions)
+		BOOST_THROW_EXCEPTION(InstructionLimitReached());
+
 	if (_fun.instruction)
 		return eval(*_fun.instruction, _evaluatedArguments);
 
@@ -731,6 +777,16 @@ std::pair<bool, size_t> EVMInstructionInterpreter::isInputMemoryPtrModified(
 	}
 	else
 		return {false, 0};
+}
+
+void EVMInstructionInterpreter::chargeCopyCost(u256 const& _size)
+{
+	// Cap to s_maxRangeSize; anything larger won't actually copy (accessMemory rejects it).
+	u256 const cappedSize = std::min(_size, u256(s_maxRangeSize));
+	size_t const words = size_t((cappedSize + 31) / 32);
+	m_state.numInstructions += words;
+	if (m_state.maxInstructions > 0 && m_state.numInstructions >= m_state.maxInstructions)
+		BOOST_THROW_EXCEPTION(InstructionLimitReached());
 }
 
 h256 EVMInstructionInterpreter::blobHash(u256 const& _index)

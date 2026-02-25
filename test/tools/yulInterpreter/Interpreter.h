@@ -26,6 +26,7 @@
 #include <libyul/optimiser/ASTWalker.h>
 
 #include <libevmasm/Instruction.h>
+#include <boost/container/flat_map.hpp>
 
 #include <libsolutil/FixedHash.h>
 #include <libsolutil/CommonData.h>
@@ -66,6 +67,10 @@ class ExpressionNestingLimitReached: public InterpreterTerminatedGeneric
 {
 };
 
+class InstructionLimitReached: public InterpreterTerminatedGeneric
+{
+};
+
 enum class ControlFlowState
 {
 	Default,
@@ -78,7 +83,7 @@ struct InterpreterState
 {
 	bytes calldata;
 	bytes returndata;
-	std::map<u256, uint8_t> memory;
+	boost::container::flat_map<u256, uint8_t> memory;
 	/// This is different than memory.size() because we ignore gas.
 	u256 msize;
 	std::map<util::h256, util::h256> storage;
@@ -110,6 +115,8 @@ struct InterpreterState
 	size_t maxSteps = 0;
 	size_t numSteps = 0;
 	size_t maxExprNesting = 0;
+	size_t maxInstructions = 0;
+	size_t numInstructions = 0;
 	ControlFlowState controlFlowState = ControlFlowState::Default;
 
 	/// Number of the current state instance, used for recursion protection
@@ -134,8 +141,9 @@ struct InterpreterState
 	{
 		yulAssert(_size <= 0xffff, "Too large read.");
 		bytes data(size_t(_size), uint8_t(0));
-		for (size_t i = 0; i < data.size(); ++i)
-			data[i] = memory[_offset + i];
+		u256 const upperBound = _offset + _size;
+		for (auto it = memory.lower_bound(_offset), end = (upperBound >= _offset ? memory.lower_bound(upperBound) : memory.end()); it != end; ++it)
+			data[size_t(it->first - _offset)] = it->second;
 		return data;
 	}
 };

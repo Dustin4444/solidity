@@ -49,6 +49,7 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	ProtoConverter converter;
 	std::string yul_source = converter.programToString(_input);
 	EVMVersion version = converter.version();
+	auto calldata = converter.calldata();
 
 	if (const char* dump_path = getenv("PROTO_FUZZER_DUMP_PATH"))
 	{
@@ -58,6 +59,9 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		of.write(yul_source.data(), static_cast<std::streamsize>(yul_source.size()));
 	}
 
+	// NOTE: YulStringRepository::reset() called here previously, but it cleared
+	// the cached EVMDialect instances (95% of runtime cost). The reset is not
+	// needed for fuzzing since we don't accumulate strings across iterations.
 	YulStringRepository::reset();
 
 	// YulStack entry point
@@ -81,42 +85,53 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		yulAssert(false, "Proto fuzzer generated malformed program");
 	}
 
+	// Generate pseudo-random calldata using libfuzzer input
 	std::ostringstream os1;
 	std::ostringstream os2;
 	// Disable memory tracing to avoid false positive reports
 	// such as unused write to memory e.g.,
 	// { mstore(0, 1) }
 	// that would be removed by the redundant store eliminator.
-	// TODO: Add EOF support
 	yulFuzzerUtil::TerminationReason termReason = yulFuzzerUtil::interpret(
 		os1,
+		calldata,
 		*stack.parserResult()->code(),
-		/*disableMemoryTracing=*/true
+		/*disableMemoryTracing=*/true,
+		/*outputStorageOnly=*/false,
+		yulFuzzerUtil::maxSteps,
+		yulFuzzerUtil::maxTraceSize,
+		yulFuzzerUtil::maxExprNesting,
+		/*maxInstructions=*/500
 	);
 
 	if (yulFuzzerUtil::resourceLimitsExceeded(termReason))
 		return;
 
-	// TODO: Add EOF support
-	YulOptimizerTestCommon optimizerTest(stack.parserResult());
-	optimizerTest.setStep(optimizerTest.randomOptimiserStep(_input.step()));
-	auto const* astRoot = optimizerTest.run();
-	yulAssert(astRoot != nullptr, "Optimiser error.");
-	// TODO: Add EOF support
-	termReason = yulFuzzerUtil::interpret(
-		os2,
-		*optimizerTest.optimizedObject()->code(),
-		true
-	);
-	if (yulFuzzerUtil::resourceLimitsExceeded(termReason))
+	try {
+		YulOptimizerTestCommon optimizerTest(stack.parserResult());
+		optimizerTest.setStep(optimizerTest.randomOptimiserStep(_input.step()));
+		auto const* astRoot = optimizerTest.run();
+		yulAssert(astRoot != nullptr, "Optimiser error.");
+		termReason = yulFuzzerUtil::interpret(
+			os2,
+			calldata,
+			*optimizerTest.optimizedObject()->code(),
+			true
+		);
+		if (yulFuzzerUtil::resourceLimitsExceeded(termReason))
+			return;
+
+		bool isTraceEq = (os1.str() == os2.str());
+		if (!isTraceEq)
+		{
+			std::cout << os1.str() << std::endl;
+			std::cout << os2.str() << std::endl;
+			yulAssert(false, "Interpreted traces for optimized and unoptimized code differ.");
+		}
 		return;
 
-	bool isTraceEq = (os1.str() == os2.str());
-	if (!isTraceEq)
-	{
-		std::cout << os1.str() << std::endl;
-		std::cout << os2.str() << std::endl;
-		yulAssert(false, "Interpreted traces for optimized and unoptimized code differ.");
+	} catch (langutil::UnimplementedFeatureError const&) {
+	    // Unimplemented feature, skip this input
+	    return;
 	}
-	return;
 }

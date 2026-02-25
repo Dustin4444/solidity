@@ -29,7 +29,7 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size);
 
 extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size)
 {
-	if (_size <= 600)
+	if (_size <= 4000)
 	{
 		std::string input(reinterpret_cast<char const*>(_data), _size);
 		std::map<std::string, std::string> sourceCode;

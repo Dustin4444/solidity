@@ -29,6 +29,7 @@ struct yulFuzzerUtil
 		StepLimitReached,
 		TraceLimitReached,
 		ExpressionNestingLimitReached,
+		InstructionLimitReached,
 		None
 	};
 
@@ -40,12 +41,14 @@ struct yulFuzzerUtil
 	/// eliminator.
 	static TerminationReason interpret(
 		std::ostream& _os,
+		bytes const& calldata,
 		AST const& _ast,
 		bool _disableMemoryTracing = false,
 		bool _outputStorageOnly = false,
 		size_t _maxSteps = maxSteps,
 		size_t _maxTraceSize = maxTraceSize,
-		size_t _maxExprNesting = maxExprNesting
+		size_t _maxExprNesting = maxExprNesting,
+		size_t _maxInstructions = 0
 	);
 
 	/// @returns true if @param _reason for Yul interpreter terminating is
