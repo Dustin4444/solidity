@@ -3470,23 +3470,14 @@ bool TypeChecker::visit(IndexAccess const& _access)
 	case Type::Category::TypeType:
 	{
 		TypeType const& typeType = dynamic_cast<TypeType const&>(*baseType);
-		auto const actualType = typeType.actualType();
-		auto const actualTypeCategory = actualType->category();
 
-		switch (actualTypeCategory)
+		switch (typeType.actualType()->category())
 		{
 		case Type::Category::Contract:
 		{
-			auto const* contractType = reinterpret_cast<ContractType const*>(actualType);
+			auto const* contractType = reinterpret_cast<ContractType const*>(typeType.actualType());
 			if (contractType->contractDefinition().isLibrary())
 				m_errorReporter.typeError(2876_error, _access.location(), "Index access for library types and arrays of libraries are not possible.");
-			else if (contractType->isSuper())
-			{
-				m_errorReporter.typeError(
-					5530_error,
-					_access.location(),
-					"Index notation is not allowed for type.");
-			}
 			break;
 		}
 		case Type::Category::Address:
@@ -3510,16 +3501,28 @@ bool TypeChecker::visit(IndexAccess const& _access)
 		case Type::Category::Magic:
 		case Type::Category::Module:
 		case Type::Category::InaccessibleDynamic:
-			solAssert(false, "Unexpected actual type category of TypeType.");
+			solAssert(false, "Unexpected type of array size expression.");
 		}
 
 		if (!index)
-			resultType = TypeProvider::typeType(TypeProvider::array(DataLocation::Memory, actualType));
+			resultType = TypeProvider::typeType(TypeProvider::array(DataLocation::Memory, typeType.actualType()));
 		else
 		{
 			index->accept(*this);
-			auto const lengthValue = checkArrayLengthExpression(*index, m_errorReporter);
-			resultType = TypeProvider::typeType(TypeProvider::array(DataLocation::Memory, actualType, lengthValue));
+			if (
+				auto const maybeLengthValue =
+				ConstantEvaluator::evaluateAndCheckArrayLengthExpression(*index, m_errorReporter)
+			)
+				resultType = TypeProvider::typeType(
+					TypeProvider::array(DataLocation::Memory, typeType.actualType(), *maybeLengthValue)
+				);
+			else
+			{
+				solAssert(m_errorReporter.hasErrors(), "Must have reported errors.");
+				// TODO: Consider `evaluateAndCheckArrayLengthExpression` issuing fatal error.
+				// TODO: It would prevent of passing dummy length value here. `resultType` must be set.
+				resultType = TypeProvider::typeType(TypeProvider::array(DataLocation::Memory, typeType.actualType(), 0));
+			}
 		}
 		break;
 	}
@@ -4265,37 +4268,4 @@ bool TypeChecker::useABICoderV2() const
 		solAssert(m_currentSourceUnit == &m_currentContract->sourceUnit(), "");
 	return *m_currentSourceUnit->annotation().useABICoderV2;
 
-}
-
-u256 TypeChecker::checkArrayLengthExpression(Expression const& _arrayLengthExpression, ErrorReporter& _errorReporter)
-{
-	std::optional<rational> lengthValue;
-	if (_arrayLengthExpression.annotation().type && _arrayLengthExpression.annotation().type->category() == Type::Category::RationalNumber)
-		lengthValue = dynamic_cast<RationalNumberType const&>(*_arrayLengthExpression.annotation().type).value();
-	else if (std::optional<ConstantEvaluator::TypedRational> value = ConstantEvaluator::evaluate(_errorReporter, _arrayLengthExpression))
-		lengthValue = value->value;
-
-	if (!lengthValue)
-		_errorReporter.typeError(
-			5462_error,
-			_arrayLengthExpression.location(),
-			"Invalid array length, expected integer literal or constant expression."
-		);
-	else if (*lengthValue == 0)
-		_errorReporter.typeError(1406_error, _arrayLengthExpression.location(), "Array with zero length specified.");
-	else if (lengthValue->denominator() != 1)
-		_errorReporter.typeError(3208_error, _arrayLengthExpression.location(), "Array with fractional length specified.");
-	else if (*lengthValue < 0)
-		_errorReporter.typeError(3658_error, _arrayLengthExpression.location(), "Array with negative length specified.");
-	else if (lengthValue > TypeProvider::uint256()->max())
-		_errorReporter.typeError(
-			1847_error,
-			_arrayLengthExpression.location(),
-			"Array length too large, maximum is 2**256 - 1."
-		);
-	else
-		return u256(lengthValue->numerator());
-
-	solAssert(lengthValue || _errorReporter.hasErrors(), "Must have reported errors.");
-	return 0;
 }

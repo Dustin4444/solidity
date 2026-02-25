@@ -17,6 +17,9 @@
 // SPDX-License-Identifier: GPL-3.0
 
 #include <libsolidity/analysis/DeclarationTypeChecker.h>
+
+#include <libsolidity/analysis/ConstantEvaluator.h>
+
 #include <libsolidity/analysis/TypeChecker.h>
 
 #include <libsolidity/ast/TypeProvider.h>
@@ -331,10 +334,21 @@ void DeclarationTypeChecker::endVisit(ArrayTypeName const& _typeName)
 		return;
 	}
 
-	if (Expression const* length = _typeName.length())
+	if (Expression const* lengthExpression = _typeName.length())
 	{
-		auto const lengthValue = TypeChecker::checkArrayLengthExpression(*length, m_errorReporter);
-		_typeName.annotation().type = TypeProvider::array(DataLocation::Storage, baseType, lengthValue);
+		if (
+			auto const maybeLengthValue =
+			ConstantEvaluator::evaluateAndCheckArrayLengthExpression(*lengthExpression, m_errorReporter)
+		)
+			_typeName.annotation().type = TypeProvider::array(DataLocation::Storage, baseType, *maybeLengthValue);
+		else
+		{
+			solAssert(m_errorReporter.hasErrors(), "Must have reported errors.");
+			// TODO: Consider `evaluateAndCheckArrayLengthExpression` issuing fatal error.
+			// TODO: It would prevent of passing dummy length value here. `_typeName.annotation().type` must be set.
+			// TODO: Otherwise, `endVisit(VariableDeclaration...)` would fail.
+			_typeName.annotation().type = TypeProvider::array(DataLocation::Storage, baseType, 0);
+		}
 	}
 	else
 		_typeName.annotation().type = TypeProvider::array(DataLocation::Storage, baseType);
