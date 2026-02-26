@@ -109,6 +109,7 @@ void FuzzerUtil::testCompiler(
 	compiler.setEVMVersion(_evmVersion);
 	compiler.setOptimiserSettings(optimiserSettings);
 	compiler.setViaIR(_compileViaYul);
+	compiler.setMetadataFormat(frontend::CompilerStack::MetadataFormat::NoMetadata);
 	try
 	{
 		compiler.compile();

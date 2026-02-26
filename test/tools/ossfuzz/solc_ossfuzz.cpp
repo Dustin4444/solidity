@@ -32,30 +32,27 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size);
 
 extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size)
 {
-	if (_size <= 7000)
+	std::string input(reinterpret_cast<char const*>(_data), _size);
+	std::map<std::string, std::string> sourceCode;
+	try
 	{
-		std::string input(reinterpret_cast<char const*>(_data), _size);
-		std::map<std::string, std::string> sourceCode;
-		try
-		{
-			TestCaseReader t = TestCaseReader(std::istringstream(input));
-			sourceCode = t.sources().sources;
-			const bool compileViaYul = _size % 3 == 1;
-			const bool optimize = _size % 2 == 0;
-			const solidity::langutil::EVMVersion evmVersion = s_evmVersions[_size % s_evmVersions.size()];
-			const bool forceSMT = false;
-			FuzzerUtil::testCompiler(
-				sourceCode,
-				optimize,
-				evmVersion,
-				forceSMT,
-				compileViaYul
-			);
-		}
-		catch (std::runtime_error const&)
-		{
-			return 0;
-		}
+		TestCaseReader t = TestCaseReader(std::istringstream(input));
+		sourceCode = t.sources().sources;
+		const bool compileViaYul = _size % 3 == 1;
+		const bool optimize = _size % 2 == 0;
+		const solidity::langutil::EVMVersion evmVersion = s_evmVersions[_size % s_evmVersions.size()];
+		const bool forceSMT = false;
+		FuzzerUtil::testCompiler(
+			sourceCode,
+			optimize,
+			evmVersion,
+			forceSMT,
+			compileViaYul
+		);
+	}
+	catch (std::runtime_error const&)
+	{
+		return 0;
 	}
 	return 0;
 }
