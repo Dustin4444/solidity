@@ -39,8 +39,6 @@ using namespace solidity::frontend;
 using namespace solidity::langutil;
 using namespace solidity::util;
 
-static auto constexpr s_evmVersions = EVMVersion::allVersions();
-
 void FuzzerUtil::testCompilerJsonInterface(std::string const& _input, bool _optimize, bool _quiet)
 {
 	if (!_quiet)
@@ -77,13 +75,12 @@ void FuzzerUtil::forceSMT(StringMap& _input)
 void FuzzerUtil::testCompiler(
 	StringMap& _input,
 	bool _optimize,
-	unsigned _rand,
+	EVMVersion const& _evmVersion,
 	bool _forceSMT,
 	bool _compileViaYul
 )
 {
 	frontend::CompilerStack compiler;
-	EVMVersion evmVersion = s_evmVersions[_rand % s_evmVersions.size()];
 	frontend::OptimiserSettings optimiserSettings;
 	if (_optimize)
 		optimiserSettings = frontend::OptimiserSettings::standard();
@@ -109,7 +106,7 @@ void FuzzerUtil::testCompiler(
 		});
 	}
 	compiler.setSources(_input);
-	compiler.setEVMVersion(evmVersion);
+	compiler.setEVMVersion(_evmVersion);
 	compiler.setOptimiserSettings(optimiserSettings);
 	compiler.setViaIR(_compileViaYul);
 	try

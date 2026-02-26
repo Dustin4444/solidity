@@ -101,7 +101,7 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		yulFuzzerUtil::maxSteps,
 		yulFuzzerUtil::maxTraceSize,
 		yulFuzzerUtil::maxExprNesting,
-		/*maxCost=*/500
+		/*maxCost=*/10000
 	);
 
 	if (yulFuzzerUtil::resourceLimitsExceeded(termReason))

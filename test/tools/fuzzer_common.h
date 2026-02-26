@@ -20,6 +20,7 @@
 
 #include <map>
 #include <string>
+#include <liblangutil/EVMVersion.h>
 
 /**
  * Functions to be used for fuzz-testing of various components.
@@ -40,7 +41,7 @@ struct FuzzerUtil
 	static void testCompiler(
 		solidity::StringMap& _input,
 		bool _optimize,
-		unsigned _rand,
+		solidity::langutil::EVMVersion const& _evmVersion,
 		bool _forceSMT,
 		bool _compileViaYul
 	);

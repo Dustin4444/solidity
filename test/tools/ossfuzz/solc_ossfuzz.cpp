@@ -19,17 +19,20 @@
 #include <test/tools/fuzzer_common.h>
 
 #include <test/TestCaseReader.h>
+#include <liblangutil/EVMVersion.h>
 
 #include <sstream>
 
 using namespace solidity::frontend::test;
+
+static auto constexpr s_evmVersions = solidity::langutil::EVMVersion::allVersions();
 
 // Prototype as we can't use the FuzzerInterface.h header.
 extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size);
 
 extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size)
 {
-	if (_size <= 4000)
+	if (_size <= 7000)
 	{
 		std::string input(reinterpret_cast<char const*>(_data), _size);
 		std::map<std::string, std::string> sourceCode;
@@ -42,11 +45,12 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size)
 				settings.count("compileViaYul") &&
 				(settings.at("compileViaYul") == "also" || settings.at("compileViaYul") == "true");
 			bool optimize = settings.count("optimize") && settings.at("optimize") == "true";
+			solidity::langutil::EVMVersion evmVersion = s_evmVersions[_size % s_evmVersions.size()];
 			FuzzerUtil::testCompiler(
 				sourceCode,
 				optimize,
-				/*_rand=*/static_cast<unsigned>(_size),
-				/*forceSMT=*/true,
+				evmVersion,
+				/*forceSMT=*/false,
 				compileViaYul
 			);
 		}
