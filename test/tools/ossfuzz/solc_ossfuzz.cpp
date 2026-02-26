@@ -40,17 +40,15 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size)
 		{
 			TestCaseReader t = TestCaseReader(std::istringstream(input));
 			sourceCode = t.sources().sources;
-			std::map<std::string, std::string> settings = t.settings();
-			bool compileViaYul =
-				settings.count("compileViaYul") &&
-				(settings.at("compileViaYul") == "also" || settings.at("compileViaYul") == "true");
-			bool optimize = settings.count("optimize") && settings.at("optimize") == "true";
-			solidity::langutil::EVMVersion evmVersion = s_evmVersions[_size % s_evmVersions.size()];
+			const bool compileViaYul = _size % 3 == 1;
+			const bool optimize = _size % 2 == 0;
+			const solidity::langutil::EVMVersion evmVersion = s_evmVersions[_size % s_evmVersions.size()];
+			const bool forceSMT = false;
 			FuzzerUtil::testCompiler(
 				sourceCode,
 				optimize,
 				evmVersion,
-				/*forceSMT=*/false,
+				forceSMT,
 				compileViaYul
 			);
 		}
