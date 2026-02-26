@@ -30,14 +30,14 @@ yulFuzzerUtil::TerminationReason yulFuzzerUtil::interpret(
 	size_t _maxSteps,
 	size_t _maxTraceSize,
 	size_t _maxExprNesting,
-	size_t _maxInstructions
+	u256 _maxCost
 )
 {
 	InterpreterState state;
 	state.maxTraceSize = _maxTraceSize;
 	state.maxSteps = _maxSteps;
 	state.maxExprNesting = _maxExprNesting;
-	state.maxInstructions = _maxInstructions;
+	state.maxCost = _maxCost;
 	// Add 64 bytes of pseudo-randomly generated calldata so that
 	// calldata opcodes perform non trivial work.
 	state.calldata = calldata;

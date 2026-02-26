@@ -133,6 +133,14 @@ private:
 	/// Does not adjust msize, use @a accessMemory for that
 	void writeMemoryWord(u256 const& _offset, u256 const& _value);
 
+	/// Charges the cost of copying _size bytes
+	/// throws InstructionLimitReached if the new cost exceeds the maximum cost.
+	void chargeCopyWordCost(u256 const& _size);
+
+	/// Charges the cost by the provided amount, and throws InstructionLimitReached
+	/// if the new cost exceeds the maximum cost.
+	void chargeCost(u256 const& _cost);
+
 	void logTrace(
 		evmasm::Instruction _instruction,
 		std::vector<u256> const& _arguments = {},

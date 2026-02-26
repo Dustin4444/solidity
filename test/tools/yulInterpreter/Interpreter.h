@@ -115,8 +115,16 @@ struct InterpreterState
 	size_t maxSteps = 0;
 	size_t numSteps = 0;
 	size_t maxExprNesting = 0;
-	size_t maxInstructions = 0;
-	size_t numInstructions = 0;
+
+	/// Estimated cost of instructions executed, used for fuzzing to avoid timeouts
+	/// Does not need to be very accurate.
+	u256 cost = 0;
+	/// Maximum cost of before termination by InstructionLimitReached
+	/// Zero means no limit. Using anything else, such as
+	/// u256::max() is not sufficient, as it is possible to
+	/// copy all of memory, which is already u256::max(), causing overflow etc
+	u256 maxCost = 0;
+
 	ControlFlowState controlFlowState = ControlFlowState::Default;
 
 	/// Number of the current state instance, used for recursion protection

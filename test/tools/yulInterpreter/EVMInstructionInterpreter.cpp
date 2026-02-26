@@ -167,8 +167,8 @@ u256 EVMInstructionInterpreter::eval(
 		if (arg[1] != 0)
 		{
 			size_t const bits = static_cast<size_t>(msb(arg[1])) + 1;
-			m_state.numInstructions += bits;
-			if (m_state.maxInstructions > 0 && m_state.numInstructions >= m_state.maxInstructions)
+			chargeCost(1 + bits);
+			if (m_state.maxCost > 0 && m_state.cost >= m_state.maxCost)
 				BOOST_THROW_EXCEPTION(InstructionLimitReached());
 		}
 		return exp256(arg[0], arg[1]);
@@ -236,10 +236,7 @@ u256 EVMInstructionInterpreter::eval(
 	// --------------- blockchain stuff ---------------
 	case Instruction::KECCAK256:
 	{
-		// Keccak is expensive; count it as 50 instructions total (1 already counted in evalBuiltin).
-		m_state.numInstructions += 49;
-		if (m_state.maxInstructions > 0 && m_state.numInstructions >= m_state.maxInstructions)
-			BOOST_THROW_EXCEPTION(InstructionLimitReached());
+		chargeCost(50);
 		if (!accessMemory(arg[0], arg[1]))
 			return u256("0x1234cafe1234cafe1234cafe") + arg[0];
 		uint64_t offset = uint64_t(arg[0] & uint64_t(-1));
@@ -266,7 +263,7 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::CALLDATASIZE:
 		return m_state.calldata.size();
 	case Instruction::CALLDATACOPY:
-		chargeCopyCost(arg[2]);
+		chargeCopyWordCost(arg[2]);
 		if (accessMemory(arg[0], arg[2]))
 			copyZeroExtended(
 				m_state.memory, m_state.calldata,
@@ -277,7 +274,7 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::CODESIZE:
 		return m_state.code.size();
 	case Instruction::CODECOPY:
-		chargeCopyCost(arg[2]);
+		chargeCopyWordCost(arg[2]);
 		if (accessMemory(arg[0], arg[2]))
 			copyZeroExtended(
 				m_state.memory, m_state.code,
@@ -296,11 +293,13 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::BLOBBASEFEE:
 		return m_state.blobbasefee;
 	case Instruction::EXTCODESIZE:
+		chargeCost(50);
 		return u256(keccak256(h256(arg[0]))) & 0xffffff;
 	case Instruction::EXTCODEHASH:
+		chargeCost(50);
 		return u256(keccak256(h256(arg[0] + 1)));
 	case Instruction::EXTCODECOPY:
-		chargeCopyCost(arg[3]);
+		chargeCopyWordCost(arg[3]);
 		if (accessMemory(arg[1], arg[3]))
 			// TODO this way extcodecopy and codecopy do the same thing.
 			copyZeroExtended(
@@ -312,7 +311,7 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::RETURNDATASIZE:
 		return m_state.returndata.size();
 	case Instruction::RETURNDATACOPY:
-		chargeCopyCost(arg[2]);
+		chargeCopyWordCost(arg[2]);
 		if (accessMemory(arg[0], arg[2]))
 			copyZeroExtended(
 				m_state.memory, m_state.returndata,
@@ -321,7 +320,7 @@ u256 EVMInstructionInterpreter::eval(
 		logTrace(_instruction, arg);
 		return 0;
 	case Instruction::MCOPY:
-		chargeCopyCost(arg[2]);
+		chargeCopyWordCost(arg[2]);
 		if (accessMemory(arg[1], arg[2]) && accessMemory(arg[0], arg[2]))
 			copyZeroExtendedWithOverlap(
 				m_state.memory,
@@ -434,7 +433,7 @@ u256 EVMInstructionInterpreter::eval(
 		) ? 1 : 0;
 	case Instruction::RETURN:
 	{
-		chargeCopyCost(arg[1]);
+		chargeCopyWordCost(arg[1]);
 		m_state.returndata = {};
 		if (accessMemory(arg[0], arg[1]))
 			m_state.returndata = m_state.readMemory(arg[0], arg[1]);
@@ -556,10 +555,7 @@ u256 EVMInstructionInterpreter::evalBuiltin(
 	std::vector<u256> const& _evaluatedArguments
 )
 {
-	m_state.numInstructions++;
-	if (m_state.maxInstructions > 0 && m_state.numInstructions >= m_state.maxInstructions)
-		BOOST_THROW_EXCEPTION(InstructionLimitReached());
-
+	chargeCost(1);
 	if (_fun.instruction)
 		return eval(*_fun.instruction, _evaluatedArguments);
 
@@ -567,6 +563,7 @@ u256 EVMInstructionInterpreter::evalBuiltin(
 	// Evaluate datasize/offset/copy instructions
 	if (fun == "datasize" || fun == "dataoffset")
 	{
+		chargeCost(50);
 		std::string arg = formatLiteral(std::get<Literal>(_arguments.at(0)));
 		if (arg.length() < 32)
 			arg.resize(32, 0);
@@ -587,7 +584,8 @@ u256 EVMInstructionInterpreter::evalBuiltin(
 		if (
 			_evaluatedArguments.at(2) != 0 &&
 			accessMemory(_evaluatedArguments.at(0), _evaluatedArguments.at(2))
-		)
+		) {
+			chargeCost(_evaluatedArguments.at(2));
 			copyZeroExtended(
 				m_state.memory,
 				m_state.code,
@@ -595,6 +593,7 @@ u256 EVMInstructionInterpreter::evalBuiltin(
 				size_t(_evaluatedArguments.at(1) & std::numeric_limits<size_t>::max()),
 				size_t(_evaluatedArguments.at(2))
 			);
+		}
 		return 0;
 	}
 
@@ -603,6 +602,7 @@ u256 EVMInstructionInterpreter::evalBuiltin(
 
 	if (fun == "linkersymbol")
 	{
+		chargeCost(50);
 		yulAssert(_arguments.size() == 1);
 		yulAssert(std::holds_alternative<Literal>(_arguments[0]));
 		std::string const placeholder = formatLiteral(std::get<Literal>(_arguments[0]));
@@ -613,6 +613,7 @@ u256 EVMInstructionInterpreter::evalBuiltin(
 
 	if (fun == "loadimmutable")
 	{
+		chargeCost(50);
 		yulAssert(_arguments.size() == 1);
 		yulAssert(std::holds_alternative<Literal>(_arguments[0]));
 		std::string const identifier = formatLiteral(std::get<Literal>(_arguments[0]));
@@ -779,18 +780,34 @@ std::pair<bool, size_t> EVMInstructionInterpreter::isInputMemoryPtrModified(
 		return {false, 0};
 }
 
-void EVMInstructionInterpreter::chargeCopyCost(u256 const& _size)
+void EVMInstructionInterpreter::chargeCost(u256 const& _cost)
 {
+	if (m_state.maxCost == 0 || _cost == 0)
+		return;
+
+	// wrap around check
+	if (m_state.cost + _cost < m_state.cost)
+		BOOST_THROW_EXCEPTION(InstructionLimitReached());
+
+	m_state.cost += _cost;
+	if (m_state.cost >= m_state.maxCost)
+		BOOST_THROW_EXCEPTION(InstructionLimitReached());
+}
+
+void EVMInstructionInterpreter::chargeCopyWordCost(u256 const& _size)
+{
+	if (m_state.maxCost == 0)
+		return;
+
 	// Cap to s_maxRangeSize; anything larger won't actually copy (accessMemory rejects it).
 	u256 const cappedSize = std::min(_size, u256(s_maxRangeSize));
 	size_t const words = size_t((cappedSize + 31) / 32);
-	m_state.numInstructions += words;
-	if (m_state.maxInstructions > 0 && m_state.numInstructions >= m_state.maxInstructions)
-		BOOST_THROW_EXCEPTION(InstructionLimitReached());
+	chargeCost(words);
 }
 
 h256 EVMInstructionInterpreter::blobHash(u256 const& _index)
 {
+	chargeCost(50); //< Blobhash is expensive
 	yulAssert(m_evmVersion.hasBlobHash());
 	if (_index >= m_state.blobCommitments.size())
 		return util::FixedHash<32>{};
