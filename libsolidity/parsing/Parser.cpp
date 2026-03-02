@@ -228,7 +228,7 @@ ASTPointer<StructuredDocumentation> Parser::parseStructuredDocumentation()
 	return nullptr;
 }
 
-ASTPointer<PragmaDirective> Parser::parsePragmaDirective([[maybe_unused]] bool const _finishedParsingTopLevelPragmas)
+ASTPointer<PragmaDirective> Parser::parsePragmaDirective(bool const _finishedParsingTopLevelPragmas)
 {
 	RecursionGuard recursionGuard(*this);
 	// pragma anything* ;
