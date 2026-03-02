@@ -267,14 +267,14 @@ ASTPointer<PragmaDirective> Parser::parsePragmaDirective([[maybe_unused]] bool c
 		);
 	}
 
-	/* if (literals.size() >= 2 && literals[0] == "experimental" && literals[1] == "solidity") */
-	/* { */
-	/* 	if (m_evmVersion < EVMVersion::constantinople()) */
-	/* 		fatalParserError(7637_error, "Experimental solidity requires Constantinople EVM version at the minimum."); */
-	/* 	if (_finishedParsingTopLevelPragmas) */
-	/* 		fatalParserError(8185_error, "Experimental pragma \"solidity\" can only be set at the beginning of the source unit."); */
-	/* 	m_experimentalSolidityEnabledInCurrentSourceUnit = true; */
-	/* } */
+	if (literals.size() >= 2 && literals[0] == "experimental" && literals[1] == "solidity")
+	{
+		if (m_evmVersion < EVMVersion::constantinople())
+			fatalParserError(7637_error, "Experimental solidity requires Constantinople EVM version at the minimum.");
+		if (_finishedParsingTopLevelPragmas)
+			fatalParserError(8185_error, "Experimental pragma \"solidity\" can only be set at the beginning of the source unit.");
+		m_experimentalSolidityEnabledInCurrentSourceUnit = true;
+	}
 
 	return nodeFactory.createNode<PragmaDirective>(tokens, literals);
 }
