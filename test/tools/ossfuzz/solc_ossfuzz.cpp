@@ -32,6 +32,8 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size);
 
 extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size)
 {
+	// We don't limit the `_size`, because it can be limited by the fuzzing engine's configuration
+	// via `-max_len=N`
 	std::string input(reinterpret_cast<char const*>(_data), _size);
 	if (input.find("experimental") != std::string::npos)
 	{
