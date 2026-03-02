@@ -706,7 +706,7 @@ void ProtoConverter::visit(NullaryOp const& _x)
 			op == NullaryOp::TIMESTAMP ||
 			op == NullaryOp::NUMBER ||
 			op == NullaryOp::DIFFICULTY ||
-			op == NullaryOp::MSIZE ||
+			op == NullaryOp::MSIZE
 		)
 	)
 	{
