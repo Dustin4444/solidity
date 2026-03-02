@@ -33,6 +33,10 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size);
 extern "C" int LLVMFuzzerTestOneInput(uint8_t const* _data, size_t _size)
 {
 	std::string input(reinterpret_cast<char const*>(_data), _size);
+	if (input.find("experimental") != std::string::npos) {
+		// We are not interested in testing `pragma experimental` as it is not stable and may be removed
+		return 0;
+	}
 	std::map<std::string, std::string> sourceCode;
 	try
 	{
