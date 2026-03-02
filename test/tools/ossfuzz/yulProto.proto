@@ -203,28 +203,27 @@ message ExtCodeCopy {
   required Expression size = 4;
 }
 
-// MSIZE, GAS, and CODESIZE have been removed because they are easy ways to
-// distinguish between optimized and unoptimized code, which means the fuzzer
-// keeps finding "bugs" where there is no bug at all, just an easy way to
-// distinguish between optimized and unoptimized code.
 message NullaryOp {
   enum NOp {
-    CALLDATASIZE = 1;
-    RETURNDATASIZE = 2;
-    ADDRESS = 3;
-    ORIGIN = 4;
-    CALLER = 5;
-    CALLVALUE = 6;
-    GASPRICE = 7;
-    COINBASE = 8;
-    TIMESTAMP = 9;
-    NUMBER = 10;
-    DIFFICULTY = 11;
-    GASLIMIT = 12;
-    SELFBALANCE = 13;
-    CHAINID = 14;
-    BASEFEE = 15;
-    BLOBBASEFEE = 16;
+    MSIZE = 1;
+    GAS = 2;
+    CALLDATASIZE = 3;
+    CODESIZE = 4;
+    RETURNDATASIZE = 5;
+    ADDRESS = 6;
+    ORIGIN = 7;
+    CALLER = 8;
+    CALLVALUE = 9;
+    GASPRICE = 10;
+    COINBASE = 11;
+    TIMESTAMP = 12;
+    NUMBER = 13;
+    DIFFICULTY = 14;
+    GASLIMIT = 15;
+    SELFBALANCE = 16;
+    CHAINID = 17;
+    BASEFEE = 18;
+    BLOBBASEFEE = 19;
   }
   required NOp op = 1;
 }

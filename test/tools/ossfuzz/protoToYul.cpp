@@ -616,7 +616,9 @@ void ProtoConverter::visit(UnaryOp const& _x)
 			op == UnaryOp::EXTCODEHASH ||
 			op == UnaryOp::EXTCODESIZE ||
 			op == UnaryOp::BALANCE ||
-			op == UnaryOp::BLOCKHASH
+			op == UnaryOp::BLOCKHASH ||
+			op == UnaryOp::MSIZE ||
+			op == UnaryOp::CODESIZE
 		)
 	)
 	{
@@ -703,7 +705,9 @@ void ProtoConverter::visit(NullaryOp const& _x)
 			op == NullaryOp::ADDRESS ||
 			op == NullaryOp::TIMESTAMP ||
 			op == NullaryOp::NUMBER ||
-			op == NullaryOp::DIFFICULTY
+			op == NullaryOp::DIFFICULTY ||
+			op == UnaryOp::MSIZE ||
+			op == UnaryOp::CODESIZE
 		)
 	)
 	{
@@ -711,13 +715,19 @@ void ProtoConverter::visit(NullaryOp const& _x)
 		return;
 	}
 
-	// MSIZE,m CODESIZE, and GAS are not done,
-	// as they are an easy way to distinguish between optimized and unoptimized code,
-	// which will overwhelm the fuzzer with false positives
 	switch (op)
 	{
+	case NullaryOp::MSIZE:
+		m_output << "msize()";
+		break;
+	case NullaryOp::GAS:
+		m_output << "gas()";
+		break;
 	case NullaryOp::CALLDATASIZE:
 		m_output << "calldatasize()";
+		break;
+	case NullaryOp::CODESIZE:
+		m_output << "codesize()";
 		break;
 	case NullaryOp::RETURNDATASIZE:
 		// If evm supports returndatasize, we generate it. Otherwise,
