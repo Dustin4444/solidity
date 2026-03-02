@@ -702,13 +702,13 @@ void ProtoConverter::visit(NullaryOp const& _x)
 	if (
 		m_filterStatefulInstructions &&
 		(
-			op == UnaryOp::GAS ||
-			op == UnaryOp::CODESIZE ||
+			op == NullaryOp::GAS ||
+			op == NullaryOp::CODESIZE ||
 			op == NullaryOp::ADDRESS ||
 			op == NullaryOp::TIMESTAMP ||
 			op == NullaryOp::NUMBER ||
 			op == NullaryOp::DIFFICULTY ||
-			op == UnaryOp::MSIZE ||
+			op == NullaryOp::MSIZE ||
 		)
 	)
 	{
