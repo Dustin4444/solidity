@@ -59,9 +59,6 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		of.write(yul_source.data(), static_cast<std::streamsize>(yul_source.size()));
 	}
 
-	// NOTE: YulStringRepository::reset() called here previously, but it cleared
-	// the cached EVMDialect instances (95% of runtime cost). The reset is not
-	// needed for fuzzing since we don't accumulate strings across iterations.
 	YulStringRepository::reset();
 
 	// YulStack entry point
