@@ -616,9 +616,7 @@ void ProtoConverter::visit(UnaryOp const& _x)
 			op == UnaryOp::EXTCODEHASH ||
 			op == UnaryOp::EXTCODESIZE ||
 			op == UnaryOp::BALANCE ||
-			op == UnaryOp::BLOCKHASH ||
-			op == UnaryOp::MSIZE ||
-			op == UnaryOp::CODESIZE
+			op == UnaryOp::BLOCKHASH
 		)
 	)
 	{
