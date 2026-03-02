@@ -109,6 +109,7 @@ void FuzzerUtil::testCompiler(
 	compiler.setEVMVersion(_evmVersion);
 	compiler.setOptimiserSettings(optimiserSettings);
 	compiler.setViaIR(_compileViaYul);
+	// We need to set it to NoMetadata, or we would get UTF-8 issues, which are uninteresting
 	compiler.setMetadataFormat(frontend::CompilerStack::MetadataFormat::NoMetadata);
 	try
 	{
