@@ -18,17 +18,13 @@
 
 #pragma once
 
-#include "PhiInverse.h"
-
+#include <libyul/backends/evm/ssa/PhiInverse.h>
 
 #include <libyul/backends/evm/AbstractAssembly.h>
 #include <libyul/backends/evm/ssa/Stack.h>
 #include <libyul/backends/evm/ssa/StackLayout.h>
 
 #include <libevmasm/Instruction.h>
-
-#include <cstddef>
-#include <optional>
 
 namespace solidity::yul
 {
