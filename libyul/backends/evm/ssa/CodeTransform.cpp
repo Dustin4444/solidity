@@ -137,14 +137,11 @@ CodeTransform::CodeTransform(
 		auto const findIt = m_functionLabels.find(_function);
 		yulAssert(findIt != m_functionLabels.end());
 		m_assembly.appendLabel(findIt->second);
-		// +1 for the return label that the caller pushed below the arguments
-		m_assembly.setStackHeight(static_cast<int>(_function->numArguments + 1));
+		m_assembly.setStackHeight(static_cast<int>(_function->numArguments));
 	}
 	StackData expectedStackTop;
 	{
-		if (_function)
-			expectedStackTop.push_back(StackSlot::makeFunctionReturnLabel(m_functionGraphID));
-		expectedStackTop.reserve(expectedStackTop.size() + m_cfg.arguments.size());
+		expectedStackTop.reserve(m_cfg.arguments.size());
 		for (auto const& [_, valueID]: m_cfg.arguments | ranges::views::reverse)
 			expectedStackTop.push_back(StackSlot::makeValueID(valueID));
 	}
@@ -179,11 +176,10 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 		(*this)(operation, operationInLayout);
 	}
 
-	// we should have arrived at the block output layout
-	{
-		auto const blockOutCompatibility = checkLayoutCompatibility(m_stack.data(), blockLayout->stackOut);
-		yulRequire(blockOutCompatibility.ok(), CodegenException, blockOutCompatibility.formatErrors());
-	}
+	// Shuffle to the block's exit layout before dispatching the exit.
+	// This ensures the condition is on top for ConditionalJump, phi pre-images are
+	// in the right positions for jumps, and return values are accessible for FunctionReturn.
+	StackShuffler<AssemblyCallbacks>::shuffle(m_stack, blockLayout->stackOut);
 
 	// handle the block exit
 	std::visit(util::GenericVisitor{ [this, &_blockId](auto const& exit) { (*this)(_blockId, exit); } }, block.exit);
@@ -336,27 +332,38 @@ void CodeTransform::operator()(SSACFG::BlockId const& _currentBlock, SSACFG::Bas
 void CodeTransform::operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::Jump const& _jump)
 {
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
-	yulAssert(m_stackLayout[_jump.target]);
 	prepareBlockExitStack(m_stackLayout[_jump.target]->stackIn, PhiInverse(m_cfg, _currentBlock, _jump.target));
 	m_assembly.appendJumpTo(m_blockLabels[_jump.target.value]);
 	if (!m_blockIsTransformed[_jump.target.value])
 		(*this)(_jump.target);
 }
 
-void CodeTransform::operator()(SSACFG::BlockId const&, SSACFG::BasicBlock::FunctionReturn const&)
+void CodeTransform::operator()(SSACFG::BlockId const&, SSACFG::BasicBlock::FunctionReturn const& _functionReturn)
 {
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
-	// We must be inside a function (not the main graph) to have a FunctionReturn exit.
 	yulAssert(m_cfg.function);
-	// Stack is already in the correct layout ([rv..., FunctionReturnLabel(top)]),
-	// verified by the stackOut compatibility check before the exit handler is called.
-	// Verify the label on top belongs to this function's graph, not some other one.
-	// todo verify that the return variables are the right ones as per function signature
-	yulAssert(
-		!m_stack.empty() &&
-		m_stack.top().isFunctionReturnLabel() &&
-		m_stack.top().functionReturnLabel() == m_functionGraphID
-	);
+	// The return label sits physically below the tracked virtual stack.
+	// Inform the assembler so SWAP can reach it.
+	m_assembly.setStackHeight(m_assembly.stackHeight() + 1);
+	// Build target: [rv1, rv2, ..., rvN-1, rv0] (rv0 at top).
+	// After shuffle: EVM = [label, rv1, ..., rvN-1, rv0].
+	// After SWAP(N):  EVM = [rv0, rv1, ..., rvN-1, label].
+	// After JUMP:     EVM = [rv0, rv1, ..., rvN-1].
+	// todo it would be better to go for this target in the stack layout gen right away.
+	StackData returnTarget;
+	if (!_functionReturn.returnValues.empty())
+	{
+		returnTarget.reserve(_functionReturn.returnValues.size());
+		for (std::size_t i = 1; i < _functionReturn.returnValues.size(); ++i)
+			returnTarget.push_back(StackSlot::makeValueID(_functionReturn.returnValues[i]));
+		returnTarget.push_back(StackSlot::makeValueID(_functionReturn.returnValues.front()));
+		StackShuffler<AssemblyCallbacks>::shuffle(m_stack, returnTarget, {}, returnTarget.size());
+		m_assembly.appendInstruction(evmasm::swapInstruction(
+			static_cast<unsigned>(_functionReturn.returnValues.size())
+		));
+	}
+	else
+		StackShuffler<AssemblyCallbacks>::shuffle(m_stack, returnTarget, {}, 0);
 	m_assembly.appendJump(0, AbstractAssembly::JumpType::OutOfFunction);
 }
 

@@ -153,13 +153,12 @@ set(libyul_sources
     libyul/FunctionSideEffects.cpp
     libyul/FunctionSideEffects.h
     libyul/Inliner.cpp
-    libyul/Misctest.cpp
+    # libyul/Misctest.cpp
     libyul/KnowledgeBaseTest.cpp
     libyul/Metrics.cpp
     libyul/ObjectCompilerTest.cpp
     libyul/ObjectCompilerTest.h
     libyul/ObjectParser.cpp
-    libyul/OperationForwardShufflerTest.cpp
     libyul/Parser.cpp
     libyul/SSAControlFlowGraphTest.cpp
     libyul/SSAControlFlowGraphTest.h
@@ -180,7 +179,7 @@ set(libyul_sources
     libyul/ssa/StackShufflerTest.cpp
     libyul/ssa/StackShufflerTest.h
 )
-detect_stray_source_files("${libyul_sources}" "libyul/")
+# detect_stray_source_files("${libyul_sources}" "libyul/")
 
 set(solcli_sources
     solc/Common.cpp

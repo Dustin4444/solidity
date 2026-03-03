@@ -23,7 +23,6 @@
 #include <libyul/backends/evm/ssa/StackShuffler.h>
 #include <libyul/backends/evm/ssa/StackUtils.h>
 
-#include <range/v3/algorithm/contains.hpp>
 #include <range/v3/algorithm/count.hpp>
 #include <range/v3/algorithm/min_element.hpp>
 #include <range/v3/algorithm/replace.hpp>
@@ -135,7 +134,6 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 	{
 		if (m_cfg.function)
 		{
-			blockLayout.stackIn.push_back(Slot::makeFunctionReturnLabel(m_functionGraphID));
 			for (auto const& [_, valueID]: m_cfg.arguments | ranges::views::reverse)
 				blockLayout.stackIn.push_back(Slot::makeValueID(valueID));
 		}
@@ -309,22 +307,6 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				declareJunk(zeroStack, zeroLiveIn);
 			}
 		}
-	}
-
-	// for user-defined functions that do return to the parent control flow, bring the return label to the top
-	if (auto const* functionReturn = std::get_if<SSACFG::BasicBlock::FunctionReturn>(&block.exit))
-	{
-		std::vector<Slot> returnTarget =
-			functionReturn->returnValues
-			| ranges::views::transform(Slot::makeValueID)
-			| ranges::to<std::vector>;
-		returnTarget.push_back(Slot::makeFunctionReturnLabel(m_functionGraphID));
-
-		for (StackOffset offset{0}; offset < stack.size(); ++offset.value)
-			if (stack[offset].isValueID() && !ranges::contains(returnTarget, stack[offset]))
-				stack.declareJunk(offset);
-
-		StackShuffler<StackType::Callbacks>::shuffle(stack, returnTarget);
 	}
 
 	blockLayout.stackOut = currentStackData;

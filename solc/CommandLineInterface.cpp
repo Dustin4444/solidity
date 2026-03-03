@@ -1455,7 +1455,8 @@ void CommandLineInterface::assembleYul(yul::YulStack::Language _language, yul::Y
 				for (size_t index = 0; index < controlFlow->functionGraphs.size(); ++index)
 					stackLayouts.push_back(yul::ssa::StackLayoutGenerator::generate(
 						*liveness.cfgLiveness[index],
-						yul::ssa::gatherCallSites(*controlFlow->functionGraphs[index])
+						yul::ssa::gatherCallSites(*controlFlow->functionGraphs[index]),
+						index
 					));
 
 				// Build combined DOT output for all graphs
