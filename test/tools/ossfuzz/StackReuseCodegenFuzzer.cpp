@@ -73,10 +73,10 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	if (_input.has_obj())
 		return;
 	bool filterStatefulInstructions = true;
-	bool filterUnboundedLoops = true;
+	bool filterOptimizationNoise = false;
 	ProtoConverter converter(
 		filterStatefulInstructions,
-		filterUnboundedLoops
+		filterOptimizationNoise
 	);
 	std::string yul_source = converter.programToString(_input);
 	// Do not fuzz the EVM Version field.

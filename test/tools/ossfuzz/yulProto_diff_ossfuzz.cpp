@@ -46,7 +46,7 @@ using namespace solidity::yul::test::yul_fuzzer;
 
 DEFINE_PROTO_FUZZER(Program const& _input)
 {
-	ProtoConverter converter;
+	ProtoConverter converter(false, true);
 	std::string yul_source = converter.programToString(_input);
 	EVMVersion version = converter.version();
 	auto calldata = converter.calldata();

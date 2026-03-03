@@ -705,7 +705,19 @@ void ProtoConverter::visit(NullaryOp const& _x)
 			op == NullaryOp::ADDRESS ||
 			op == NullaryOp::TIMESTAMP ||
 			op == NullaryOp::NUMBER ||
-			op == NullaryOp::DIFFICULTY ||
+			op == NullaryOp::DIFFICULTY
+		)
+	)
+	{
+		m_output << dictionaryToken();
+		return;
+	}
+	// The following instructions can e sued to easily distinguish optimized
+	// and unoptimized code, which will lead to a lot of false positives.
+	if (
+		m_filterOptimizationNoise &&
+		(
+			op == NullaryOp::GAS ||
 			op == NullaryOp::MSIZE
 		)
 	)
@@ -1461,7 +1473,7 @@ void ProtoConverter::visit(Statement const& _x)
 			visit(_x.blockstmt());
 		break;
 	case Statement::kForstmt:
-		if (_x.forstmt().for_body().statements_size() > 0 && !m_filterUnboundedLoops)
+		if (_x.forstmt().for_body().statements_size() > 0)
 			visit(_x.forstmt());
 		break;
 	case Statement::kBoundedforstmt:

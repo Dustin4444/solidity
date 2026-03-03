@@ -41,7 +41,7 @@ class ProtoConverter
 public:
 	ProtoConverter(
 		bool _filterStatefulInstructions = false,
-		bool _filterUnboundedLoops = false
+		bool _filterOptimizationNoise = false
 	)
 	{
 		m_funcVars = std::vector<std::vector<std::vector<std::string>>>{};
@@ -58,7 +58,7 @@ public:
 		m_isObject = false;
 		m_forInitScopeExtEnabled = true;
 		m_filterStatefulInstructions = _filterStatefulInstructions;
-		m_filterUnboundedLoops = _filterUnboundedLoops;
+		m_filterOptimizationNoise = _filterOptimizationNoise;
 	}
 	ProtoConverter(ProtoConverter const&) = delete;
 	ProtoConverter(ProtoConverter&&) = delete;
@@ -394,8 +394,9 @@ private:
 	/// Flag that, if set, stops the converter from generating state changing
 	/// opcodes.
 	bool m_filterStatefulInstructions;
-	/// Flat that, if set, stops the converter from generating potentially
-	/// unbounded loops.
-	bool m_filterUnboundedLoops;
+	/// Flag that, if set, stops the converter from generating Yul code that
+	/// will generate values that can be used to easily distinguish generated
+	/// test cases from each other by the Yul optimizer.
+	bool m_filterOptimizationNoise;
 };
 }
