@@ -21,12 +21,13 @@
 
 #include <libyul/backends/evm/EVMObjectCompiler.h>
 
+#include "ssa/CodeTransform.h"
+
 #include <libyul/backends/evm/EVMCodeTransform.h>
 #include <libyul/backends/evm/EVMDialect.h>
-#include <libyul/backends/evm/SSACFGEVMCodeTransform.h>
+#include <libyul/backends/evm/OptimizedEVMCodeTransform.h>
 #include <libyul/backends/evm/ssa/SSACFGBuilder.h>
 #include <libyul/backends/evm/ssa/SSACFGLocalCSE.h>
-#include <libyul/backends/evm/OptimizedEVMCodeTransform.h>
 
 #include <libyul/optimiser/FunctionCallFinder.h>
 
@@ -108,11 +109,11 @@ void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool const _s
 			);
 			ssa::SSACFGLocalCSE::run(*controlFlow);
 			ssa::ControlFlowLiveness const liveness(*controlFlow);
-			stackErrors = ssa::SSACFGEVMCodeTransform::run(
+			ssa::CodeTransform::run(
 				m_assembly,
 				liveness,
 				context,
-				ssa::SSACFGEVMCodeTransform::UseNamedLabels::ForFirstFunctionOfEachName
+				ssa::CodeTransform::UseNamedLabels::ForFirstFunctionOfEachName
 			);
 		}
 		if (!stackErrors.empty())

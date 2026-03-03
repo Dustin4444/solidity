@@ -66,7 +66,8 @@ std::vector<StackTooDeepError> SSACFGEVMCodeTransform::run(
 		_builtinContext,
 		functionLabels,
 		*controlFlow.mainGraph(),
-		*_liveness.cfgLiveness.front()
+		*_liveness.cfgLiveness.front(),
+		0
 	);
 	if constexpr (debugOutput)
 	{
@@ -95,7 +96,8 @@ std::vector<StackTooDeepError> SSACFGEVMCodeTransform::run(
 			_builtinContext,
 			functionLabels,
 			*functionGraph,
-			*functionLiveness
+			*functionLiveness,
+			static_cast<ControlFlow::FunctionGraphID>(functionIndex)
 		);
 		functionCodeTransform.transformFunction(*function);
 		if (!functionCodeTransform.m_stackErrors.empty())
@@ -140,7 +142,8 @@ SSACFGEVMCodeTransform::SSACFGEVMCodeTransform
 	BuiltinContext& _builtinContext,
 	FunctionLabels _functionLabels,
 	SSACFG const& _cfg,
-	LivenessAnalysis const& _liveness
+	LivenessAnalysis const& _liveness,
+	ControlFlow::FunctionGraphID const _graphID
 ):
 	m_assembly(_assembly),
 	m_builtinContext(_builtinContext),
@@ -148,7 +151,7 @@ SSACFGEVMCodeTransform::SSACFGEVMCodeTransform
 	m_callSites(gatherCallSites(m_cfg)),
 	m_liveness(_liveness),
 	m_junkBlockFinder(_cfg, _liveness.topologicalSort()),
-	m_stackLayout(StackLayoutGenerator::generate(_liveness, m_callSites)),
+	m_stackLayout(StackLayoutGenerator::generate(_liveness, m_callSites, _graphID)),
 	m_assemblyCallbacks{
 		.cfg = &_cfg,
 		.assembly = &_assembly,
@@ -335,7 +338,6 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 			if (!m_generatedBlocks[_conditionalJump.nonZero.value])
 				(*this)(_conditionalJump.nonZero);
 		},
-		[&](SSACFG::BasicBlock::JumpTable const&){ yulAssert(false, "Jump tables not yet implemented."); },
 		[&](SSACFG::BasicBlock::FunctionReturn const& _return){
 			// Need to be able to also swap up return label!
 			yulAssert(static_cast<size_t>(m_assembly.stackHeight()) == m_stack.size());

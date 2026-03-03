@@ -808,7 +808,6 @@ void SSACFGBuilder::applyPhiSubstitutions()
 					v = canonicalize(v);
 			},
 			[&](SSACFG::BasicBlock::ConditionalJump& c) { c.condition = canonicalize(c.condition); },
-			[&](SSACFG::BasicBlock::JumpTable& j)       { j.value = canonicalize(j.value); },
 			[](SSACFG::BasicBlock::Jump&) {},
 			[](SSACFG::BasicBlock::MainExit&) {},
 			[](SSACFG::BasicBlock::Terminated&) {}

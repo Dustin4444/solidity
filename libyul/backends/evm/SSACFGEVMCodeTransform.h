@@ -45,9 +45,9 @@ class LivenessAnalysis;
 
 struct AssemblyCallbacks
 {
-	void swap(size_t const _depth)
+	void swap(StackDepth const _depth)
 	{
-		assembly->appendInstruction(evmasm::swapInstruction(static_cast<unsigned>(_depth)));
+		assembly->appendInstruction(evmasm::swapInstruction(static_cast<unsigned>(_depth.value)));
 	}
 
 	void pop()
@@ -91,9 +91,9 @@ struct AssemblyCallbacks
 		}
 	}
 
-	void dup(size_t const _depth)
+	void dup(StackDepth const _depth)
 	{
-		assembly->appendInstruction(evmasm::dupInstruction(static_cast<unsigned>(_depth)));
+		assembly->appendInstruction(evmasm::dupInstruction(static_cast<unsigned>(_depth.value)));
 	}
 
 	// ControlFlow const* controlFlow;
@@ -133,7 +133,8 @@ private:
 		BuiltinContext& _builtinContext,
 		FunctionLabels _functionLabels,
 		SSACFG const& _cfg,
-		LivenessAnalysis const& _liveness
+		LivenessAnalysis const& _liveness,
+		ControlFlow::FunctionGraphID _graphID
 	);
 
 	void transformFunction(Scope::Function const& _function);

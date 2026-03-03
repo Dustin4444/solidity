@@ -1092,7 +1092,8 @@ std::optional<std::string> CompilerStack::ssaCfgDot(std::string const& _contract
 			{
 				stackLayouts.push_back(ssa::StackLayoutGenerator::generate(
 					*liveness.cfgLiveness[index],
-					ssa::gatherCallSites(*controlFlow->functionGraphs[index])
+					ssa::gatherCallSites(*controlFlow->functionGraphs[index]),
+					index
 				));
 			}
 

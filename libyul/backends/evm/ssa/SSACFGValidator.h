@@ -25,8 +25,11 @@
 
 #pragma once
 
-#include <libyul/backends/evm/ssa/ControlFlow.h>
+#include "libyul/AsmAnalysisInfo.h"
+
+
 #include <libyul/ControlFlowSideEffectsCollector.h>
+#include <libyul/backends/evm/ssa/ControlFlow.h>
 
 #include <map>
 #include <stack>

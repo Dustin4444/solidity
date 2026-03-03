@@ -30,6 +30,14 @@
 
 using namespace solidity::yul::ssa;
 
+StackData solidity::yul::ssa::stackPreImage(StackData _stack, PhiInverse const& _phiInverse)
+{
+	if (!_phiInverse.noOp())
+		for (auto& slot: _stack)
+			if (slot.isValueID())
+				slot = StackSlot::makeValueID(_phiInverse(slot.valueID()));
+	return _stack;
+}
 std::size_t solidity::yul::ssa::findOptimalTargetSize
 (
 	StackData const& _stackData,

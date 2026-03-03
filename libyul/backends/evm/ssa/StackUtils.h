@@ -18,6 +18,9 @@
 
 #pragma once
 
+#include "PhiInverse.h"
+
+
 #include <libyul/backends/evm/ssa/Stack.h>
 
 #include <string>
@@ -45,6 +48,9 @@ struct CountingInstructionsCallbacks
 	void push(StackSlot const&) { ++numOps; }
 	void pop() { ++numOps; }
 };
+
+/// Transform stack data by replacing all its phi variables with their respective preimages.
+StackData stackPreImage(StackData _stack, PhiInverse const& _phiInverse);
 
 std::size_t findOptimalTargetSize(StackData const& _stackData, StackData const& _targetArgs, LivenessAnalysis::LivenessData const& _targetLiveOut, bool _canIntroduceJunk);
 

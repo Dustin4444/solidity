@@ -379,8 +379,6 @@ void SSACFGLocalCSE::run(SSACFG& _cfg)
 
 		if (auto* cjump = std::get_if<SSACFG::BasicBlock::ConditionalJump>(&block.exit))
 			applySubstitution(substitutions, cjump->condition);
-		else if (auto* jtable = std::get_if<SSACFG::BasicBlock::JumpTable>(&block.exit))
-			applySubstitution(substitutions, jtable->value);
 		else if (auto* ret = std::get_if<SSACFG::BasicBlock::FunctionReturn>(&block.exit))
 			for (auto& rv: ret->returnValues)
 				applySubstitution(substitutions, rv);
