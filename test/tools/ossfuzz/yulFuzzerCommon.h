@@ -48,7 +48,7 @@ struct yulFuzzerUtil
 		size_t _maxSteps = maxSteps,
 		size_t _maxTraceSize = maxTraceSize,
 		size_t _maxExprNesting = maxExprNesting,
-		u256 _maxCost = maxCost
+		size_t _maxCost = maxCost
 	);
 
 	/// @returns true if @param _reason for Yul interpreter terminating is

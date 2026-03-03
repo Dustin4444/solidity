@@ -780,31 +780,6 @@ std::pair<bool, size_t> EVMInstructionInterpreter::isInputMemoryPtrModified(
 		return {false, 0};
 }
 
-void EVMInstructionInterpreter::chargeCost(u256 const& _cost)
-{
-	if (m_state.maxCost == 0 || _cost == 0)
-		return;
-
-	// wrap around check
-	if (m_state.cost + _cost < m_state.cost)
-		BOOST_THROW_EXCEPTION(InstructionLimitReached());
-
-	m_state.cost += _cost;
-	if (m_state.cost >= m_state.maxCost)
-		BOOST_THROW_EXCEPTION(InstructionLimitReached());
-}
-
-void EVMInstructionInterpreter::chargeCopyWordCost(u256 const& _size)
-{
-	if (m_state.maxCost == 0)
-		return;
-
-	// Cap to s_maxRangeSize; anything larger won't actually copy (accessMemory rejects it).
-	u256 const cappedSize = std::min(_size, u256(s_maxRangeSize));
-	size_t const words = size_t((cappedSize + 31) / 32);
-	chargeCost(words);
-}
-
 h256 EVMInstructionInterpreter::blobHash(u256 const& _index)
 {
 	chargeCost(50); //< Blobhash is expensive
@@ -818,3 +793,33 @@ h256 EVMInstructionInterpreter::blobHash(u256 const& _index)
 	yulAssert(hashedCommitment.size == 32);
 	return hashedCommitment;
 }
+
+void EVMInstructionInterpreter::chargeCost(u256 const& _cost)
+{
+	if (m_state.maxCost == 0 || _cost == 0)
+		return;
+
+	// More than size_t can handle
+	if (_cost > u256(std::numeric_limits<size_t>::max()))
+		BOOST_THROW_EXCEPTION(InstructionLimitReached());
+
+	// wrap around check
+	if (m_state.cost + _cost <= m_state.cost)
+		BOOST_THROW_EXCEPTION(InstructionLimitReached());
+
+	m_state.cost += static_cast<size_t>(_cost);
+	if (m_state.cost >= m_state.maxCost)
+		BOOST_THROW_EXCEPTION(InstructionLimitReached());
+}
+
+void EVMInstructionInterpreter::chargeCopyWordCost(u256 const& _size)
+{
+	if (m_state.maxCost == 0)
+		return;
+
+	// Cap to s_maxRangeSize; anything larger won't actually copy (accessMemory rejects it).
+	size_t const cappedSize = size_t(std::min(_size, u256(s_maxRangeSize)));
+	size_t const words = (cappedSize + 31) / 32;
+	chargeCost(words);
+}
+

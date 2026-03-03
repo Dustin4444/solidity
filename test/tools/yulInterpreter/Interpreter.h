@@ -118,12 +118,10 @@ struct InterpreterState
 
 	/// Estimated cost of instructions executed, used for fuzzing to avoid timeouts
 	/// Does not need to be very accurate.
-	u256 cost = 0;
+	size_t cost = 0;
 	/// Maximum cost of before termination by InstructionLimitReached
-	/// Zero means no limit. Using anything else, such as
-	/// u256::max() is not sufficient, as it is possible to
-	/// copy all of memory, which is already u256::max(), causing overflow etc
-	u256 maxCost = 0;
+	/// Zero means no limit.
+	size_t maxCost = 0;
 
 	ControlFlowState controlFlowState = ControlFlowState::Default;
 

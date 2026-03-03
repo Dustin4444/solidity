@@ -30,7 +30,7 @@ yulFuzzerUtil::TerminationReason yulFuzzerUtil::interpret(
 	size_t _maxSteps,
 	size_t _maxTraceSize,
 	size_t _maxExprNesting,
-	u256 _maxCost
+	size_t _maxCost
 )
 {
 	InterpreterState state;
