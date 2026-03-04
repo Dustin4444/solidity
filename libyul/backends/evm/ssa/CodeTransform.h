@@ -67,6 +67,7 @@ struct AssemblyCallbacks
 		case StackSlot::Kind::FunctionCallReturnLabel:
 		{
 			auto const& call = callSites->functionCall(_slot.functionCallReturnLabel());
+			yulAssert(returnLabels->count(&call), "FunctionCallReturnLabel not pre-registered before shuffle.");
 			assembly->appendLabelReference(returnLabels->at(&call));
 			return;
 		}

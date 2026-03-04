@@ -43,10 +43,11 @@ std::size_t solidity::yul::ssa::findOptimalTargetSize
 	StackData const& _stackData,
 	StackData const& _targetArgs,
 	LivenessAnalysis::LivenessData const& _targetLiveOut,
-	bool const _canIntroduceJunk
+	bool const _canIntroduceJunk,
+	bool const _hasFunctionReturnLabel
 )
 {
-	std::size_t const minSize = _targetLiveOut.size() + _targetArgs.size();
+	std::size_t const minSize = _targetLiveOut.size() + _targetArgs.size() + (_hasFunctionReturnLabel ? 1 : 0);
 	boost::container::flat_map<StackSlot, std::size_t> deficit;
 	for (auto const& v: _targetLiveOut | ranges::views::keys)
 		deficit[StackSlot::makeValueID(v)]++;

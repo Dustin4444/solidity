@@ -51,8 +51,9 @@ private:
 	SSACFG const& m_cfg;
 	LivenessAnalysis const& m_liveness;
 	CallSites const& m_callSites;
+	ControlFlow::FunctionGraphID m_graphID;
+	bool m_hasFunctionReturnLabel;
 
-	ControlFlow::FunctionGraphID m_functionGraphID;
 	std::unique_ptr<JunkAdmittingBlocksFinder> m_junkAdmittingBlocksFinder;
 	SSACFGStackLayout m_resultLayout;
 };

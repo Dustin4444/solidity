@@ -26,11 +26,11 @@
 // Block0_0 [label="\
 // IN: []\l\
 // \l\
-// [lit0]\l\
+// [lit1]\l\
 // sload\l\
 // [v0]\l\
 // \l\
-// [v0, lit3, v0]\l\
+// [v0, lit0, v0]\l\
 // eq\l\
 // [v0, v1]\l\
 // \l\
@@ -83,7 +83,7 @@
 // Block0_5 [label="\
 // IN: []\l\
 // \l\
-// [lit2, lit2]\l\
+// [lit3, lit3]\l\
 // sstore\l\
 // []\l\
 // \l\
