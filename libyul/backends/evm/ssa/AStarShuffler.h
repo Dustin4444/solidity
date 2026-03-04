@@ -19,7 +19,7 @@
 #pragma once
 
 #include "libsolidity/parsing/Parser.h"
-#include "libyul/backends/evm/SSACFGStackShuffler.h"
+#include "libyul/backends/evm/ssa/StackShuffler.h"
 
 #include "libyul/optimiser/SimplificationRules.h"
 #include "range/v3/algorithm/equal.hpp"
@@ -519,7 +519,8 @@ public:
 
 			if (currentHistogram == targetHistogram)
 			{
-				DanielShuffler<Stack, SlotIsCompatible>::shuffle(_stack, {}, std::vector(_stack.data().begin(), std::next(_stack.data().begin(), static_cast<std::ptrdiff_t>(_targetTail.size()))) + _targetHead);
+				// todo fix
+				// DanielShuffler<Stack, SlotIsCompatible>::shuffle(_stack, {}, std::vector(_stack.data().begin(), std::next(_stack.data().begin(), static_cast<std::ptrdiff_t>(_targetTail.size()))) + _targetHead);
 				return;
 			}
 		}

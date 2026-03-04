@@ -68,9 +68,6 @@ add_library(yul
 	backends/evm/NoOutputAssembly.cpp
 	backends/evm/OptimizedEVMCodeTransform.cpp
 	backends/evm/OptimizedEVMCodeTransform.h
-	backends/evm/SSACFGStackShuffler.h
-	backends/evm/SSACFGEVMCodeTransform.cpp
-    backends/evm/SSACFGEVMCodeTransform.h
 	backends/evm/StackHelpers.h
 	backends/evm/StackLayoutGenerator.cpp
 	backends/evm/StackLayoutGenerator.h
@@ -117,8 +114,6 @@ add_library(yul
 	backends/evm/ssa/traversal/ForwardTopologicalSort.h
 	backends/evm/ssa/AStarShuffler.cpp
 	backends/evm/ssa/AStarShuffler.h
-		backends/evm/ssa/ExactShuffler.cpp
-	backends/evm/ssa/ExactShuffler.h
 	backends/evm/ssa/OperationForwardShuffler.h
 	backends/evm/ssa/StackLayoutGenerator.cpp
 	backends/evm/ssa/StackLayoutGenerator.h
