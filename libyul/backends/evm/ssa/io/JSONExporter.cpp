@@ -18,6 +18,8 @@
 
 #include <libyul/backends/evm/ssa/io/JSONExporter.h>
 
+#include <libyul/backends/evm/ssa/Stack.h>
+
 #include <libyul/Utilities.h>
 
 #include <libsolutil/Algorithms.h>
@@ -35,6 +37,21 @@ using namespace solidity::yul::ssa::io::json;
 
 namespace
 {
+Json stackSlotToJson(StackSlot const& _slot, SSACFG const& _cfg)
+{
+	if (_slot.isValueID())
+		return _slot.valueID().str(_cfg);
+	return slotToString(_slot);
+}
+
+Json stackDataToJson(StackData const& _stack, SSACFG const& _cfg)
+{
+	Json arr = Json::array();
+	for (auto const& slot: _stack)
+		arr.push_back(stackSlotToJson(slot, _cfg));
+	return arr;
+}
+
 Json toJson(SSACFG const& _cfg, std::vector<SSACFG::ValueId> const& _values)
 {
 	Json ret = Json::array();
@@ -88,7 +105,7 @@ Json toJson(Json& _ret, SSACFG const& _cfg, SSACFG::Operation const& _operation)
 	return opJson;
 }
 
-Json toJson(SSACFG const& _cfg, SSACFG::BlockId _blockId, LivenessAnalysis const* _liveness)
+Json toJson(SSACFG const& _cfg, SSACFG::BlockId _blockId, LivenessAnalysis const* _liveness, SSACFGStackLayout const* _layout)
 {
 	auto const valueToString = [&](LivenessAnalysis::LivenessData::LiveCounts::value_type const& _live) { return _live.first.str(_cfg); };
 
@@ -106,6 +123,12 @@ Json toJson(SSACFG const& _cfg, SSACFG::BlockId _blockId, LivenessAnalysis const
 			| ranges::views::transform(valueToString)
 			| ranges::to<Json::array_t>();
 		blockJson["liveness"] = livenessJson;
+	}
+	if (_layout)
+	{
+		auto const& blockLayout = (*_layout)[_blockId];
+		if (blockLayout.has_value())
+			blockJson["stackIn"] = stackDataToJson(blockLayout->stackIn, _cfg);
 	}
 	blockJson["instructions"] = Json::array();
 	if (!block.phis.empty())
@@ -129,12 +152,12 @@ Json toJson(SSACFG const& _cfg, SSACFG::BlockId _blockId, LivenessAnalysis const
 	return blockJson;
 }
 
-Json exportBlock(SSACFG const& _cfg, SSACFG::BlockId _entryId, LivenessAnalysis const* _liveness)
+Json exportBlock(SSACFG const& _cfg, SSACFG::BlockId _entryId, LivenessAnalysis const* _liveness, SSACFGStackLayout const* _layout)
 {
 	Json blocksJson = Json::array();
 	util::BreadthFirstSearch<SSACFG::BlockId> bfs{{{_entryId}}};
 	bfs.run([&](SSACFG::BlockId _blockId, auto _addChild) {
-		Json blockJson = toJson(_cfg, _blockId, _liveness);
+		Json blockJson = toJson(_cfg, _blockId, _liveness, _layout);
 
 		Json exitBlockJson = Json::object();
 		std::visit(util::GenericVisitor{
@@ -169,7 +192,7 @@ Json exportBlock(SSACFG const& _cfg, SSACFG::BlockId _entryId, LivenessAnalysis 
 	return blocksJson;
 }
 
-Json exportFunction(SSACFG const& _cfg, LivenessAnalysis const* _liveness)
+Json exportFunction(SSACFG const& _cfg, LivenessAnalysis const* _liveness, SSACFGStackLayout const* _layout)
 {
 	Json functionJson = Json::object();
 	functionJson["type"] = "Function";
@@ -177,25 +200,32 @@ Json exportFunction(SSACFG const& _cfg, LivenessAnalysis const* _liveness)
 	static auto constexpr argsTransform = [](auto const& _arg) { return fmt::format("v{}", std::get<1>(_arg).value()); };
 	functionJson["arguments"] = _cfg.arguments | ranges::views::transform(argsTransform) | ranges::to<std::vector>;
 	functionJson["numReturns"] = _cfg.returns.size();
-	functionJson["blocks"] = exportBlock(_cfg, _cfg.entry, _liveness);
+	functionJson["blocks"] = exportBlock(_cfg, _cfg.entry, _liveness, _layout);
 	return functionJson;
 }
 
 }
 
-Json io::json::exportControlFlow(ControlFlow const& _controlFlow, ControlFlowLiveness const* _liveness)
+Json io::json::exportControlFlow(ControlFlow const& _controlFlow, ControlFlowLiveness const* _liveness, std::vector<SSACFGStackLayout> const* _stackLayouts)
 {
 	if (_liveness)
 		yulAssert(&_liveness->controlFlow.get() == &_controlFlow);
+	if (_stackLayouts)
+		yulAssert(_stackLayouts->size() == _controlFlow.functionGraphs.size());
+
+	auto const layoutAt = [&](size_t _index) -> SSACFGStackLayout const* {
+		return _stackLayouts ? &(*_stackLayouts)[_index] : nullptr;
+	};
 
 	Json yulObjectJson = Json::object();
-	yulObjectJson["blocks"] = exportBlock(*_controlFlow.mainGraph(), SSACFG::BlockId{0}, _liveness ? _liveness->cfgLiveness.front().get() : nullptr);
+	yulObjectJson["blocks"] = exportBlock(*_controlFlow.mainGraph(), SSACFG::BlockId{0}, _liveness ? _liveness->cfgLiveness.front().get() : nullptr, layoutAt(0));
 
 	Json functionsJson = Json::object();
 	size_t index = 1;
 	for (auto const& [function, functionGraph]: _controlFlow.functionGraphMapping | ranges::views::drop(1))
 	{
-		functionsJson[function->name.str()] = exportFunction(*functionGraph, _liveness ? _liveness->cfgLiveness[index++].get() : nullptr);
+		functionsJson[function->name.str()] = exportFunction(*functionGraph, _liveness ? _liveness->cfgLiveness[index].get() : nullptr, layoutAt(index));
+		++index;
 	}
 	yulObjectJson["functions"] = functionsJson;
 

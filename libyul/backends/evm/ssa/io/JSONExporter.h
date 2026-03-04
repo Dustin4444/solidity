@@ -19,11 +19,22 @@
 #pragma once
 
 #include <libyul/backends/evm/ssa/ControlFlow.h>
+#include <libyul/backends/evm/ssa/StackLayout.h>
 #include <libsolutil/JSON.h>
+
+#include <vector>
 
 namespace solidity::yul::ssa::io::json
 {
 
-Json exportControlFlow(ControlFlow const& _controlFlow, ControlFlowLiveness const* _liveness);
+/// Exports the control flow graph to JSON.
+/// @param _liveness Optional liveness analysis results; if non-null, liveness info is included per block.
+/// @param _stackLayouts Optional stack layouts (one per function graph, in the same order as
+///                      ControlFlow::functionGraphs); if non-null, stack layout info is included per block.
+Json exportControlFlow(
+	ControlFlow const& _controlFlow,
+	ControlFlowLiveness const* _liveness,
+	std::vector<SSACFGStackLayout> const* _stackLayouts = nullptr
+);
 
 }

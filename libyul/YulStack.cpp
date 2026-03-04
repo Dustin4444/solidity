@@ -21,6 +21,8 @@
 #include <libyul/AsmAnalysis.h>
 #include <libyul/AsmAnalysisInfo.h>
 #include <libyul/backends/evm/ssa/SSACFGBuilder.h>
+#include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
+#include <libyul/backends/evm/ssa/StackUtils.h>
 #include <libyul/backends/evm/ssa/io/JSONExporter.h>
 #include <libyul/backends/evm/EthAssemblyAdapter.h>
 #include <libyul/backends/evm/EVMCodeTransform.h>
@@ -405,7 +407,10 @@ Json YulStack::cfgJson() const
 			keepLiteralAssignments
 		);
 		std::unique_ptr<ssa::ControlFlowLiveness> liveness = std::make_unique<ssa::ControlFlowLiveness>(*controlFlow);
-		return ssa::io::json::exportControlFlow(*controlFlow, liveness.get());
+		std::vector<ssa::SSACFGStackLayout> stackLayouts;
+		for (auto const& cfg: controlFlow->functionGraphs)
+			stackLayouts.push_back(ssa::StackLayoutGenerator::generate(ssa::LivenessAnalysis(*cfg), ssa::gatherCallSites(*cfg)));
+		return ssa::io::json::exportControlFlow(*controlFlow, liveness.get(), &stackLayouts);
 	};
 
 	std::function<Json(std::vector<std::shared_ptr<ObjectNode>>)> exportCFGFromSubObjects;
