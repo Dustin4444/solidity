@@ -30,10 +30,15 @@
 #include <libsolutil/Numeric.h>
 
 #include <range/v3/view/map.hpp>
+
+#include <fmt/format.h>
+
 #include <deque>
 #include <functional>
 #include <list>
+#include <memory_resource>
 #include <vector>
+#include <optional>
 
 namespace solidity::yul::ssa
 {
@@ -42,7 +47,8 @@ class LivenessAnalysis;
 class SSACFG
 {
 public:
-	SSACFG() = default;
+	SSACFG(): m_blocks(&m_arena), m_literals(&m_arena), m_phis(&m_arena), m_variables(&m_arena), m_zero(newLiteral(nullptr, 0)) {}
+	std::pmr::polymorphic_allocator<> allocator() { return &m_arena; }
 	SSACFG(SSACFG const&) = delete;
 	SSACFG(SSACFG&&) = delete;
 	SSACFG& operator=(SSACFG const&) = delete;
@@ -114,14 +120,37 @@ public:
 	{
 		langutil::DebugData::ConstPtr debugData;
 	};
+	/// Upsilon assigns a value to a phi's shadow variable at a block exit.
+	/// Upsilon(value, phi) means: write `value` into the shadow of `phi`.
+	/// Lives in the predecessor block; the corresponding Phi lives in the successor.
+	struct Upsilon
+	{
+		ValueId value;  ///< value written to the phi's shadow variable
+		ValueId phi;    ///< target phi (must be a Phi-kind ValueId)
+	};
 
 	struct Operation {
-		std::vector<ValueId> outputs{};
-		std::variant<BuiltinCall, Call, LiteralAssignment> kind;
-		std::vector<ValueId> inputs{};
+		using allocator_type = std::pmr::polymorphic_allocator<>;
+
+		std::pmr::vector<ValueId> outputs;
+		std::variant<BuiltinCall, Call, LiteralAssignment> kind{LiteralAssignment{}};
+		std::pmr::vector<ValueId> inputs;
+
+		explicit Operation(allocator_type _alloc = {})
+			: outputs(_alloc), kind(LiteralAssignment{}), inputs(_alloc) {}
+		Operation(Operation const& _other, allocator_type _alloc)
+			: outputs(_other.outputs, _alloc), kind(_other.kind), inputs(_other.inputs, _alloc) {}
+		Operation(Operation&& _other, allocator_type _alloc)
+			: outputs(std::move(_other.outputs), _alloc), kind(std::move(_other.kind)), inputs(std::move(_other.inputs), _alloc) {}
+		Operation(Operation const&) = default;
+		Operation(Operation&&) = default;
+		Operation& operator=(Operation const&) = default;
+		Operation& operator=(Operation&&) = default;
 	};
 	struct BasicBlock
 	{
+		using allocator_type = std::pmr::polymorphic_allocator<>;
+
 		struct MainExit {};
 		struct ConditionalJump
 		{
@@ -142,10 +171,29 @@ public:
 		};
 		struct Terminated {};
 		langutil::DebugData::ConstPtr debugData;
-		std::set<BlockId> entries;
-		std::set<ValueId> phis;
-		std::vector<Operation> operations;
-		std::variant<MainExit, Jump, ConditionalJump, FunctionReturn, Terminated> exit = MainExit{};
+		std::pmr::vector<BlockId> entries;
+		std::pmr::vector<ValueId> phis;
+		std::pmr::vector<Operation> operations;
+		/// Upsilon assignments placed at the block exit (before the terminator).
+		/// They feed phi shadow variables in successor blocks.
+		std::pmr::vector<Upsilon> upsilons;
+		std::variant<MainExit, Jump, ConditionalJump, FunctionReturn, Terminated> exit{Terminated{}};
+
+		explicit BasicBlock(allocator_type _alloc = {})
+			: entries(_alloc), phis(_alloc), operations(_alloc), upsilons(_alloc) {}
+		BasicBlock(langutil::DebugData::ConstPtr _debugData, allocator_type _alloc = {})
+			: debugData(std::move(_debugData)), entries(_alloc), phis(_alloc), operations(_alloc), upsilons(_alloc) {}
+		BasicBlock(BasicBlock const&) = delete;
+		BasicBlock& operator=(BasicBlock const&) = delete;
+		BasicBlock(BasicBlock&&) noexcept = default;
+		BasicBlock& operator=(BasicBlock&&) = default;
+		BasicBlock(BasicBlock&& _other, allocator_type _alloc)
+			: debugData(std::move(_other.debugData))
+			, entries(std::move(_other.entries), _alloc)
+			, phis(std::move(_other.phis), _alloc)
+			, operations(std::move(_other.operations), _alloc)
+			, upsilons(std::move(_other.upsilons), _alloc)
+			, exit(std::move(_other.exit)) {}
 		template<typename Callable>
 		void forEachExit(Callable&& _callable) const
 		{
@@ -181,7 +229,8 @@ public:
 	BlockId makeBlock(langutil::DebugData::ConstPtr _debugData)
 	{
 		BlockId blockId { static_cast<BlockId::ValueType>(m_blocks.size()) };
-		m_blocks.emplace_back(BasicBlock{std::move(_debugData), {}, {}, {}, BasicBlock::Terminated{}});
+		// uses_allocator protocol: pmr::vector passes &m_arena to BasicBlock(debugData, alloc)
+		m_blocks.emplace_back(std::move(_debugData));
 		return blockId;
 	}
 	BasicBlock& block(BlockId _id) { return m_blocks.at(_id.value); }
@@ -189,44 +238,69 @@ public:
 	size_t numBlocks() const { return m_blocks.size(); }
 
 private:
-	std::vector<BasicBlock> m_blocks;
+	std::pmr::monotonic_buffer_resource m_arena;
+	std::pmr::vector<BasicBlock> m_blocks;
 public:
 	struct LiteralValue {
 		langutil::DebugData::ConstPtr debugData;
 		u256 value;
 	};
 	struct VariableValue {
-		langutil::DebugData::ConstPtr debugData;
 		BlockId definingBlock;
 	};
 	struct PhiValue {
-		langutil::DebugData::ConstPtr debugData;
 		BlockId block;
-		std::vector<ValueId> arguments;
 	};
 	struct UnreachableValue {};
+	struct SSACFGDebugData
+	{
+		std::vector<langutil::DebugData::ConstPtr> variables; ///< index i = ValueId::makeVariable(i)
+		std::vector<langutil::DebugData::ConstPtr> phis;      ///< index i = ValueId::makePhi(i)
+	};
+
+	void enableDebugData() { m_debugData.emplace(); }
+	bool hasDebugData() const { return m_debugData.has_value(); }
+
+	langutil::DebugData::ConstPtr variableDebugData(ValueId const& _id) const
+	{
+		yulAssert(_id.isVariable());
+		if (m_debugData && _id.value() < m_debugData->variables.size())
+			return m_debugData->variables[_id.value()];
+		return nullptr;
+	}
+
+	langutil::DebugData::ConstPtr phiDebugData(ValueId const& _id) const
+	{
+		yulAssert(_id.isPhi());
+		if (m_debugData && _id.value() < m_debugData->phis.size())
+			return m_debugData->phis[_id.value()];
+		return nullptr;
+	}
+
 	ValueId newPhi(BlockId const _definingBlock)
 	{
-		auto const& block = m_blocks.at(_definingBlock.value);
-		m_phis.emplace_back(PhiValue{debugDataOf(block), _definingBlock, std::vector<ValueId>{}});
+		m_phis.emplace_back(PhiValue{_definingBlock});
 		auto const value = m_phis.size() - 1;
 		yulAssert(value < std::numeric_limits<ValueId::ValueType>::max());
+		if (m_debugData)
+			m_debugData->phis.emplace_back(debugDataOf(m_blocks.at(_definingBlock.value)));
 		return ValueId::makePhi(static_cast<ValueId::ValueType>(value));
 	}
 	ValueId newVariable(BlockId const _definingBlock)
 	{
-		auto const& block = m_blocks.at(_definingBlock.value);
-		m_variables.emplace_back(VariableValue{debugDataOf(block), _definingBlock});
+		m_variables.emplace_back(VariableValue{_definingBlock});
 		auto const value = m_variables.size() - 1;
 		yulAssert(value < std::numeric_limits<ValueId::ValueType>::max());
+		if (m_debugData)
+			m_debugData->variables.emplace_back(debugDataOf(m_blocks.at(_definingBlock.value)));
 		return ValueId::makeVariable(static_cast<ValueId::ValueType>(value));
 	}
 
 	ValueId unreachableValue()
 	{
-		if (!m_unreachableValue)
+		if (!m_unreachableValue.hasValue())
 			m_unreachableValue = ValueId::makeUnreachable();
-		return *m_unreachableValue;
+		return m_unreachableValue;
 	}
 
 	ValueId newLiteral(langutil::DebugData::ConstPtr _debugData, u256 _value)
@@ -239,21 +313,12 @@ public:
 			return valueId;
 		}
 
-
 		m_literals.emplace_back(LiteralValue{std::move(_debugData), std::move(_value)});
 		auto const value = m_literals.size() - 1;
 		yulAssert(value < std::numeric_limits<ValueId::ValueType>::max());
 		auto const literalId = ValueId::makeLiteral(static_cast<ValueId::ValueType>(value));
 		m_literalMapping.emplace(_value, literalId);
 		return literalId;
-	}
-
-	size_t phiArgumentIndex(BlockId const _source, BlockId const _target) const
-	{
-		auto const& targetBlock = block(_target);
-		auto idx = util::findOffset(targetBlock.entries, _source);
-		yulAssert(idx, fmt::format("Target block {} not found as entry in one of the exits of the current block {}.", _target.value, _source.value));
-		return *idx;
 	}
 
 	std::string toDot(
@@ -283,12 +348,19 @@ public:
 		return m_variables.at(_valueId.value());
 	}
 
+	ValueId const& zero() const
+	{
+		return m_zero;
+	}
+
 private:
-	std::vector<LiteralValue> m_literals;
+	std::pmr::vector<LiteralValue> m_literals;
 	std::map<u256, ValueId> m_literalMapping;
-	std::vector<PhiValue> m_phis;
-	std::vector<VariableValue> m_variables;
-	std::optional<ValueId> m_unreachableValue;
+	std::pmr::vector<PhiValue> m_phis;
+	std::pmr::vector<VariableValue> m_variables;
+	ValueId m_unreachableValue;
+	ValueId m_zero;
+	std::optional<SSACFGDebugData> m_debugData;
 public:
 	langutil::DebugData::ConstPtr debugData;
 	BlockId entry = BlockId{0};

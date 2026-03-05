@@ -17,11 +17,11 @@
 // Block0_0 [label="\
 // IN: []\l\
 // \l\
-// [FunctionCallReturnLabel[0], lit0]\l\
+// [FunctionCallReturnLabel[0], lit1]\l\
 // sum\l\
 // [FunctionCallReturnLabel[0], v0]\l\
 // \l\
-// [v0, lit1]\l\
+// [v0, lit0]\l\
 // mstore\l\
 // []\l\
 // \l\

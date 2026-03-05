@@ -19,7 +19,7 @@
 // Block0_0 [label="\
 // IN: []\l\
 // \l\
-// [FunctionCallReturnLabel[0], lit0, lit1]\l\
+// [FunctionCallReturnLabel[0], lit1, lit0]\l\
 // f\l\
 // [FunctionCallReturnLabel[0], v0]\l\
 // \l\

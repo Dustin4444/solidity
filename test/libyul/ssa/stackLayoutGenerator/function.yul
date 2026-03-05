@@ -67,7 +67,7 @@
 // Block2_0 [label="\
 // IN: []\l\
 // \l\
-// [lit0, lit1]\l\
+// [lit1, lit2]\l\
 // sstore\l\
 // []\l\
 // \l\

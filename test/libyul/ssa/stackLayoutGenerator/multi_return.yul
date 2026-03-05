@@ -18,7 +18,7 @@
 // Block0_0 [label="\
 // IN: []\l\
 // \l\
-// [FunctionCallReturnLabel[0], lit0]\l\
+// [FunctionCallReturnLabel[0], lit1]\l\
 // pair\l\
 // [FunctionCallReturnLabel[0], v0, v1]\l\
 // \l\

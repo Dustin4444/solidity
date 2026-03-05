@@ -21,12 +21,15 @@
 #include <libyul/Utilities.h>
 
 #include <libsolutil/Algorithms.h>
+
 #include <libsolutil/Numeric.h>
 #include <libsolutil/Visitor.h>
 
 #include <range/v3/view/drop.hpp>
 #include <range/v3/view/enumerate.hpp>
 #include <range/v3/view/transform.hpp>
+
+#include <concepts>
 
 using namespace solidity;
 using namespace solidity::yul;
@@ -35,7 +38,14 @@ using namespace solidity::yul::ssa::io::json;
 
 namespace
 {
-Json toJson(SSACFG const& _cfg, std::vector<SSACFG::ValueId> const& _values)
+template<typename R>
+concept ValueIdRange = requires(R const& r) {
+	{ *std::begin(r) } -> std::same_as<SSACFG::ValueId const&>;
+	std::end(r);
+};
+
+template<ValueIdRange Range>
+Json toJson(SSACFG const& _cfg, Range const& _values)
 {
 	Json ret = Json::array();
 	for (auto const& value: _values)
@@ -115,10 +125,19 @@ Json toJson(SSACFG const& _cfg, SSACFG::BlockId _blockId, LivenessAnalysis const
 			| ranges::to<Json::array_t>();
 		for (auto const& phi: block.phis)
 		{
-			auto const& phiInfo = _cfg.phiInfo(phi);
+			// Reconstruct phi arguments from upsilon nodes in predecessor blocks.
+			// Each entry block has an upsilon targeting this phi; collect them in entry order.
+			std::vector<SSACFG::ValueId> phiArgs;
+			for (auto const& entryId: block.entries)
+				for (auto const& upsilon: _cfg.block(entryId).upsilons)
+					if (upsilon.phi == phi)
+					{
+						phiArgs.push_back(upsilon.value);
+						break;
+					}
 			Json phiJson = Json::object();
 			phiJson["op"] = "PhiFunction";
-			phiJson["in"] = toJson(_cfg, phiInfo.arguments);
+			phiJson["in"] = toJson(_cfg, phiArgs);
 			phiJson["out"] = toJson(_cfg, std::vector{phi});
 			blockJson["instructions"].push_back(phiJson);
 		}

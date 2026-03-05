@@ -51,14 +51,16 @@ SSACFGBuilder::SSACFGBuilder(
 	AsmAnalysisInfo const& _analysisInfo,
 	ControlFlowSideEffectsCollector const& _sideEffects,
 	Dialect const& _dialect,
-	bool _keepLiteralAssignments
+	bool _keepLiteralAssignments,
+	bool _includeDebugData
 ):
 	m_controlFlow(_controlFlow),
 	m_graph(_graph),
 	m_info(_analysisInfo),
 	m_sideEffects(_sideEffects),
 	m_dialect(_dialect),
-	m_keepLiteralAssignments(_keepLiteralAssignments)
+	m_keepLiteralAssignments(_keepLiteralAssignments),
+	m_includeDebugData(_includeDebugData)
 {
 }
 
@@ -66,7 +68,8 @@ std::unique_ptr<ControlFlow> SSACFGBuilder::build(
 	AsmAnalysisInfo const& _analysisInfo,
 	Dialect const& _dialect,
 	Block const& _block,
-	bool _keepLiteralAssignments
+	bool _keepLiteralAssignments,
+	bool _includeDebugData
 )
 {
 	ControlFlowSideEffectsCollector sideEffects(_dialect, _block);
@@ -75,77 +78,102 @@ std::unique_ptr<ControlFlow> SSACFGBuilder::build(
 	controlFlow->functionGraphs.emplace_back(std::make_unique<SSACFG>());
 	controlFlow->functionGraphMapping.emplace_back(nullptr, controlFlow->functionGraphs.back().get());
 	SSACFG& mainGraph = *controlFlow->functionGraphs.back();
-	SSACFGBuilder builder(*controlFlow, mainGraph, _analysisInfo, sideEffects, _dialect, _keepLiteralAssignments);
+	if (_includeDebugData)
+		mainGraph.enableDebugData();
+	SSACFGBuilder builder(*controlFlow, mainGraph, _analysisInfo, sideEffects, _dialect, _keepLiteralAssignments, _includeDebugData);
 	builder.m_currentBlock = mainGraph.makeBlock(debugDataOf(_block));
 	builder.sealBlock(builder.m_currentBlock);
 	builder(_block);
 	if (!builder.blockInfo(builder.m_currentBlock).sealed)
 		builder.sealBlock(builder.m_currentBlock);
 	mainGraph.block(builder.m_currentBlock).exit = SSACFG::BasicBlock::MainExit{};
+	controlFlow->functionGraphs.at(0)->block(builder.m_currentBlock).exit = SSACFG::BasicBlock::MainExit{};
 	builder.cleanUnreachable();
+	builder.applyPhiSubstitutions();
 	return controlFlow;
 }
 
 SSACFG::ValueId SSACFGBuilder::tryRemoveTrivialPhi(SSACFG::ValueId _phi)
 {
-	// TODO: double-check if this is sane
 	auto const& phiInfo = m_graph.phiInfo(_phi);
 	yulAssert(blockInfo(phiInfo.block).sealed);
 
+	auto const phiIdx = _phi.value();
+
+	// Early exit if this phi was already processed in a prior cascade.
+	if (phiIdx < m_phiSubstitution.size() && m_phiSubstitution[phiIdx].hasValue())
+		return canonicalize(m_phiSubstitution[phiIdx]);
+
+	// Check triviality via the index: O(upsilons for this phi) rather than
+	// O(upsilons across all predecessor blocks).
 	SSACFG::ValueId same;
-	for (SSACFG::ValueId arg: phiInfo.arguments)
-	{
-		if (arg == same || arg == _phi)
-			continue;  // unique value or self-reference
-		if (same.hasValue())
-			return _phi;  // phi merges at least two distinct values -> not trivial
-		same = arg;
-	}
-	if (!same.hasValue())
-	{
-		// This will happen for unreachable paths.
-		// TODO: check how best to deal with this
-		same = m_graph.unreachableValue();
-	}
-
-	m_graph.block(phiInfo.block).phis.erase(_phi);
-
-	std::vector<SSACFG::ValueId> phiUses;
-	for (SSACFG::BlockId::ValueType blockIdValue = 0; blockIdValue < m_graph.numBlocks(); ++blockIdValue)
-	{
-		auto& block = m_graph.block(SSACFG::BlockId{blockIdValue});
-		for (auto blockPhi: block.phis)
+	if (phiIdx < m_upsilonValuesForPhi.size())
+		for (auto const arg: m_upsilonValuesForPhi[phiIdx])
 		{
-			yulAssert(blockPhi.hasValue());
-			yulAssert(blockPhi != _phi, "Phis should be defined in exactly one block, _phi was erased.");
-			auto& blockPhiInfo = m_graph.phiInfo(blockPhi);
-			bool usedInPhi = false;
-			for (auto& arg: blockPhiInfo.arguments)
-				if (arg == _phi)
-				{
-					arg = same;
-					usedInPhi = true;
-				}
-			if (usedInPhi)
-				phiUses.push_back(blockPhi);
+			if (arg == same || arg == _phi)
+				continue;  // duplicate or self-reference
+			if (same.hasValue())
+				return _phi;  // two distinct values -> non-trivial
+			same = arg;
 		}
-		for (auto& op: block.operations)
-			ranges::replace(op.inputs, _phi, same);
-		std::visit(util::GenericVisitor{
-			[_phi, same](SSACFG::BasicBlock::FunctionReturn& _functionReturn) {
-				ranges::replace(_functionReturn.returnValues,_phi, same);
-			},
-			[_phi, same](SSACFG::BasicBlock::ConditionalJump& _condJump) {
-				if (_condJump.condition == _phi)
-					_condJump.condition = same;
-			},
-			[](SSACFG::BasicBlock::Jump&) {},
-			[](SSACFG::BasicBlock::MainExit&) {},
-			[](SSACFG::BasicBlock::Terminated&) {}
-		}, block.exit);
+
+	if (!same.hasValue())
+		// Phi has only self-references (unreachable cycle), or no upsilons at all.
+		same = m_graph.unreachableValue();
+
+	// Remove the phi from its defining block.
+	std::erase(m_graph.block(phiInfo.block).phis, _phi);
+
+	// Record the substitution for deferred application to op.inputs / block exits.
+	if (phiIdx >= m_phiSubstitution.size())
+		m_phiSubstitution.resize(phiIdx + 1);
+	m_phiSubstitution[phiIdx] = same;
+
+	// Pass 1 (via reverse index): update upsilon.value fields and m_upsilonValuesForPhi
+	// for all phis whose upsilons reference _phi as a value.
+	// Each entry in m_reversePhiUpsilonValues[phiIdx] corresponds to one upsilon.
+	std::vector<SSACFG::ValueId> phiUses;
+	if (phiIdx < m_reversePhiUpsilonValues.size())
+	{
+		for (auto const targetPhi: m_reversePhiUpsilonValues[phiIdx])
+		{
+			// Update m_upsilonValuesForPhi[targetPhi]: replace one occurrence of _phi with same.
+			auto& vals = m_upsilonValuesForPhi[targetPhi.value()];
+			if (auto it = std::find(vals.begin(), vals.end(), _phi); it != vals.end())
+				*it = same;
+			// Update the actual upsilon.value fields in targetPhi's predecessor blocks.
+			// (Eagerly required so cleanUnreachable's u.value.isUnreachable() check is accurate.)
+			if (targetPhi.value() < m_phiTargetBlocks.size())
+			{
+				for (auto blockId: m_phiTargetBlocks[targetPhi.value()])
+					for (auto& u: m_graph.block(blockId).upsilons)
+						if (u.phi == targetPhi && u.value == _phi)
+							u.value = same;
+			}
+			// Maintain reverse index: this upsilon's value changed from _phi to same.
+			if (same.isPhi())
+			{
+				if (same.value() >= m_reversePhiUpsilonValues.size())
+					m_reversePhiUpsilonValues.resize(same.value() + 1);
+				m_reversePhiUpsilonValues[same.value()].push_back(targetPhi);
+			}
+			phiUses.push_back(targetPhi);
+		}
+		m_reversePhiUpsilonValues[phiIdx].clear();
 	}
-	for (auto& currentVariableDefs: m_currentDef | ranges::views::values)
-		ranges::replace(currentVariableDefs, _phi, same);
+
+	// Pass 2 (via m_phiTargetBlocks): erase all upsilons targeting _phi.
+	// m_upsilonValuesForPhi[phiIdx] is now stale but _phi is gone and never consulted again.
+	if (phiIdx < m_phiTargetBlocks.size())
+	{
+		for (auto blockId: m_phiTargetBlocks[phiIdx])
+			std::erase_if(m_graph.block(blockId).upsilons, [_phi](auto const& u) { return u.phi == _phi; });
+		m_phiTargetBlocks[phiIdx].clear();
+	}
+
+	// op.inputs, block exits, and m_currentDef are updated lazily:
+	//   - readVariable() calls canonicalize() before returning any phi def.
+	//   - applyPhiSubstitutions() does a single O(B×(U+O×I)) sweep at the end of build.
 
 	for (auto phiUse: phiUses)
 		tryRemoveTrivialPhi(phiUse);
@@ -174,28 +202,60 @@ void SSACFGBuilder::cleanUnreachable()
 			}, block.exit);
 	});
 
-	// Remove all entries from unreachable nodes from the graph.
+	// Remove unreachable predecessor entries.
 	for (SSACFG::BlockId blockId: reachabilityCheck.visited)
 	{
 		auto& block = m_graph.block(blockId);
-
-		std::vector<SSACFG::ValueId> maybeTrivialPhi;
-		std::erase_if(block.entries, [&](auto const& entry) { return !reachabilityCheck.visited.contains(entry); });
-		for (auto phi: block.phis)
-		{
-			yulAssert(phi.hasValue());
-			auto& phiInfo = m_graph.phiInfo(phi);
-			auto const erasedCount = std::erase_if(phiInfo.arguments, [&](SSACFG::ValueId const _arg) {
-				return _arg.isUnreachable();
-			});
-			if (erasedCount > 0)
-				maybeTrivialPhi.push_back(phi);
-		}
-
-		// After removing a phi argument, we might end up with a trivial phi that can be removed.
-		for (auto phi: maybeTrivialPhi)
-			tryRemoveTrivialPhi(phi);
+		std::erase_if(block.entries, [&](auto const& entry) {
+			return !reachabilityCheck.visited.contains(entry);
+		});
 	}
+
+	// Remove upsilons that are now invalid:
+	//   - upsilons in unreachable blocks (their block will never execute), or
+	//   - upsilons with an unreachable value (product of earlier trivial-phi removal).
+	// Collect the affected target phis so we can attempt trivial-phi removal afterward.
+	// Also remove the corresponding entries from the index to keep it consistent.
+	std::vector<SSACFG::ValueId> maybeTrivialPhi;
+	for (SSACFG::BlockId blockId{0}; blockId.value < m_graph.numBlocks(); ++blockId.value)
+	{
+		auto& block = m_graph.block(blockId);
+		bool const isReachable = reachabilityCheck.visited.contains(blockId);
+
+		for (auto const& u: block.upsilons)
+			if (!isReachable || u.value.isUnreachable())
+			{
+				maybeTrivialPhi.push_back(u.phi);
+				auto const phiIdx = u.phi.value();
+				if (phiIdx < m_upsilonValuesForPhi.size())
+				{
+					auto& vals = m_upsilonValuesForPhi[phiIdx];
+					auto const it = std::find(vals.begin(), vals.end(), u.value);
+					if (it != vals.end())
+						vals.erase(it);
+				}
+				// Maintain reverse index: remove this upsilon from the reverse mapping.
+				if (u.value.isPhi())
+				{
+					auto const valIdx = u.value.value();
+					if (valIdx < m_reversePhiUpsilonValues.size())
+					{
+						auto& rev = m_reversePhiUpsilonValues[valIdx];
+						auto const it = std::find(rev.begin(), rev.end(), u.phi);
+						if (it != rev.end())
+							rev.erase(it);
+					}
+				}
+				// Note: m_phiTargetBlocks may retain stale entries; Pass 2 erase_if is idempotent.
+			}
+
+		std::erase_if(block.upsilons, [&](SSACFG::Upsilon const& u) {
+			return !isReachable || u.value.isUnreachable();
+		});
+	}
+
+	for (auto const phi: maybeTrivialPhi)
+		tryRemoveTrivialPhi(phi);
 }
 
 void SSACFGBuilder::buildFunctionGraph(
@@ -205,6 +265,8 @@ void SSACFGBuilder::buildFunctionGraph(
 {
 	m_controlFlow.functionGraphs.emplace_back(std::make_unique<SSACFG>());
 	auto& cfg = *m_controlFlow.functionGraphs.back();
+	if (m_includeDebugData)
+		cfg.enableDebugData();
 	m_controlFlow.functionGraphMapping.emplace_back(_function, &cfg);
 
 	yulAssert(m_info.scopes.at(&_functionDefinition->body), "");
@@ -227,7 +289,7 @@ void SSACFGBuilder::buildFunctionGraph(
 	cfg.arguments = arguments;
 	cfg.returns = returns;
 
-	SSACFGBuilder builder(m_controlFlow, cfg, m_info, m_sideEffects, m_dialect, m_keepLiteralAssignments);
+	SSACFGBuilder builder(m_controlFlow, cfg, m_info, m_sideEffects, m_dialect, m_keepLiteralAssignments, m_includeDebugData);
 	builder.m_currentBlock = cfg.entry;
 	builder.m_functionDefinitions = m_functionDefinitions;
 	for (auto&& [var, varId]: cfg.arguments)
@@ -240,6 +302,7 @@ void SSACFGBuilder::buildFunctionGraph(
 	// Artificial explicit function exit (`leave`) at the end of the body.
 	builder(Leave{debugDataOf(*_functionDefinition)});
 	builder.cleanUnreachable();
+	builder.applyPhiSubstitutions();
 }
 
 void SSACFGBuilder::operator()(ExpressionStatement const& _expressionStatement)
@@ -338,16 +401,14 @@ void SSACFGBuilder::operator()(Switch const& _switch)
 			BuiltinName{{}, *equalityBuiltinHandle},
 			{*_case.value /* skip second argument */ }
 		});
-		auto outputValue = m_graph.newVariable(m_currentBlock);
-		currentBlock().operations.emplace_back(SSACFG::Operation{
-			{outputValue},
-			SSACFG::BuiltinCall{
-				debugDataOf(_case),
-				m_dialect.builtin(*equalityBuiltinHandle),
-				ghostCall
-			},
-			{m_graph.newLiteral(debugDataOf(_case), _case.value->value.value()), expression}
-		});
+		auto const caseDebugData = debugDataOf(_case);
+		auto const outputValue = m_graph.newVariable(m_currentBlock);
+		auto const literalVal = m_graph.newLiteral(caseDebugData, _case.value->value.value());
+		auto& op = currentBlock().operations.emplace_back(); // uses_allocator: inherits arena from vector
+		op.outputs.push_back(outputValue);
+		op.kind = SSACFG::BuiltinCall{caseDebugData, m_dialect.builtin(*equalityBuiltinHandle), ghostCall};
+		op.inputs.push_back(literalVal);
+		op.inputs.push_back(expression);
 		return outputValue;
 	};
 
@@ -529,12 +590,10 @@ void SSACFGBuilder::assign(std::vector<std::reference_wrapper<Scope::Variable co
 	{
 		if (m_keepLiteralAssignments && value.isLiteral())
 		{
-			SSACFG::Operation assignment{
-				.outputs = {m_graph.newVariable(m_currentBlock)},
-				.kind = SSACFG::LiteralAssignment{},
-				.inputs = {value}
-			};
-			currentBlock().operations.emplace_back(assignment);
+			auto& assignment = currentBlock().operations.emplace_back(); // uses_allocator: inherits arena from vector
+			assignment.outputs.push_back(m_graph.newVariable(m_currentBlock));
+			assignment.kind = SSACFG::LiteralAssignment{};
+			assignment.inputs.push_back(value);
 			writeVariable(var, m_currentBlock, assignment.outputs.back());
 		}
 		else
@@ -550,7 +609,10 @@ std::vector<SSACFG::ValueId> SSACFGBuilder::visitFunctionCall(FunctionCall const
 		[&](BuiltinName const& _builtinName)
 		{
 			auto const& builtin = m_dialect.builtin(_builtinName.handle);
-			SSACFG::Operation result{{}, SSACFG::BuiltinCall{_call.debugData, builtin, _call}, {}};
+			SSACFG::Operation result{m_graph.allocator()};
+			result.kind = SSACFG::BuiltinCall{_call.debugData, builtin, _call};
+			result.inputs.reserve(_call.arguments.size());
+			result.outputs.reserve(builtin.numReturns);
 			for (auto&& [idx, arg]: _call.arguments | ranges::views::enumerate | ranges::views::reverse)
 				if (!builtin.literalArgument(idx).has_value())
 					result.inputs.emplace_back(std::visit(*this, arg));
@@ -566,7 +628,10 @@ std::vector<SSACFG::ValueId> SSACFGBuilder::visitFunctionCall(FunctionCall const
 			auto const* definition = findFunctionDefinition(&function);
 			yulAssert(definition);
 			canContinue = m_sideEffects.functionSideEffects().at(definition).canContinue;
-			SSACFG::Operation result{{}, SSACFG::Call{debugDataOf(_call), function, _call, canContinue}, {}};
+			SSACFG::Operation result{m_graph.allocator()};
+			result.kind = SSACFG::Call{debugDataOf(_call), function, _call, canContinue};
+			result.inputs.reserve(_call.arguments.size());
+			result.outputs.reserve(function.numReturns);
 			for (auto const& arg: _call.arguments | ranges::views::reverse)
 				result.inputs.emplace_back(std::visit(*this, arg));
 			for (size_t i = 0; i < function.numReturns; ++i)
@@ -574,7 +639,8 @@ std::vector<SSACFG::ValueId> SSACFGBuilder::visitFunctionCall(FunctionCall const
 			return result;
 		}
 	}, _call.functionName);
-	auto results = operation.outputs;
+	// Capture results before the move (pmr::vector → std::vector, ValueId is trivially copyable).
+	std::vector results(operation.outputs.begin(), operation.outputs.end());
 	currentBlock().operations.emplace_back(std::move(operation));
 	if (!canContinue)
 	{
@@ -592,8 +658,9 @@ SSACFG::ValueId SSACFGBuilder::zero()
 
 SSACFG::ValueId SSACFGBuilder::readVariable(Scope::Variable const& _variable, SSACFG::BlockId _block)
 {
-	if (auto const& def = currentDef(_variable, _block))
-		return *def;
+	auto const& def = currentDef(_variable, _block);
+	if (def.hasValue())
+		return canonicalize(def);
 	return readVariableRecursive(_variable, _block);
 }
 
@@ -605,9 +672,9 @@ SSACFG::ValueId SSACFGBuilder::readVariableRecursive(Scope::Variable const& _var
 	SSACFG::ValueId val;
 	if (!info.sealed)
 	{
-		// incomplete block
+		// incomplete block: create a phi and defer upsilon emission until the block is sealed
 		val = m_graph.newPhi(_block);
-		block.phis.insert(val);
+		block.phis.push_back(val);
 		info.incompletePhis.emplace_back(val, _variable);
 	}
 	else if (block.entries.size() == 1)
@@ -615,30 +682,98 @@ SSACFG::ValueId SSACFGBuilder::readVariableRecursive(Scope::Variable const& _var
 		val = readVariable(_variable, *block.entries.begin());
 	else
 	{
-		// Break potential cycles with operandless phi
+		// Break potential cycles with an argument-less phi; emit upsilons for all predecessors.
 		val = m_graph.newPhi(_block);
-		block.phis.insert(val);
+		block.phis.push_back(val);
 		writeVariable(_variable, _block, val);
 		// we call tryRemoveTrivialPhi explicitly opposed to what is presented in Algorithm 2, as our implementation
 		// does not call it in addPhiOperands to avoid removing phis in unsealed blocks
-		val = tryRemoveTrivialPhi(addPhiOperands(_variable, val));
+		addPhiOperands(_variable, val);
+		val = tryRemoveTrivialPhi(val);
 	}
 	writeVariable(_variable, _block, val);
 	return val;
 }
 
-SSACFG::ValueId SSACFGBuilder::addPhiOperands(Scope::Variable const& _variable, SSACFG::ValueId _phi)
+void SSACFGBuilder::addPhiOperands(Scope::Variable const& _variable, SSACFG::ValueId _phi)
 {
 	for (auto const& pred: m_graph.block(m_graph.phiInfo(_phi).block).entries)
 	{
-		auto const var = readVariable(_variable, pred);
-		m_graph.phiInfo(_phi).arguments.emplace_back(var);
+		auto const val = readVariable(_variable, pred);
+		emitUpsilon(pred, val, _phi);
 	}
-	// we call tryRemoveTrivialPhi explicitly to avoid removing trivial phis in unsealed blocks
-	return _phi;
 }
 
-void SSACFGBuilder::writeVariable(Scope::Variable const& _variable, SSACFG::BlockId _block, SSACFG::ValueId _value)
+void SSACFGBuilder::emitUpsilon(SSACFG::BlockId _block, SSACFG::ValueId _value, SSACFG::ValueId _phi)
+{
+	yulAssert(_phi.isPhi());
+	m_graph.block(_block).upsilons.emplace_back(SSACFG::Upsilon{_value, _phi});
+
+	// Maintain m_upsilonValuesForPhi (triviality check index).
+	auto const phiIdx = _phi.value();
+	if (phiIdx >= m_upsilonValuesForPhi.size())
+		m_upsilonValuesForPhi.resize(phiIdx + 1);
+	m_upsilonValuesForPhi[phiIdx].push_back(_value);
+
+	// Maintain m_phiTargetBlocks (Pass 2: erase upsilons targeting _phi).
+	if (phiIdx >= m_phiTargetBlocks.size())
+		m_phiTargetBlocks.resize(phiIdx + 1);
+	m_phiTargetBlocks[phiIdx].push_back(_block);
+
+	// Maintain m_reversePhiUpsilonValues (Pass 1: find cascades from _value).
+	if (_value.isPhi())
+	{
+		auto const valIdx = _value.value();
+		if (valIdx >= m_reversePhiUpsilonValues.size())
+			m_reversePhiUpsilonValues.resize(valIdx + 1);
+		m_reversePhiUpsilonValues[valIdx].push_back(_phi);
+	}
+}
+
+SSACFG::ValueId SSACFGBuilder::canonicalize(SSACFG::ValueId _v)
+{
+	if (!_v.isPhi())
+		return _v;
+	auto const idx = _v.value();
+	if (idx >= m_phiSubstitution.size())
+		return _v;
+	auto& sub = m_phiSubstitution[idx];
+	if (!sub.hasValue())
+		return _v;
+	// Path compression: resolve chains (phi1→phi2→literal becomes phi1→literal).
+	sub = canonicalize(sub);
+	return sub;
+}
+
+void SSACFGBuilder::applyPhiSubstitutions()
+{
+	if (m_phiSubstitution.empty())
+		return;
+
+	for (SSACFG::BlockId blockId{0}; blockId.value < m_graph.numBlocks(); ++blockId.value)
+	{
+		auto& block = m_graph.block(blockId);
+		for (auto& u: block.upsilons)
+			u.value = canonicalize(u.value);
+		for (auto& op: block.operations)
+			for (auto& input: op.inputs)
+				input = canonicalize(input);
+		std::visit(util::GenericVisitor{
+			[&](SSACFG::BasicBlock::FunctionReturn& r)
+			{
+				for (auto& v: r.returnValues)
+					v = canonicalize(v);
+			},
+			[&](SSACFG::BasicBlock::ConditionalJump& c) { c.condition = canonicalize(c.condition); },
+			[](SSACFG::BasicBlock::Jump&) {},
+			[](SSACFG::BasicBlock::MainExit&) {},
+			[](SSACFG::BasicBlock::Terminated&) {}
+		}, block.exit);
+	}
+}
+
+void SSACFGBuilder::writeVariable(
+	Scope::Variable const& _variable, SSACFG::BlockId _block, SSACFG::ValueId _value)
 {
 	currentDef(_variable, _block) = _value;
 }
@@ -678,6 +813,7 @@ void SSACFGBuilder::sealBlock(SSACFG::BlockId _block)
 	// as it would lead to tryRemoveTrivialPhi being called on unsealed blocks
 	auto& info = blockInfo(_block);
 	yulAssert(!info.sealed, "Trying to seal already sealed block.");
+	// Emit upsilons for all incomplete phis before marking the block as sealed.
 	for (auto&& [phi, variable] : info.incompletePhis)
 		addPhiOperands(variable, phi);
 	info.sealed = true;
@@ -699,8 +835,8 @@ void SSACFGBuilder::conditionalJump(
 		_nonZero,
 		_zero
 	};
-	m_graph.block(_nonZero).entries.insert(m_currentBlock);
-	m_graph.block(_zero).entries.insert(m_currentBlock);
+	m_graph.block(_nonZero).entries.push_back(m_currentBlock);
+	m_graph.block(_zero).entries.push_back(m_currentBlock);
 	m_currentBlock = {};
 }
 
@@ -711,7 +847,7 @@ void SSACFGBuilder::jump(
 {
 	currentBlock().exit = SSACFG::BasicBlock::Jump{std::move(_debugData), _target};
 	yulAssert(!blockInfo(_target).sealed);
-	m_graph.block(_target).entries.insert(m_currentBlock);
+	m_graph.block(_target).entries.push_back(m_currentBlock);
 	m_currentBlock = _target;
 }
 
