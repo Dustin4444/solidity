@@ -20,6 +20,7 @@
  */
 
 #include <libyul/backends/evm/ssa/SSACFGBuilder.h>
+#include <libyul/backends/evm/ssa/SSACFGDebugData.h>
 
 #include <libyul/backends/evm/ssa/ControlFlow.h>
 
@@ -51,6 +52,8 @@ SSACFGBuilder::SSACFGBuilder(
 	AsmAnalysisInfo const& _analysisInfo,
 	ControlFlowSideEffectsCollector const& _sideEffects,
 	Dialect const& _dialect,
+	SSACFGDebugData* _debugData,
+	std::vector<std::unique_ptr<SSACFGDebugData>>* _allDebugData,
 	bool _keepLiteralAssignments
 ):
 	m_controlFlow(_controlFlow),
@@ -58,6 +61,8 @@ SSACFGBuilder::SSACFGBuilder(
 	m_info(_analysisInfo),
 	m_sideEffects(_sideEffects),
 	m_dialect(_dialect),
+	m_debugData(_debugData),
+	m_allDebugData(_allDebugData),
 	m_keepLiteralAssignments(_keepLiteralAssignments)
 {
 }
@@ -69,14 +74,45 @@ std::unique_ptr<ControlFlow> SSACFGBuilder::build(
 	bool _keepLiteralAssignments
 )
 {
+	return buildImpl(_analysisInfo, _dialect, _block, _keepLiteralAssignments, nullptr);
+}
+
+std::pair<std::unique_ptr<ControlFlow>, std::vector<std::unique_ptr<SSACFGDebugData>>> SSACFGBuilder::buildWithDebugData(
+	AsmAnalysisInfo const& _analysisInfo,
+	Dialect const& _dialect,
+	Block const& _block,
+	bool _keepLiteralAssignments
+)
+{
+	std::vector<std::unique_ptr<SSACFGDebugData>> debugDatas;
+	auto controlFlow = buildImpl(_analysisInfo, _dialect, _block, _keepLiteralAssignments, &debugDatas);
+	return {std::move(controlFlow), std::move(debugDatas)};
+}
+
+std::unique_ptr<ControlFlow> SSACFGBuilder::buildImpl(
+	AsmAnalysisInfo const& _analysisInfo,
+	Dialect const& _dialect,
+	Block const& _block,
+	bool _keepLiteralAssignments,
+	std::vector<std::unique_ptr<SSACFGDebugData>>* _debugDatas
+)
+{
 	ControlFlowSideEffectsCollector sideEffects(_dialect, _block);
 
 	auto controlFlow = std::make_unique<ControlFlow>();
 	controlFlow->functionGraphs.emplace_back(std::make_unique<SSACFG>());
 	controlFlow->functionGraphMapping.emplace_back(nullptr, controlFlow->functionGraphs.back().get());
 	SSACFG& mainGraph = *controlFlow->functionGraphs.back();
-	SSACFGBuilder builder(*controlFlow, mainGraph, _analysisInfo, sideEffects, _dialect, _keepLiteralAssignments);
-	builder.m_currentBlock = mainGraph.makeBlock(debugDataOf(_block));
+
+	SSACFGDebugData* debugData = nullptr;
+	if (_debugDatas)
+	{
+		_debugDatas->emplace_back(std::make_unique<SSACFGDebugData>());
+		debugData = _debugDatas->back().get();
+	}
+
+	SSACFGBuilder builder(*controlFlow, mainGraph, _analysisInfo, sideEffects, _dialect, debugData, _debugDatas, _keepLiteralAssignments);
+	builder.m_currentBlock = builder.makeBlock(debugData ? debugDataOf(_block) : nullptr);
 	builder.sealBlock(builder.m_currentBlock);
 	builder(_block);
 	if (!builder.blockInfo(builder.m_currentBlock).sealed)
@@ -207,15 +243,26 @@ void SSACFGBuilder::buildFunctionGraph(
 	auto& cfg = *m_controlFlow.functionGraphs.back();
 	m_controlFlow.functionGraphMapping.emplace_back(_function, &cfg);
 
+	SSACFGDebugData* debugData = nullptr;
+	if (m_allDebugData)
+	{
+		m_allDebugData->emplace_back(std::make_unique<SSACFGDebugData>());
+		debugData = m_allDebugData->back().get();
+	}
+
 	yulAssert(m_info.scopes.at(&_functionDefinition->body), "");
 	Scope* virtualFunctionScope = m_info.scopes.at(m_info.virtualBlocks.at(_functionDefinition).get()).get();
 	yulAssert(virtualFunctionScope, "");
 
-	cfg.entry = cfg.makeBlock(debugDataOf(_functionDefinition->body));
+	SSACFGBuilder builder(m_controlFlow, cfg, m_info, m_sideEffects, m_dialect, debugData, m_allDebugData, m_keepLiteralAssignments);
+	cfg.entry = builder.makeBlock(builder.debugDataIf(_functionDefinition->body));
 	auto arguments = _functionDefinition->parameters | ranges::views::transform([&](auto const& _param) {
 		auto const& var = std::get<Scope::Variable>(virtualFunctionScope->identifiers.at(_param.name));
+		auto valueId = cfg.newVariable(cfg.entry);
+		if (debugData)
+			debugData->addVariable(debugData->block(cfg.entry));
 		// Note: cannot use std::make_tuple since it unwraps reference wrappers.
-		return std::tuple{std::cref(var), cfg.newVariable(cfg.entry)};
+		return std::tuple{std::cref(var), valueId};
 	}) | ranges::to<std::vector>;
 	auto returns = _functionDefinition->returnVariables | ranges::views::transform([&](auto const& _param) {
 		return std::cref(std::get<Scope::Variable>(virtualFunctionScope->identifiers.at(_param.name)));
@@ -227,7 +274,6 @@ void SSACFGBuilder::buildFunctionGraph(
 	cfg.arguments = arguments;
 	cfg.returns = returns;
 
-	SSACFGBuilder builder(m_controlFlow, cfg, m_info, m_sideEffects, m_dialect, m_keepLiteralAssignments);
 	builder.m_currentBlock = cfg.entry;
 	builder.m_functionDefinitions = m_functionDefinitions;
 	for (auto&& [var, varId]: cfg.arguments)
@@ -238,7 +284,7 @@ void SSACFGBuilder::buildFunctionGraph(
 	builder(_functionDefinition->body);
 	cfg.exits.insert(builder.m_currentBlock);
 	// Artificial explicit function exit (`leave`) at the end of the body.
-	builder(Leave{debugDataOf(*_functionDefinition)});
+	builder(Leave{builder.debugDataIf(*_functionDefinition)});
 	builder.cleanUnreachable();
 }
 
@@ -287,10 +333,10 @@ void SSACFGBuilder::operator()(If const& _if)
 	else
 	{
 		auto condition = std::visit(*this, *_if.condition);
-		auto ifBranch = m_graph.makeBlock(debugDataOf(_if.body));
-		auto afterIf = m_graph.makeBlock(debugDataOf(currentBlock()));
+		auto ifBranch = makeBlock(debugDataIf(_if.body));
+		auto afterIf = makeBlock(currentBlockDebugData());
 		conditionalJump(
-			debugDataOf(_if),
+			debugDataIf(_if),
 			condition,
 			ifBranch,
 			afterIf
@@ -298,7 +344,7 @@ void SSACFGBuilder::operator()(If const& _if)
 		sealBlock(ifBranch);
 		m_currentBlock = ifBranch;
 		(*this)(_if.body);
-		jump(debugDataOf(_if.body), afterIf);
+		jump(debugDataIf(_if.body), afterIf);
 		sealBlock(afterIf);
 	}
 }
@@ -334,65 +380,66 @@ void SSACFGBuilder::operator()(Switch const& _switch)
 
 	auto makeValueCompare = [&](Case const& _case) {
 		FunctionCall const& ghostCall = m_graph.ghostCalls.emplace_back(FunctionCall{
-			debugDataOf(_case),
+			debugDataIf(_case),
 			BuiltinName{{}, *equalityBuiltinHandle},
 			{*_case.value /* skip second argument */ }
 		});
 		auto outputValue = m_graph.newVariable(m_currentBlock);
-		currentBlock().operations.emplace_back(SSACFG::Operation{
+		if (m_debugData)
+			m_debugData->addVariable(currentBlockDebugData());
+		addOperation(m_currentBlock, SSACFG::Operation{
 			{outputValue},
 			SSACFG::BuiltinCall{
-				debugDataOf(_case),
 				m_dialect.builtin(*equalityBuiltinHandle),
 				ghostCall
 			},
-			{m_graph.newLiteral(debugDataOf(_case), _case.value->value.value()), expression}
-		});
+			{newLiteral(debugDataIf(_case), _case.value->value.value()), expression}
+		}, debugDataIf(_case));
 		return outputValue;
 	};
 
-	auto afterSwitch = m_graph.makeBlock(debugDataOf(currentBlock()));
+	auto afterSwitch = makeBlock(currentBlockDebugData());
 	yulAssert(!_switch.cases.empty(), "");
 	for (auto const& switchCase: _switch.cases | ranges::views::drop_last(1))
 	{
 		yulAssert(switchCase.value, "");
-		auto caseBranch = m_graph.makeBlock(debugDataOf(switchCase.body));
-		auto elseBranch = m_graph.makeBlock(debugDataOf(_switch));
+		auto caseBranch = makeBlock(debugDataIf(switchCase.body));
+		auto elseBranch = makeBlock(debugDataIf(_switch));
 
-		conditionalJump(debugDataOf(switchCase), makeValueCompare(switchCase), caseBranch, elseBranch);
+		conditionalJump(debugDataIf(switchCase), makeValueCompare(switchCase), caseBranch, elseBranch);
 		sealBlock(caseBranch);
 		sealBlock(elseBranch);
 		m_currentBlock = caseBranch;
 		(*this)(switchCase.body);
-		jump(debugDataOf(switchCase.body), afterSwitch);
+		jump(debugDataIf(switchCase.body), afterSwitch);
 		m_currentBlock = elseBranch;
 	}
 	Case const& switchCase = _switch.cases.back();
 	if (switchCase.value)
 	{
-		auto caseBranch = m_graph.makeBlock(debugDataOf(switchCase.body));
-		conditionalJump(debugDataOf(switchCase), makeValueCompare(switchCase), caseBranch, afterSwitch);
+		auto caseBranch = makeBlock(debugDataIf(switchCase.body));
+		conditionalJump(debugDataIf(switchCase), makeValueCompare(switchCase), caseBranch, afterSwitch);
 		sealBlock(caseBranch);
 		m_currentBlock = caseBranch;
 	}
 	(*this)(switchCase.body);
-	jump(debugDataOf(switchCase.body), afterSwitch);
+	jump(debugDataIf(switchCase.body), afterSwitch);
 	sealBlock(afterSwitch);
 }
 void SSACFGBuilder::operator()(ForLoop const& _loop)
 {
 	ScopedSaveAndRestore scopeRestore(m_scope, m_info.scopes.at(&_loop.pre).get());
 	(*this)(_loop.pre);
-	auto preLoopDebugData = debugDataOf(currentBlock());
+	auto preLoopDebugData = currentBlockDebugData();
 
 	std::optional<bool> constantCondition;
 	if (auto const* literalCondition = std::get_if<Literal>(_loop.condition.get()))
 		constantCondition = literalCondition->value.value() != 0;
 
-	SSACFG::BlockId loopCondition = m_graph.makeBlock(debugDataOf(*_loop.condition));
-	SSACFG::BlockId loopBody = m_graph.makeBlock(debugDataOf(_loop.body));
-	SSACFG::BlockId post = m_graph.makeBlock(debugDataOf(_loop.post));
-	SSACFG::BlockId afterLoop = m_graph.makeBlock(preLoopDebugData);
+	SSACFG::BlockId loopCondition = makeBlock(debugDataIf(*_loop.condition));
+	SSACFG::BlockId loopBody = makeBlock(debugDataIf(_loop.body));
+	SSACFG::BlockId post = makeBlock(debugDataIf(_loop.post));
+	SSACFG::BlockId afterLoop = makeBlock(preLoopDebugData);
 
 	class ForLoopInfoScope {
 	public:
@@ -412,29 +459,29 @@ void SSACFGBuilder::operator()(ForLoop const& _loop)
 		std::visit(*this, *_loop.condition);
 		if (*constantCondition)
 		{
-			jump(debugDataOf(*_loop.condition), loopBody);
+			jump(debugDataIf(*_loop.condition), loopBody);
 			(*this)(_loop.body);
-			jump(debugDataOf(_loop.body), post);
+			jump(debugDataIf(_loop.body), post);
 			sealBlock(post);
 			(*this)(_loop.post);
-			jump(debugDataOf(_loop.post), loopBody);
+			jump(debugDataIf(_loop.post), loopBody);
 			sealBlock(loopBody);
 		}
 		else
-			jump(debugDataOf(*_loop.condition), afterLoop);
+			jump(debugDataIf(*_loop.condition), afterLoop);
 	}
 	else
 	{
-		jump(debugDataOf(_loop.pre), loopCondition);
+		jump(debugDataIf(_loop.pre), loopCondition);
 		auto condition = std::visit(*this, *_loop.condition);
-		conditionalJump(debugDataOf(*_loop.condition), condition, loopBody, afterLoop);
+		conditionalJump(debugDataIf(*_loop.condition), condition, loopBody, afterLoop);
 		sealBlock(loopBody);
 		m_currentBlock = loopBody;
 		(*this)(_loop.body);
-		jump(debugDataOf(_loop.body), post);
+		jump(debugDataIf(_loop.body), post);
 		sealBlock(post);
 		(*this)(_loop.post);
-		jump(debugDataOf(_loop.post), loopCondition);
+		jump(debugDataIf(_loop.post), loopCondition);
 		sealBlock(loopCondition);
 	}
 
@@ -445,31 +492,32 @@ void SSACFGBuilder::operator()(ForLoop const& _loop)
 void SSACFGBuilder::operator()(Break const& _break)
 {
 	yulAssert(!m_forLoopInfo.empty());
-	auto currentBlockDebugData = debugDataOf(currentBlock());
-	jump(debugDataOf(_break), m_forLoopInfo.top().breakBlock);
-	m_currentBlock = m_graph.makeBlock(currentBlockDebugData);
+	auto blockDD = currentBlockDebugData();
+	jump(debugDataIf(_break), m_forLoopInfo.top().breakBlock);
+	m_currentBlock = makeBlock(blockDD);
 	sealBlock(m_currentBlock);
 }
 
 void SSACFGBuilder::operator()(Continue const& _continue)
 {
 	yulAssert(!m_forLoopInfo.empty());
-	auto currentBlockDebugData = debugDataOf(currentBlock());
-	jump(debugDataOf(_continue), m_forLoopInfo.top().continueBlock);
-	m_currentBlock = m_graph.makeBlock(currentBlockDebugData);
+	auto blockDD = currentBlockDebugData();
+	jump(debugDataIf(_continue), m_forLoopInfo.top().continueBlock);
+	m_currentBlock = makeBlock(blockDD);
 	sealBlock(m_currentBlock);
 }
 
 void SSACFGBuilder::operator()(Leave const& _leaveStatement)
 {
-	auto currentBlockDebugData = debugDataOf(currentBlock());
+	auto blockDD = currentBlockDebugData();
+	if (m_debugData)
+		m_debugData->setBlockExit(m_currentBlock, debugDataIf(_leaveStatement));
 	currentBlock().exit = SSACFG::BasicBlock::FunctionReturn{
-		debugDataOf(_leaveStatement),
 		m_graph.returns | ranges::views::transform([&](auto _var) {
 			return readVariable(_var, m_currentBlock);
 		}) | ranges::to<std::vector>
 	};
-	m_currentBlock = m_graph.makeBlock(currentBlockDebugData);
+	m_currentBlock = makeBlock(blockDD);
 	sealBlock(m_currentBlock);
 }
 
@@ -511,7 +559,7 @@ SSACFG::ValueId SSACFGBuilder::operator()(Identifier const& _identifier)
 
 SSACFG::ValueId SSACFGBuilder::operator()(Literal const& _literal)
 {
-	return m_graph.newLiteral(debugDataOf(currentBlock()), _literal.value.value());
+	return newLiteral(currentBlockDebugData(), _literal.value.value());
 }
 
 void SSACFGBuilder::assign(std::vector<std::reference_wrapper<Scope::Variable const>> _variables, Expression const* _expression)
@@ -529,13 +577,16 @@ void SSACFGBuilder::assign(std::vector<std::reference_wrapper<Scope::Variable co
 	{
 		if (m_keepLiteralAssignments && value.isLiteral())
 		{
+			auto outputVar = m_graph.newVariable(m_currentBlock);
+			if (m_debugData)
+				m_debugData->addVariable(currentBlockDebugData());
 			SSACFG::Operation assignment{
-				.outputs = {m_graph.newVariable(m_currentBlock)},
+				.outputs = {outputVar},
 				.kind = SSACFG::LiteralAssignment{},
 				.inputs = {value}
 			};
-			currentBlock().operations.emplace_back(assignment);
-			writeVariable(var, m_currentBlock, assignment.outputs.back());
+			addOperation(m_currentBlock, std::move(assignment), nullptr);
+			writeVariable(var, m_currentBlock, currentBlock().operations.back().outputs.back());
 		}
 		else
 			writeVariable(var, m_currentBlock, value);
@@ -550,12 +601,16 @@ std::vector<SSACFG::ValueId> SSACFGBuilder::visitFunctionCall(FunctionCall const
 		[&](BuiltinName const& _builtinName)
 		{
 			auto const& builtin = m_dialect.builtin(_builtinName.handle);
-			SSACFG::Operation result{{}, SSACFG::BuiltinCall{_call.debugData, builtin, _call}, {}};
+			SSACFG::Operation result{{}, SSACFG::BuiltinCall{builtin, _call}, {}};
 			for (auto&& [idx, arg]: _call.arguments | ranges::views::enumerate | ranges::views::reverse)
 				if (!builtin.literalArgument(idx).has_value())
 					result.inputs.emplace_back(std::visit(*this, arg));
 			for (size_t i = 0; i < builtin.numReturns; ++i)
+			{
 				result.outputs.emplace_back(m_graph.newVariable(m_currentBlock));
+				if (m_debugData)
+					m_debugData->addVariable(currentBlockDebugData());
+			}
 			canContinue = builtin.controlFlowSideEffects.canContinue;
 			return result;
 		},
@@ -566,20 +621,24 @@ std::vector<SSACFG::ValueId> SSACFGBuilder::visitFunctionCall(FunctionCall const
 			auto const* definition = findFunctionDefinition(&function);
 			yulAssert(definition);
 			canContinue = m_sideEffects.functionSideEffects().at(definition).canContinue;
-			SSACFG::Operation result{{}, SSACFG::Call{debugDataOf(_call), function, _call, canContinue}, {}};
+			SSACFG::Operation result{{}, SSACFG::Call{function, _call, canContinue}, {}};
 			for (auto const& arg: _call.arguments | ranges::views::reverse)
 				result.inputs.emplace_back(std::visit(*this, arg));
 			for (size_t i = 0; i < function.numReturns; ++i)
+			{
 				result.outputs.emplace_back(m_graph.newVariable(m_currentBlock));
+				if (m_debugData)
+					m_debugData->addVariable(currentBlockDebugData());
+			}
 			return result;
 		}
 	}, _call.functionName);
 	auto results = operation.outputs;
-	currentBlock().operations.emplace_back(std::move(operation));
+	addOperation(m_currentBlock, std::move(operation), debugDataIf(_call));
 	if (!canContinue)
 	{
 		currentBlock().exit = SSACFG::BasicBlock::Terminated{};
-		m_currentBlock = m_graph.makeBlock(debugDataOf(currentBlock()));
+		m_currentBlock = makeBlock(currentBlockDebugData());
 		sealBlock(m_currentBlock);
 	}
 	return results;
@@ -587,7 +646,7 @@ std::vector<SSACFG::ValueId> SSACFGBuilder::visitFunctionCall(FunctionCall const
 
 SSACFG::ValueId SSACFGBuilder::zero()
 {
-	return m_graph.newLiteral(debugDataOf(currentBlock()), 0u);
+	return newLiteral(currentBlockDebugData(), 0u);
 }
 
 SSACFG::ValueId SSACFGBuilder::readVariable(Scope::Variable const& _variable, SSACFG::BlockId _block)
@@ -607,6 +666,8 @@ SSACFG::ValueId SSACFGBuilder::readVariableRecursive(Scope::Variable const& _var
 	{
 		// incomplete block
 		val = m_graph.newPhi(_block);
+		if (m_debugData)
+			m_debugData->addPhi(m_debugData->block(_block));
 		block.phis.insert(val);
 		info.incompletePhis.emplace_back(val, _variable);
 	}
@@ -617,6 +678,8 @@ SSACFG::ValueId SSACFGBuilder::readVariableRecursive(Scope::Variable const& _var
 	{
 		// Break potential cycles with operandless phi
 		val = m_graph.newPhi(_block);
+		if (m_debugData)
+			m_debugData->addPhi(m_debugData->block(_block));
 		block.phis.insert(val);
 		writeVariable(_variable, _block, val);
 		// we call tryRemoveTrivialPhi explicitly opposed to what is presented in Algorithm 2, as our implementation
@@ -685,6 +748,34 @@ void SSACFGBuilder::sealBlock(SSACFG::BlockId _block)
 		phi = tryRemoveTrivialPhi(phi);
 }
 
+SSACFG::BlockId SSACFGBuilder::makeBlock(langutil::DebugData::ConstPtr _debugData)
+{
+	auto blockId = m_graph.makeBlock();
+	if (m_debugData)
+		m_debugData->addBlock(std::move(_debugData));
+	return blockId;
+}
+
+void SSACFGBuilder::addOperation(SSACFG::BlockId _block, SSACFG::Operation&& _operation, langutil::DebugData::ConstPtr _debugData)
+{
+	m_graph.block(_block).operations.emplace_back(std::move(_operation));
+	if (m_debugData)
+		m_debugData->addOperation(_block, std::move(_debugData));
+}
+
+SSACFG::ValueId SSACFGBuilder::newLiteral(langutil::DebugData::ConstPtr _debugData, u256 _value)
+{
+	bool const isNew = !m_graph.hasLiteral(_value);
+	auto id = m_graph.newLiteral(std::move(_value));
+	if (m_debugData && isNew)
+		m_debugData->addLiteral(std::move(_debugData));
+	return id;
+}
+
+langutil::DebugData::ConstPtr SSACFGBuilder::currentBlockDebugData() const
+{
+	return m_debugData ? m_debugData->block(m_currentBlock) : nullptr;
+}
 
 void SSACFGBuilder::conditionalJump(
 	langutil::DebugData::ConstPtr _debugData,
@@ -693,8 +784,9 @@ void SSACFGBuilder::conditionalJump(
 	SSACFG::BlockId _zero
 )
 {
+	if (m_debugData)
+		m_debugData->setBlockExit(m_currentBlock, std::move(_debugData));
 	currentBlock().exit = SSACFG::BasicBlock::ConditionalJump{
-		std::move(_debugData),
 		_condition,
 		_nonZero,
 		_zero
@@ -709,7 +801,9 @@ void SSACFGBuilder::jump(
 	SSACFG::BlockId _target
 )
 {
-	currentBlock().exit = SSACFG::BasicBlock::Jump{std::move(_debugData), _target};
+	if (m_debugData)
+		m_debugData->setBlockExit(m_currentBlock, std::move(_debugData));
+	currentBlock().exit = SSACFG::BasicBlock::Jump{_target};
 	yulAssert(!blockInfo(_target).sealed);
 	m_graph.block(_target).entries.insert(m_currentBlock);
 	m_currentBlock = _target;

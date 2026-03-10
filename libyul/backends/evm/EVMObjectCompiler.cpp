@@ -23,6 +23,7 @@
 
 #include <libyul/backends/evm/ssa/CodeTransform.h>
 #include <libyul/backends/evm/ssa/SSACFGBuilder.h>
+#include <libyul/backends/evm/ssa/SSACFGDebugData.h>
 #include <libyul/backends/evm/ssa/ControlFlow.h>
 
 #include <libyul/backends/evm/EVMCodeTransform.h>
@@ -42,14 +43,15 @@ void EVMObjectCompiler::compile(
 	Object const& _object,
 	AbstractAssembly& _assembly,
 	bool _optimize,
+	bool _includeDebugData,
 	bool _viaSSACFG
 )
 {
 	EVMObjectCompiler compiler(_assembly);
-	compiler.run(_object, _optimize, _viaSSACFG);
+	compiler.run(_object, _optimize, _includeDebugData, _viaSSACFG);
 }
 
-void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool _viaSSACFG)
+void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool _includeDebugData, bool _viaSSACFG)
 {
 	yulAssert(_object.dialect());
 	auto const* evmDialect = dynamic_cast<EVMDialect const*>(_object.dialect());
@@ -89,18 +91,18 @@ void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool _viaSSAC
 	{
 		if (_viaSSACFG)
 		{
-			std::unique_ptr<ssa::ControlFlow> controlFlow = ssa::SSACFGBuilder::build(
-				*_object.analysisInfo,
-				*_object.dialect(),
-				_object.code()->root(),
-				false
-			);
+			std::unique_ptr<ssa::ControlFlow> controlFlow;
+			std::vector<std::unique_ptr<ssa::SSACFGDebugData>> debugData;
+			if (_includeDebugData)
+				std::tie(controlFlow, debugData) = ssa::SSACFGBuilder::buildWithDebugData(
+					*_object.analysisInfo, *_object.dialect(), _object.code()->root(), false
+				);
+			else
+				controlFlow = ssa::SSACFGBuilder::build(
+					*_object.analysisInfo, *_object.dialect(), _object.code()->root(), false
+				);
 			ssa::ControlFlowLiveness const liveness(*controlFlow);
-			ssa::CodeTransform::run(
-				m_assembly,
-				liveness,
-				context
-			);
+			ssa::CodeTransform::run(m_assembly, liveness, context, debugData.empty() ? nullptr : &debugData);
 		}
 		else
 		{

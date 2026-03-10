@@ -194,7 +194,7 @@ bool YulStack::analyzeParsed(Object& _object)
 
 void YulStack::compileEVM(AbstractAssembly& _assembly, bool _optimize, bool _viaSSACFG) const
 {
-	EVMObjectCompiler::compile(*m_parserResult, _assembly, _optimize, _viaSSACFG);
+	EVMObjectCompiler::compile(*m_parserResult, _assembly, _optimize, m_debugInfoSelection != DebugInfoSelection::None(), _viaSSACFG);
 }
 
 void YulStack::reparse()
@@ -398,6 +398,7 @@ Json YulStack::cfgJson() const
 		// operations to the control flow graphs
 		bool constexpr keepLiteralAssignments = true;
 		// NOTE: The block Ids are reset for each object
+		// TODO: use buildWithDebugData when debug info is needed and pass debug data to the exporter
 		std::unique_ptr<ssa::ControlFlow> controlFlow = ssa::SSACFGBuilder::build(
 			*_object.analysisInfo,
 			languageToDialect(m_language, m_evmVersion, m_eofVersion),

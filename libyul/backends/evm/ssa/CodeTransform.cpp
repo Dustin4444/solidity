@@ -17,6 +17,7 @@
 // SPDX-License-Identifier: GPL-3.0
 
 #include <libyul/backends/evm/ssa/CodeTransform.h>
+#include <libyul/backends/evm/ssa/SSACFGDebugData.h>
 
 #include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
 #include <libyul/backends/evm/ssa/StackShuffler.h>
@@ -45,7 +46,8 @@ void CodeTransform::run
 (
 	AbstractAssembly& _assembly,
 	ControlFlowLiveness const& _controlFlowLiveness,
-	BuiltinContext& _builtinContext
+	BuiltinContext& _builtinContext,
+	std::vector<std::unique_ptr<SSACFGDebugData>> const* _debugData
 )
 {
 	yulAssert(!_controlFlowLiveness.cfgLiveness.empty());
@@ -62,6 +64,7 @@ void CodeTransform::run
 		yulAssert(liveness);
 		auto const graphID = static_cast<ControlFlow::FunctionGraphID>(functionIndex);
 		auto const& stackLayout = StackLayoutGenerator::generate(*liveness, callSites, graphID);
+		SSACFGDebugData const* graphDebugData = _debugData ? (*_debugData)[functionIndex].get() : nullptr;
 		CodeTransform transform(
 			_assembly,
 			_builtinContext,
@@ -70,7 +73,8 @@ void CodeTransform::run
 			*cfg,
 			stackLayout,
 			function,
-			graphID
+			graphID,
+			graphDebugData
 		);
 		transform(cfg->entry);
 	}
@@ -107,13 +111,15 @@ CodeTransform::CodeTransform(
 	SSACFG const& _cfg,
 	SSACFGStackLayout const& _stackLayout,
 	Scope::Function const* _function,
-	ControlFlow::FunctionGraphID
+	ControlFlow::FunctionGraphID,
+	SSACFGDebugData const* _debugData
 ):
 	m_assembly(_assembly),
 	m_builtinContext(_builtinContext),
 	m_functionLabels(_functionLabels),
 	m_callSites(_callSites),
 	m_cfg(_cfg),
+	m_debugData(_debugData),
 	m_stackLayout(_stackLayout),
 	m_blockIsTransformed(_cfg.numBlocks(), false),
 	m_blockLabels([this] {
@@ -172,7 +178,7 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 		auto const& operationInLayout = blockLayout->operationIn[operationIndex];
 
 		// perform the operation
-		(*this)(operation, operationInLayout);
+		(*this)(_blockId, operationIndex, operation, operationInLayout);
 	}
 
 	// Shuffle to the block's exit layout before dispatching the exit.
@@ -184,7 +190,7 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 	std::visit(util::GenericVisitor{ [this, &_blockId](auto const& exit) { (*this)(_blockId, exit); } }, block.exit);
 }
 
-void CodeTransform::operator()(SSACFG::Operation const& _operation, StackData const& _operationInputLayout)
+void CodeTransform::operator()(SSACFG::BlockId const _blockId, size_t _opIndex, SSACFG::Operation const& _operation, StackData const& _operationInputLayout)
 {
 	bool const hasReturnLabel =
 			std::holds_alternative<SSACFG::Call>(_operation.kind) &&
@@ -232,10 +238,14 @@ void CodeTransform::operator()(SSACFG::Operation const& _operation, StackData co
 	// height of the stack sans function return label and operation inputs
 	std::size_t const baseHeight = m_stack.size() - _operation.inputs.size() - (hasReturnLabel ? 1 : 0);
 
+	// Set source location from SSA CFG debug data.
+	if (m_debugData)
+		if (auto const& debugData = m_debugData->operation(_blockId, _opIndex))
+			m_assembly.setSourceLocation(debugData->originLocation);
+
 	// generate code for the operation
 	std::visit(util::GenericVisitor{
 		[&](SSACFG::BuiltinCall const& _builtin) {
-			m_assembly.setSourceLocation(originLocationOf(_builtin));
 			static_cast<BuiltinFunctionForEVM const&>(_builtin.builtin.get()).generateCode(
 				_builtin.call,
 				m_assembly,
@@ -246,7 +256,6 @@ void CodeTransform::operator()(SSACFG::Operation const& _operation, StackData co
 			auto const* returnLabel = util::valueOrNullptr(m_returnLabels, &_call.call.get());
 			// check that if we have a return label, the call can continue
 			yulAssert(!!returnLabel == _call.canContinue);
-			m_assembly.setSourceLocation(originLocationOf(_call));
 			m_assembly.appendJumpTo(
 				m_functionLabels.at(&_call.function.get()),
 				static_cast<int>(_call.function.get().numReturns - _call.function.get().numArguments) - (_call.canContinue ? 1 : 0),

@@ -37,12 +37,13 @@ public:
 		Object const& _object,
 		AbstractAssembly& _assembly,
 		bool _optimize,
+		bool _includeDebugData,
 		bool _viaSSACFG = false
 	);
 private:
 	EVMObjectCompiler(AbstractAssembly& _assembly): m_assembly(_assembly) {}
 
-	void run(Object const& _object, bool _optimize, bool _viaSSACFG);
+	void run(Object const& _object, bool _optimize, bool _includeDebugData, bool _viaSSACFG);
 
 	AbstractAssembly& m_assembly;
 };

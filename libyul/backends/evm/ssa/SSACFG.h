@@ -30,7 +30,6 @@
 #include <libsolutil/Numeric.h>
 
 #include <range/v3/view/map.hpp>
-#include <deque>
 #include <functional>
 #include <list>
 #include <vector>
@@ -99,21 +98,16 @@ public:
 
 	struct BuiltinCall
 	{
-		langutil::DebugData::ConstPtr debugData;
 		std::reference_wrapper<BuiltinFunction const> builtin;
 		std::reference_wrapper<FunctionCall const> call;
 	};
 	struct Call
 	{
-		langutil::DebugData::ConstPtr debugData;
 		std::reference_wrapper<Scope::Function const> function;
 		std::reference_wrapper<FunctionCall const> call;
 		bool canContinue;
 	};
-	struct LiteralAssignment
-	{
-		langutil::DebugData::ConstPtr debugData;
-	};
+	struct LiteralAssignment {};
 
 	struct Operation {
 		std::vector<ValueId> outputs{};
@@ -125,23 +119,19 @@ public:
 		struct MainExit {};
 		struct ConditionalJump
 		{
-			langutil::DebugData::ConstPtr debugData{};
 			ValueId condition;
 			BlockId nonZero;
 			BlockId zero;
 		};
 		struct Jump
 		{
-			langutil::DebugData::ConstPtr debugData{};
 			BlockId target;
 		};
 		struct FunctionReturn
 		{
-			langutil::DebugData::ConstPtr debugData{};
 			std::vector<ValueId> returnValues;
 		};
 		struct Terminated {};
-		langutil::DebugData::ConstPtr debugData;
 		std::set<BlockId> entries;
 		std::set<ValueId> phis;
 		std::vector<Operation> operations;
@@ -178,10 +168,10 @@ public:
 			return std::holds_alternative<Jump>(exit);
 		}
 	};
-	BlockId makeBlock(langutil::DebugData::ConstPtr _debugData)
+	BlockId makeBlock()
 	{
 		BlockId blockId { static_cast<BlockId::ValueType>(m_blocks.size()) };
-		m_blocks.emplace_back(BasicBlock{std::move(_debugData), {}, {}, {}, BasicBlock::Terminated{}});
+		m_blocks.emplace_back(BasicBlock{{}, {}, {}, BasicBlock::Terminated{}});
 		return blockId;
 	}
 	BasicBlock& block(BlockId _id) { return m_blocks.at(_id.value); }
@@ -192,31 +182,27 @@ private:
 	std::vector<BasicBlock> m_blocks;
 public:
 	struct LiteralValue {
-		langutil::DebugData::ConstPtr debugData;
 		u256 value;
 	};
 	struct VariableValue {
-		langutil::DebugData::ConstPtr debugData;
 		BlockId definingBlock;
 	};
 	struct PhiValue {
-		langutil::DebugData::ConstPtr debugData;
 		BlockId block;
 		std::vector<ValueId> arguments;
 	};
 	struct UnreachableValue {};
+
 	ValueId newPhi(BlockId const _definingBlock)
 	{
-		auto const& block = m_blocks.at(_definingBlock.value);
-		m_phis.emplace_back(PhiValue{debugDataOf(block), _definingBlock, std::vector<ValueId>{}});
+		m_phis.emplace_back(PhiValue{_definingBlock, std::vector<ValueId>{}});
 		auto const value = m_phis.size() - 1;
 		yulAssert(value < std::numeric_limits<ValueId::ValueType>::max());
 		return ValueId::makePhi(static_cast<ValueId::ValueType>(value));
 	}
 	ValueId newVariable(BlockId const _definingBlock)
 	{
-		auto const& block = m_blocks.at(_definingBlock.value);
-		m_variables.emplace_back(VariableValue{debugDataOf(block), _definingBlock});
+		m_variables.emplace_back(VariableValue{_definingBlock});
 		auto const value = m_variables.size() - 1;
 		yulAssert(value < std::numeric_limits<ValueId::ValueType>::max());
 		return ValueId::makeVariable(static_cast<ValueId::ValueType>(value));
@@ -229,7 +215,12 @@ public:
 		return *m_unreachableValue;
 	}
 
-	ValueId newLiteral(langutil::DebugData::ConstPtr _debugData, u256 _value)
+	bool hasLiteral(u256 const& _value) const
+	{
+		return m_literalMapping.contains(_value);
+	}
+
+	ValueId newLiteral(u256 _value)
 	{
 		auto const it = m_literalMapping.find(_value);
 		if (it != m_literalMapping.end())
@@ -239,8 +230,7 @@ public:
 			return valueId;
 		}
 
-
-		m_literals.emplace_back(LiteralValue{std::move(_debugData), std::move(_value)});
+		m_literals.emplace_back(LiteralValue{std::move(_value)});
 		auto const value = m_literals.size() - 1;
 		yulAssert(value < std::numeric_limits<ValueId::ValueType>::max());
 		auto const literalId = ValueId::makeLiteral(static_cast<ValueId::ValueType>(value));

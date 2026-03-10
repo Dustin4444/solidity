@@ -37,6 +37,8 @@
 namespace solidity::yul::ssa
 {
 
+struct SSACFGDebugData;
+
 class SSACFGBuilder
 {
 	SSACFGBuilder(
@@ -45,12 +47,22 @@ class SSACFGBuilder
 		AsmAnalysisInfo const& _analysisInfo,
 		ControlFlowSideEffectsCollector const& _sideEffects,
 		Dialect const& _dialect,
+		SSACFGDebugData* _debugData,
+		std::vector<std::unique_ptr<SSACFGDebugData>>* _allDebugData,
 		bool _keepLiteralAssignments
 	);
 public:
 	SSACFGBuilder(SSACFGBuilder const&) = delete;
 	SSACFGBuilder& operator=(SSACFGBuilder const&) = delete;
+
 	static std::unique_ptr<ControlFlow> build(
+		AsmAnalysisInfo const& _analysisInfo,
+		Dialect const& _dialect,
+		Block const& _block,
+		bool _keepLiteralAssignments
+	);
+
+	static std::pair<std::unique_ptr<ControlFlow>, std::vector<std::unique_ptr<SSACFGDebugData>>> buildWithDebugData(
 		AsmAnalysisInfo const& _analysisInfo,
 		Dialect const& _dialect,
 		Block const& _block,
@@ -76,6 +88,14 @@ public:
 	SSACFG::ValueId operator()(Literal const& _literal);
 
 private:
+	static std::unique_ptr<ControlFlow> buildImpl(
+		AsmAnalysisInfo const& _analysisInfo,
+		Dialect const& _dialect,
+		Block const& _block,
+		bool _keepLiteralAssignments,
+		std::vector<std::unique_ptr<SSACFGDebugData>>* _debugDatas
+	);
+
 	void cleanUnreachable();
 	SSACFG::ValueId tryRemoveTrivialPhi(SSACFG::ValueId _phi);
 	void assign(std::vector<std::reference_wrapper<Scope::Variable const>> _variables, Expression const* _expression);
@@ -89,12 +109,30 @@ private:
 	SSACFG::ValueId addPhiOperands(Scope::Variable const& _variable, SSACFG::ValueId _phi);
 	void writeVariable(Scope::Variable const& _variable, SSACFG::BlockId _block, SSACFG::ValueId _value);
 
+	/// Helper: creates a block in m_graph and, if debug data is active, records its debug data.
+	SSACFG::BlockId makeBlock(langutil::DebugData::ConstPtr _debugData);
+	/// Helper: adds an operation to a block and, if debug data is active, records its debug data.
+	void addOperation(SSACFG::BlockId _block, SSACFG::Operation&& _operation, langutil::DebugData::ConstPtr _debugData);
+	/// Helper: creates a literal in m_graph and, if debug data is active, records its debug data.
+	SSACFG::ValueId newLiteral(langutil::DebugData::ConstPtr _debugData, u256 _value);
+
 	ControlFlow& m_controlFlow;
 	SSACFG& m_graph;
 	AsmAnalysisInfo const& m_info;
 	ControlFlowSideEffectsCollector const& m_sideEffects;
 	Dialect const& m_dialect;
+	SSACFGDebugData* m_debugData;
+	std::vector<std::unique_ptr<SSACFGDebugData>>* m_allDebugData;
 	bool const m_keepLiteralAssignments;
+
+	template<typename T>
+	langutil::DebugData::ConstPtr debugDataIf(T const& _node) const
+	{
+		return m_debugData ? debugDataOf(_node) : nullptr;
+	}
+
+	langutil::DebugData::ConstPtr currentBlockDebugData() const;
+
 	std::vector<std::tuple<Scope::Function const*, FunctionDefinition const*>> m_functionDefinitions;
 	SSACFG::BlockId m_currentBlock;
 	SSACFG::BasicBlock& currentBlock() { return m_graph.block(m_currentBlock); }

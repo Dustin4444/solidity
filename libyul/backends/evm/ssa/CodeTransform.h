@@ -32,6 +32,7 @@ struct BuiltinContext;
 }
 namespace solidity::yul::ssa
 {
+struct SSACFGDebugData;
 
 struct AssemblyCallbacks
 {
@@ -95,7 +96,8 @@ public:
 	static void run(
 		AbstractAssembly& _assembly,
 		ControlFlowLiveness const& _liveness,
-		BuiltinContext& _builtinContext
+		BuiltinContext& _builtinContext,
+		std::vector<std::unique_ptr<SSACFGDebugData>> const* _debugData = nullptr
 	);
 
 private:
@@ -114,10 +116,11 @@ private:
 		SSACFG const& _cfg,
 		SSACFGStackLayout const& _stackLayout,
 		Scope::Function const* _function,
-		ControlFlow::FunctionGraphID _graphID);
+		ControlFlow::FunctionGraphID _graphID,
+		SSACFGDebugData const* _debugData);
 
 	void operator()(SSACFG::BlockId _blockId);
-	void operator()(SSACFG::Operation const& _operation, StackData const& _operationInputLayout);
+	void operator()(SSACFG::BlockId _blockId, size_t _opIndex, SSACFG::Operation const& _operation, StackData const& _operationInputLayout);
 	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::MainExit const& _mainExit);
 	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::ConditionalJump const& _conditionalJump);
 	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::Jump const& _jump);
@@ -131,6 +134,7 @@ private:
 	FunctionLabels const& m_functionLabels;
 	CallSites const& m_callSites;
 	SSACFG const& m_cfg;
+	SSACFGDebugData const* m_debugData;
 	SSACFGStackLayout const& m_stackLayout;
 
 	std::vector<std::uint8_t> m_blockIsTransformed;
