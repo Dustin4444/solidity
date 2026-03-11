@@ -21,6 +21,8 @@
 
 #include <libsolidity/codegen/YulUtilFunctions.h>
 
+#include "ir/Common.h"
+
 #include <libsolidity/ast/AST.h>
 #include <libsolidity/codegen/CompilerUtils.h>
 #include <libsolidity/codegen/MultiUseYulFunctionCollector.h>
@@ -4766,7 +4768,6 @@ std::string YulUtilFunctions::copyConstructorArgumentsToMemoryFunction(
 	ContractDefinition const& _contract
 ) const
 {
-
 	return m_functionCollector.createFunction(this, "copy_arguments_for_constructor", std::make_tuple(std::cref(_contract)), [](YulUtilFunctions const* _self, std::string const& _functionName, ContractDefinition const& _contract) {
 		std::string const creationObjectName = IRNames::creationObject(_contract);
 		std::string returnParams = suffixedVariableNameList("ret_param_",0, CompilerUtils::sizeOnStack(_contract.constructor()->parameters()));
