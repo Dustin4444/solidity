@@ -35,8 +35,8 @@ contract test {
 // constructor()
 // gas irOptimized: 79076
 // gas irOptimized code: 322000
-// gas legacy: 102214
-// gas legacy code: 629800
+// gas legacy: 102034
+// gas legacy code: 627400
 // gas legacyOptimized: 87926
 // gas legacyOptimized code: 429800
 // encode_inline_asm(bytes): 0x20, 0 -> 0x20, 0
