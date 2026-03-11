@@ -90,6 +90,7 @@ set(libsolidity_sources
     libsolidity/LibSolc.cpp
     libsolidity/Metadata.cpp
     libsolidity/MemoryGuardTest.cpp
+    libsolidity/MultiUseYulFunctionCollectorTest.cpp
     libsolidity/MemoryGuardTest.h
     libsolidity/NatspecJSONTest.cpp
     libsolidity/NatspecJSONTest.h
