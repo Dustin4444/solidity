@@ -49,6 +49,7 @@ std::string MultiUseYulFunctionCollector::requestedFunctions()
 	m_yulNames.clear();
 #ifndef NDEBUG
 	m_functionKeyDebugInfo.clear();
+	m_functionBodies.clear();
 #endif
 	return result;
 }
@@ -78,7 +79,8 @@ std::string MultiUseYulFunctionCollector::createFunction(
 
 std::string MultiUseYulFunctionCollector::createFunction(
 	std::string const& _name,
-	std::function<std::string()> const& _creator
+	std::function<std::string()> const& _creator,
+	bool _pureCreator
 )
 {
 	solAssert(!_name.empty(), "");
@@ -95,6 +97,27 @@ std::string MultiUseYulFunctionCollector::createFunction(
 		solAssert(!function.empty(), "");
 		solAssert(function.find("function " + _name + "(") != std::string::npos, "Function not properly named.");
 		m_code += function;
+#ifndef NDEBUG
+		if (_pureCreator)
+			m_functionBodies[_name] = function;
+#endif
 	}
+#ifndef NDEBUG
+	else if (_pureCreator)
+	{
+		// Re-run the creator and verify body stability.
+		// Catches incomplete cache keys where the creator depends on state not reflected in the name.
+		std::string regenerated = _creator();
+		solAssert(
+			m_functionBodies.at(_name) == regenerated,
+			"Function body mismatch on cache hit for: " + _name
+		);
+	}
+	else
+	{
+		// Impure creator (e.g. IRGenerator) — deduplication should never happen.
+		solAssert(false, "Unexpected cache hit for impure creator: " + _name);
+	}
+#endif
 	return _name;
 }

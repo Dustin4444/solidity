@@ -334,7 +334,7 @@ InternalDispatchMap IRGenerator::generateInternalDispatchFunctions(ContractDefin
 
 			templ("cases", std::move(cases));
 			return templ.render();
-		});
+		}, false);
 	}
 
 	solAssert(m_context.internalDispatchClean(), "");
@@ -410,7 +410,7 @@ std::string IRGenerator::generateFunction(FunctionDefinition const& _function)
 			generateFunctionWithModifierInner(_function);
 		}
 		return t.render();
-	});
+	}, false);
 }
 
 std::string IRGenerator::generateModifier(
@@ -506,7 +506,7 @@ std::string IRGenerator::generateModifier(
 		generator.generate(modifier->body());
 		t("body", generator.code());
 		return t.render();
-	});
+	}, false);
 }
 
 std::string IRGenerator::generateFunctionWithModifierInner(FunctionDefinition const& _function)
@@ -546,7 +546,7 @@ std::string IRGenerator::generateFunctionWithModifierInner(FunctionDefinition co
 		t("assignRetParams", assignRetParams);
 		t("body", generate(_function.body()));
 		return t.render();
-	});
+	}, false);
 }
 
 std::string IRGenerator::generateGetter(VariableDeclaration const& _varDecl)
@@ -751,7 +751,7 @@ std::string IRGenerator::generateGetter(VariableDeclaration const& _varDecl)
 			dispenseLocationComment(m_context.mostDerivedContract())
 		)
 		.render();
-	});
+	}, false);
 }
 
 std::string IRGenerator::generateExternalFunction(ContractDefinition const& _contract, FunctionType const& _functionType)
@@ -792,7 +792,7 @@ std::string IRGenerator::generateExternalFunction(ContractDefinition const& _con
 		t("allocateUnbounded", m_utils.allocateUnboundedFunction());
 		t("abiEncode", abiFunctions.tupleEncoder(_functionType.returnParameterTypes(), _functionType.returnParameterTypes(), _contract.isLibrary()));
 		return t.render();
-	});
+	}, false);
 }
 
 std::string IRGenerator::generateInitialAssignment(VariableDeclaration const& _varDecl)
@@ -979,7 +979,7 @@ void IRGenerator::generateConstructors(ContractDefinition const& _contract)
 			t("userDefinedConstructorBody", std::move(body));
 
 			return t.render();
-		});
+		}, false);
 	}
 }
 

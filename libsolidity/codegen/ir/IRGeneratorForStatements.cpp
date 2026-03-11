@@ -341,7 +341,7 @@ std::string IRGeneratorForStatements::constantValueFunction(VariableDeclaration 
 	try
 	{
 		std::string functionName = IRNames::constantValueFunction(_constant);
-		return m_context.functionCollector().createFunction(functionName, [&] {
+		return m_context.functionCollector().createFunction(functionName, [&]() {
 			Whiskers templ(R"(
 				<sourceLocationComment>
 				function <functionName>() -> <ret> {
@@ -359,7 +359,7 @@ std::string IRGeneratorForStatements::constantValueFunction(VariableDeclaration 
 			templ("ret", IRVariable("ret", constantType).commaSeparatedList());
 
 			return templ.render();
-		});
+		}, false);
 	}
 	catch (langutil::UnimplementedFeatureError const& _error)
 	{

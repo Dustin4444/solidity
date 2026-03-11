@@ -153,6 +153,9 @@ public:
 			solAssert(!function.empty(), "");
 			solAssert(function.find("function " + yulName + "(") != std::string::npos, "Function not properly named.");
 			m_code += function;
+#ifndef NDEBUG
+			m_functionBodies[yulName] = function;
+#endif
 		}
 #ifndef NDEBUG
 		else
@@ -165,6 +168,16 @@ public:
 					"Function key collision: same key produced by different tuple types"
 				);
 			}
+			// Re-run the creator and verify body stability.
+			std::string const& yulName = m_keyToYulName.at(key);
+			auto const regenerated = std::apply(
+				[&](auto const&... parts) { return _creator(_caller, yulName, parts...); },
+				_keyParts
+			);
+			solAssert(
+				m_functionBodies.at(yulName) == regenerated,
+				"Function body mismatch on cache hit for: " + yulName
+			);
 		}
 #endif
 		return m_keyToYulName.at(key);
@@ -187,10 +200,13 @@ public:
 	/// Helper function that uses @a _creator to create a function and add it to
 	/// the collected functions if it has not been created yet.
 	/// Uses the name string directly as both the deduplication key and the Yul function name.
-	/// Allows capturing lambdas. Suitable for AST-node-derived names with no collision risk.
+	/// Allows capturing lambdas.
+	/// If @a _pureCreator is true, the creator is re-run on cache hit to verify body stability.
+	/// If false, a cache hit asserts (the name is expected to be globally unique).
 	std::string createFunction(
 		std::string const& _name,
-		std::function<std::string()> const& _creator
+		std::function<std::string()> const& _creator,
+		bool _pureCreator = true
 	);
 
 	/// @returns concatenation of all generated functions in the order in which they were
@@ -240,6 +256,8 @@ private:
 #ifndef NDEBUG
 	/// Maps keys to the typeid hash of the tuple that produced them, for collision detection.
 	std::map<FunctionKey, size_t> m_functionKeyDebugInfo;
+	/// Maps Yul function names to their generated bodies, for body-stability verification.
+	std::map<std::string, std::string> m_functionBodies;
 #endif
 };
 

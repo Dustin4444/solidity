@@ -569,7 +569,7 @@ public:
 	/// The function uses scratch space.
 	/// @return The name of the function.
 	/// Signature: (namespaceIDDataPtr, namespaceIDLength) -> slot
-	std::string erc7201();
+	std::string erc7201() const;
 
 private:
 	/// @returns the name of a function that copies a struct from calldata or memory to storage
