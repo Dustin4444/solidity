@@ -757,15 +757,18 @@ std::string IRGenerator::generateGetter(VariableDeclaration const& _varDecl)
 std::string IRGenerator::generateExternalFunction(ContractDefinition const& _contract, FunctionType const& _functionType)
 {
 	std::string functionName = IRNames::externalFunctionABIWrapper(_functionType.declaration());
-	return m_context.functionCollector().createFunction(functionName, [&](std::vector<std::string>&, std::vector<std::string>&) -> std::string {
+	return m_context.functionCollector().createFunction(functionName, [&]() {
 		Whiskers t(R"X(
-			<callValueCheck>
-			<?+params>let <params> := </+params> <abiDecode>(4, calldatasize())
-			<?+retParams>let <retParams> := </+retParams> <function>(<params>)
-			let memPos := <allocateUnbounded>()
-			let memEnd := <abiEncode>(memPos <?+retParams>,</+retParams> <retParams>)
-			return(memPos, sub(memEnd, memPos))
+			function <functionName>() {
+				<callValueCheck>
+				<?+params>let <params> := </+params> <abiDecode>(4, calldatasize())
+				<?+retParams>let <retParams> := </+retParams> <function>(<params>)
+				let memPos := <allocateUnbounded>()
+				let memEnd := <abiEncode>(memPos <?+retParams>,</+retParams> <retParams>)
+				return(memPos, sub(memEnd, memPos))
+			}
 		)X");
+		t("functionName", functionName);
 		t("callValueCheck", (_functionType.isPayable() || _contract.isLibrary()) ? "" : callValueCheck());
 
 		unsigned paramVars = std::make_shared<TupleType>(_functionType.parameterTypes())->sizeOnStack();

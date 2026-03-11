@@ -30,11 +30,20 @@ using namespace solidity;
 using namespace solidity::frontend;
 using namespace solidity::util;
 
+namespace
+{
+
+// Compile-time checks for FunctionCreatorConcept.
+static_assert(FunctionCreatorConcept<decltype([](int const*, std::string const&){}), int>);
+static_assert(!FunctionCreatorConcept<decltype([x = 0](int const*, std::string const&){ std::ignore = x; }), int>);
+
+}
+
 std::string MultiUseYulFunctionCollector::requestedFunctions()
 {
 	std::string result = std::move(m_code);
 	m_code.clear();
-	m_requestedFunctions.clear();
+	m_requestedFunctionKeys.clear();
 	m_keyToYulName.clear();
 	m_baseCounters.clear();
 	m_yulNames.clear();
@@ -49,21 +58,12 @@ std::string MultiUseYulFunctionCollector::createFunction(
 	std::function<std::string(std::vector<std::string>&, std::vector<std::string>&)> const& _creator
 )
 {
-	solAssert(!_name.empty(), "");
-	solAssert(_name.find('#') == std::string::npos, "Function name must not contain '#'.");
-	if (!m_requestedFunctions.count(_name))
-	{
-		m_requestedFunctions.insert(_name);
-		solAssert(
-			m_yulNames.insert(_name).second,
-			"Yul function name collides with existing name: " + _name
-		);
+	return createFunction(_name, std::function<std::string()>([&]() -> std::string {
 		std::vector<std::string> arguments;
 		std::vector<std::string> returnParameters;
 		std::string body = _creator(arguments, returnParameters);
 		solAssert(!body.empty(), "");
-
-		m_code += Whiskers(R"(
+		return Whiskers(R"(
 			function <functionName>(<args>)<?+retParams> -> <retParams></+retParams> {
 				<body>
 			}
@@ -73,6 +73,28 @@ std::string MultiUseYulFunctionCollector::createFunction(
 		("retParams", joinHumanReadable(returnParameters))
 		("body", body)
 		.render();
+	}));
+}
+
+std::string MultiUseYulFunctionCollector::createFunction(
+	std::string const& _name,
+	std::function<std::string()> const& _creator
+)
+{
+	solAssert(!_name.empty(), "");
+	FunctionKey const key{_name};
+	if (!m_requestedFunctionKeys.contains(key))
+	{
+		m_requestedFunctionKeys.insert(key);
+		solAssert(
+			m_yulNames.insert(_name).second,
+			"Yul function name collides with existing name: " + _name
+		);
+		m_keyToYulName[key] = _name;
+		std::string function = _creator();
+		solAssert(!function.empty(), "");
+		solAssert(function.find("function " + _name + "(") != std::string::npos, "Function not properly named.");
+		m_code += function;
 	}
 	return _name;
 }

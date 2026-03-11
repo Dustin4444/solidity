@@ -1741,17 +1741,19 @@ public:
 	Type const* decodingType() const override;
 };
 
-/// Customization point for MultiUseYulFunctionCollector::buildName.
+/// Customization point for MultiUseYulFunctionCollector::buildKey.
 /// Uses Type::identifier() which is guaranteed to be unique per type.
 inline std::string toKeyString(Type const& _type) { return _type.identifier(); }
 
-/// Customization point for MultiUseYulFunctionCollector::buildName.
-/// Concatenates the identifiers of all types in the vector.
-inline std::string toKeyString(TypePointers const& _types)
+/// Customization point for MultiUseYulFunctionCollector::buildKey.
+/// Each type identifier becomes its own vector element, ensuring structural
+/// unambiguity (no separator-collision between different TypePointers vectors).
+inline std::vector<std::string> toKeyElement(TypePointers const& _types)
 {
-	std::string result;
+	std::vector<std::string> result;
+	result.reserve(_types.size());
 	for (auto const* type: _types)
-		result += type->identifier() + "_";
+		result.push_back(type->identifier());
 	return result;
 }
 

@@ -34,27 +34,6 @@ using namespace solidity;
 using namespace solidity::util;
 using namespace solidity::frontend;
 
-namespace {
-struct TypePointersConversion {
-	TypePointers const& givenTypes;
-	TypePointers const& targetTypes;
-	ABIFunctions::EncodingOptions options;
-	bool const reversed;
-
-	friend std::string toKeyString(TypePointersConversion const& _conversion) {
-		std::string keyString = fmt::format(
-			"{}_to_{}_{}",
-			toKeyString(_conversion.givenTypes),
-			toKeyString(_conversion.targetTypes),
-			_conversion.options.toFunctionNameSuffix()
-		);
-		if (_conversion.reversed)
-			keyString += "_reversed";
-		return keyString;
-	}
-};
-}
-
 std::string ABIFunctions::tupleEncoder(
 	TypePointers const& _givenTypes,
 	TypePointers _targetTypes,
@@ -77,24 +56,12 @@ std::string ABIFunctions::tupleEncoder(
 		solAssert(t);
 	}
 
-	std::string functionName = std::string("abi_encode_tuple_");
-	for (auto const& t: _givenTypes)
-		functionName += t->identifier() + "_";
-	functionName += "_to_";
-	for (auto const& t: _targetTypes)
-		functionName += t->identifier() + "_";
-	functionName += options.toFunctionNameSuffix();
-	if (_reversed)
-		functionName += "_reversed";
-
-	TypePointersConversion const conversion{
-		.givenTypes = _givenTypes,
-		.targetTypes = _targetTypes,
-		.options = options,
-		.reversed = _reversed
-	};
-
-	return m_functionCollector.createFunction(this, "abi_encode_tuple", std::make_tuple(std::cref(conversion)), [](ABIFunctions const* _self, std::string const& _functionName, TypePointersConversion const& _conversion) {
+	return m_functionCollector.createFunction(
+		this, "abi_encode_tuple",
+		std::make_tuple(std::cref(_givenTypes), "to", std::cref(_targetTypes), std::cref(options), _reversed),
+		[](ABIFunctions const* _self, std::string const& _functionName,
+		   TypePointers const& _givenTypes, char const* const&,
+		   TypePointers const& _targetTypes, EncodingOptions const& _options, bool _reversed) {
 		// Note that the values are in reverse due to the difference in calling semantics.
 		Whiskers templ(R"(
 			function <functionName>(headStart <valueParams>) -> tail {
@@ -103,17 +70,17 @@ std::string ABIFunctions::tupleEncoder(
 			}
 		)");
 		templ("functionName", _functionName);
-		size_t const headSize_ = headSize(_conversion.targetTypes);
+		size_t const headSize_ = headSize(_targetTypes);
 		templ("headSize", std::to_string(headSize_));
 		std::string encodeElements;
 		size_t headPos = 0;
 		size_t stackPos = 0;
-		for (size_t i = 0; i < _conversion.givenTypes.size(); ++i)
+		for (size_t i = 0; i < _givenTypes.size(); ++i)
 		{
-			solAssert(_conversion.givenTypes[i]);
-			solAssert(_conversion.targetTypes[i]);
-			size_t sizeOnStack = _conversion.givenTypes[i]->sizeOnStack();
-			bool dynamic = _conversion.targetTypes[i]->isDynamicallyEncoded();
+			solAssert(_givenTypes[i]);
+			solAssert(_targetTypes[i]);
+			size_t sizeOnStack = _givenTypes[i]->sizeOnStack();
+			bool dynamic = _targetTypes[i]->isDynamicallyEncoded();
 			Whiskers elementTempl(
 				dynamic ?
 				std::string(R"(
@@ -127,14 +94,14 @@ std::string ABIFunctions::tupleEncoder(
 			std::string values = suffixedVariableNameList("value", stackPos, stackPos + sizeOnStack);
 			elementTempl("values", values.empty() ? "" : values + ", ");
 			elementTempl("pos", std::to_string(headPos));
-			elementTempl("abiEncode", _self->abiEncodingFunction(*_conversion.givenTypes[i], *_conversion.targetTypes[i], _conversion.options));
+			elementTempl("abiEncode", _self->abiEncodingFunction(*_givenTypes[i], *_targetTypes[i], _options));
 			encodeElements += elementTempl.render();
-			headPos += _conversion.targetTypes[i]->calldataHeadSize();
+			headPos += _targetTypes[i]->calldataHeadSize();
 			stackPos += sizeOnStack;
 		}
 		solAssert(headPos == headSize_, "");
 		std::string valueParams =
-			_conversion.reversed ?
+			_reversed ?
 			suffixedVariableNameList("value", stackPos, 0) :
 			suffixedVariableNameList("value", 0, stackPos);
 		templ("valueParams", valueParams.empty() ? "" : ", " + valueParams);
@@ -164,14 +131,12 @@ std::string ABIFunctions::tupleEncoderPacked(
 		solAssert(t);
 	}
 
-	TypePointersConversion const conversion{
-		.givenTypes = _givenTypes,
-		.targetTypes = _targetTypes,
-		.options = options,
-		.reversed = _reversed
-	};
-
-	return m_functionCollector.createFunction(this, "abi_encode_tuple_packed", std::make_tuple(std::cref(conversion)), [](ABIFunctions const* _self, std::string const& _functionName, TypePointersConversion const& _conversion) {
+	return m_functionCollector.createFunction(
+		this, "abi_encode_tuple_packed",
+		std::make_tuple(std::cref(_givenTypes), "to", std::cref(_targetTypes), std::cref(options), _reversed),
+		[](ABIFunctions const* _self, std::string const& _functionName,
+		   TypePointers const& _givenTypes, char const* const&,
+		   TypePointers const& _targetTypes, EncodingOptions const& _options, bool _reversed) {
 		// Note that the values are in reverse due to the difference in calling semantics.
 		Whiskers templ(R"(
 			function <functionName>(pos <valueParams>) -> end {
@@ -182,12 +147,12 @@ std::string ABIFunctions::tupleEncoderPacked(
 		templ("functionName", _functionName);
 		std::string encodeElements;
 		size_t stackPos = 0;
-		for (size_t i = 0; i < _conversion.givenTypes.size(); ++i)
+		for (size_t i = 0; i < _givenTypes.size(); ++i)
 		{
-			solAssert(_conversion.givenTypes[i], "");
-			solAssert(_conversion.targetTypes[i], "");
-			size_t sizeOnStack = _conversion.givenTypes[i]->sizeOnStack();
-			bool dynamic = _conversion.targetTypes[i]->isDynamicallyEncoded();
+			solAssert(_givenTypes[i], "");
+			solAssert(_targetTypes[i], "");
+			size_t sizeOnStack = _givenTypes[i]->sizeOnStack();
+			bool dynamic = _targetTypes[i]->isDynamicallyEncoded();
 			Whiskers elementTempl(
 				dynamic ?
 				std::string(R"(
@@ -201,13 +166,13 @@ std::string ABIFunctions::tupleEncoderPacked(
 			std::string values = suffixedVariableNameList("value", stackPos, stackPos + sizeOnStack);
 			elementTempl("values", values.empty() ? "" : values + ", ");
 			if (!dynamic)
-				elementTempl("calldataEncodedSize", std::to_string(_conversion.targetTypes[i]->calldataEncodedSize(false)));
-			elementTempl("abiEncode", _self->abiEncodingFunction(*_conversion.givenTypes[i], *_conversion.targetTypes[i], _conversion.options));
+				elementTempl("calldataEncodedSize", std::to_string(_targetTypes[i]->calldataEncodedSize(false)));
+			elementTempl("abiEncode", _self->abiEncodingFunction(*_givenTypes[i], *_targetTypes[i], _options));
 			encodeElements += elementTempl.render();
 			stackPos += sizeOnStack;
 		}
 		std::string valueParams =
-			_conversion.reversed ?
+			_reversed ?
 			suffixedVariableNameList("value", stackPos, 0) :
 			suffixedVariableNameList("value", 0, stackPos);
 		templ("valueParams", valueParams.empty() ? "" : ", " + valueParams);

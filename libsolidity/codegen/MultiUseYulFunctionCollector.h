@@ -22,10 +22,8 @@
 
 #pragma once
 
-#include "fmt/format.h"
-#include "liblangutil/Exceptions.h"
-#include "libsolutil/Keccak256.h"
-
+#include <liblangutil/Exceptions.h>
+#include <libsolutil/Keccak256.h>
 
 #include <concepts>
 #include <functional>
@@ -35,13 +33,22 @@
 #include <string>
 #include <type_traits>
 #include <typeinfo>
+#include <variant>
 #include <vector>
 
 namespace solidity::frontend
 {
 
+/// Structured deduplication key for generated Yul functions.
+/// Each element is either a single string or a vector of strings (for compound key parts
+/// like TypePointers). Using std::variant ensures structural unambiguity: a single-string
+/// element never compares equal to a vector element, and vector elements are compared
+/// element-by-element without any separator-based concatenation.
+using FunctionKeyElement = std::variant<std::string, std::vector<std::string>>;
+using FunctionKey = std::vector<FunctionKeyElement>;
+
 /// @name toKeyString overloads
-/// Customization point for converting key parts to strings for use in generated Yul function names.
+/// Customization point for converting key parts to strings for use in FunctionKey elements.
 /// Generic overloads are provided here. Type-specific overloads (e.g. for Type, EncodingOptions)
 /// should be defined in the namespace of the respective type so they can be found via ADL.
 /// @{
@@ -72,22 +79,25 @@ struct HexKeyString {
 
 /// @}
 
+/// @name toKeyElement overloads
+/// Converts a key part into a FunctionKeyElement (string or vector of strings).
+/// The default delegates to toKeyString(), returning a single std::string.
+/// Overloads returning std::vector<std::string> produce compound key elements
+/// (e.g. for TypePointers, where each type identifier is a separate element).
+/// @{
+
+template<typename T>
+std::string toKeyElement(T const& _v) { return toKeyString(_v); }
+
+template<typename T>
+auto toKeyElement(std::reference_wrapper<T> _ref) { return toKeyElement(_ref.get()); }
+
+/// @}
+
 template<typename F, typename Caller, typename... KeyParts>
 concept FunctionCreatorConcept =
-	std::invocable<F, Caller const*, std::string const&, KeyParts const&...> &&  // can be invoked with (Caller*, base name, key parts)
+	std::invocable<F, Caller const*, std::string const&, KeyParts const&...> &&  // can be invoked with (Caller*, function name, key parts)
 	requires(F f) { +f; };  // can be converted into c function pointer, ie, captureless
-
-namespace detail
-{
-// Function creator concept with `int` as caller
-static_assert(FunctionCreatorConcept<decltype([](int const*, std::string const&){}), int>);
-static void test()
-{
-	int x = 5;
-	// Function creator concept with `int` as caller but with capture
-	static_assert(!FunctionCreatorConcept<decltype([&](int const*, std::string const&){std::ignore = x;}), int>);
-}
-}
 
 /**
  * Container of (unparsed) Yul functions identified by name which are meant to be generated
@@ -96,27 +106,25 @@ static void test()
 class MultiUseYulFunctionCollector
 {
 public:
+	/// Builds a structured deduplication key from a base name and key parts.
+	/// Each key part becomes a separate element in the vector, ensuring unambiguous comparison
+	/// regardless of what characters appear inside individual key part strings.
 	template<typename... KeyParts>
-	std::string buildName(std::string_view const _base, std::tuple<KeyParts...> _keyParts)
+	FunctionKey buildKey(std::string_view _base, std::tuple<KeyParts...> const& _keyParts)
 	{
-		solAssert(_base.find('#') == std::string_view::npos, "Base name must not contain '#'.");
-		std::string name{_base};
+		FunctionKey key;
+		key.emplace_back(std::string{_base});
 		std::apply([&](auto const&... parts) {
-			((name += [&]{
-				auto s = toKeyString(parts);
-				solAssert(s.find('#') == std::string::npos, "Key part must not contain '#'.");
-				return "#" + s;
-			}()), ...);
+			(key.push_back(toKeyElement(parts)), ...);
 		}, _keyParts);
-		return name;
+		return key;
 	}
 
 	/// Helper function that uses @a _creator to create a function and add it to
 	/// @a m_requestedFunctions if it has not been created yet and returns the Yul function
 	/// name in both cases.
-	/// The deduplication key is built from @a _base and @a _keyParts using '#' as separator.
-	/// The actual Yul function name is derived as base_N (with a per-base counter) to avoid
-	/// any '#' characters in the emitted code.
+	/// The deduplication key is a vector built from @a _base and @a _keyParts.
+	/// The actual Yul function name is derived as base_N (with a per-base counter).
 	/// If the creator has arguments, they have to become part of _keyParts which leads to them being
 	/// added as arguments to the creator.
 	template<typename Caller, typename... KeyParts, FunctionCreatorConcept<Caller, KeyParts...> Creator>
@@ -127,23 +135,16 @@ public:
 		Creator _creator
 	)
 	{
-		std::string key = buildName(_base, _keyParts);
-		if (!m_requestedFunctions.contains(key))
+		FunctionKey const key = buildKey(_base, _keyParts);
+		if (!m_requestedFunctionKeys.contains(key))
 		{
-			m_requestedFunctions.insert(key);
+			m_requestedFunctionKeys.insert(key);
 
-			// Assign a clean Yul-valid function name.
-			// The #-separated key is only used for deduplication in m_requestedFunctions.
+			// Assign a clean Yul-valid function name using a per-base counter.
 			std::string yulName = assignYulName(_base, key);
 
 #ifndef NDEBUG
-			{
-				std::vector<std::string> keyStrings;
-				std::apply([&](auto const&... parts) {
-					(keyStrings.push_back(toKeyString(parts)), ...);
-				}, _keyParts);
-				m_functionKeyDebugInfo[key] = {typeid(std::tuple<KeyParts...>).hash_code(), std::move(keyStrings)};
-			}
+			m_functionKeyDebugInfo[key] = typeid(std::tuple<KeyParts...>).hash_code();
 #endif
 			auto const function = std::apply(
 				[&](auto const&... parts) { return _creator(_caller, yulName, parts...); },
@@ -159,21 +160,15 @@ public:
 			auto it = m_functionKeyDebugInfo.find(key);
 			if (it != m_functionKeyDebugInfo.end())
 			{
-				std::vector<std::string> keyStrings;
-				std::apply([&](auto const&... parts) {
-					(keyStrings.push_back(toKeyString(parts)), ...);
-				}, _keyParts);
 				solAssert(
-					it->second.typeHash == typeid(std::tuple<KeyParts...>).hash_code() &&
-					it->second.keyStrings == keyStrings,
-					"Function name collision detected for: " + key
+					it->second == typeid(std::tuple<KeyParts...>).hash_code(),
+					"Function key collision: same key produced by different tuple types"
 				);
 			}
 		}
 #endif
 		return m_keyToYulName.at(key);
 	}
-
 
 	template<typename Caller, FunctionCreatorConcept<Caller> Creator>
 	std::string createFunction(
@@ -189,6 +184,15 @@ public:
 		std::function<std::string(std::vector<std::string>&, std::vector<std::string>&)> const& _creator
 	);
 
+	/// Helper function that uses @a _creator to create a function and add it to
+	/// the collected functions if it has not been created yet.
+	/// Uses the name string directly as both the deduplication key and the Yul function name.
+	/// Allows capturing lambdas. Suitable for AST-node-derived names with no collision risk.
+	std::string createFunction(
+		std::string const& _name,
+		std::function<std::string()> const& _creator
+	);
+
 	/// @returns concatenation of all generated functions in the order in which they were
 	/// generated.
 	/// Clears the internal list, i.e. calling it again will result in an
@@ -196,20 +200,25 @@ public:
 	std::string requestedFunctions();
 
 	/// @returns true IFF a function with the specified name has already been collected.
-	/// @a _name can be either a deduplication key (with '#') or a plain Yul name.
-	bool contains(std::string const& _name) const { return m_requestedFunctions.contains(_name); }
+	bool contains(std::string const& _name) const { return m_yulNames.contains(_name); }
 
 private:
 	/// Assigns a clean Yul-valid function name for the given deduplication key.
-	/// If the key contains '#' (i.e. has key parts), generates base_N using a per-base counter.
-	/// Otherwise uses the key directly as the Yul name.
-	std::string assignYulName(std::string_view _base, std::string const& _key)
+	/// Generates base__N_keypart1_keypart2_... using a per-base counter and flattened key parts.
+	/// The double underscore between base and counter prevents ambiguity when
+	/// one base name is a prefix of another (e.g. "base" vs "base_0").
+	std::string assignYulName(std::string_view _base, FunctionKey const& _key)
 	{
-		std::string yulName;
-		if (_key.find('#') != std::string::npos)
-			yulName = std::string(_base) + "_" + std::to_string(m_baseCounters[std::string(_base)]++);
-		else
-			yulName = _key;
+		std::string yulName = std::string(_base) + "__" + std::to_string(m_baseCounters[std::string(_base)]++);
+		// Append flattened key parts (skip element 0 which is the base name).
+		for (size_t i = 1; i < _key.size(); ++i)
+			std::visit([&]<typename T>(T const& _elem) {
+				if constexpr (std::is_same_v<T, std::string>)
+					yulName += "_" + _elem;
+				else
+					for (auto const& s: _elem)
+						yulName += "_" + s;
+			}, _key[i]);
 		solAssert(
 			m_yulNames.insert(yulName).second,
 			"Generated Yul function name collides with existing name: " + yulName
@@ -218,23 +227,19 @@ private:
 		return yulName;
 	}
 
-	/// Deduplication keys (both #-separated and plain names).
-	std::set<std::string> m_requestedFunctions;
+	/// Structured deduplication keys for all createFunction overloads.
+	std::set<FunctionKey> m_requestedFunctionKeys;
 	std::string m_code;
-	/// Maps deduplication keys to their assigned Yul function names.
-	std::map<std::string, std::string> m_keyToYulName;
+	/// Maps structured keys to their assigned Yul function names.
+	std::map<FunctionKey, std::string> m_keyToYulName;
 	/// Per-base counters for generating unique Yul names (base_0, base_1, ...).
 	std::map<std::string, size_t> m_baseCounters;
-	/// All assigned Yul function names, for collision detection.
+	/// All assigned Yul function names (from both old and new style), for collision detection.
 	std::set<std::string> m_yulNames;
 
 #ifndef NDEBUG
-	struct FunctionKeyInfo
-	{
-		size_t typeHash;
-		std::vector<std::string> keyStrings;
-	};
-	std::map<std::string, FunctionKeyInfo> m_functionKeyDebugInfo;
+	/// Maps keys to the typeid hash of the tuple that produced them, for collision detection.
+	std::map<FunctionKey, size_t> m_functionKeyDebugInfo;
 #endif
 };
 
