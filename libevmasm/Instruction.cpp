@@ -26,7 +26,7 @@ using namespace solidity;
 using namespace solidity::util;
 using namespace solidity::evmasm;
 
-std::map<std::string, Instruction, std::less<>> const solidity::evmasm::c_instructions =
+boost::container::flat_map<std::string, Instruction, std::less<>> const solidity::evmasm::c_instructions =
 {
 	{ "STOP", Instruction::STOP },
 	{ "ADD", Instruction::ADD },
