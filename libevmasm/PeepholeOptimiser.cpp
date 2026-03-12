@@ -117,7 +117,7 @@ struct OpPop: SimplePeepholeOptimizerMethod<OpPop>
 		if (_pop == Instruction::POP && _op.type() == Operation)
 		{
 			Instruction instr = _op.instruction();
-			auto const& info = instructionInfo(instr);
+			auto info = instructionInfo(instr);
 			if (info.ret == 1 && !info.sideEffects)
 			{
 				for (int j = 0; j < info.args; j++)

@@ -272,7 +272,7 @@ bool SemanticInformation::breaksCSEAnalysisBlock(AssemblyItem const& _item, bool
 			return true; // GAS and PC assume a specific order of opcodes
 		if (_item.instruction() == Instruction::MSIZE)
 			return true; // msize is modified already by memory access, avoid that for now
-		InstructionInfo const& info = instructionInfo(_item.instruction());
+		InstructionInfo info = instructionInfo(_item.instruction());
 		if (_item.instruction() == Instruction::SSTORE)
 			return false;
 		if (_item.instruction() == Instruction::MSTORE)
@@ -452,7 +452,7 @@ bool SemanticInformation::movable(Instruction _instruction)
 	// These are not really functional.
 	if (isDupInstruction(_instruction) || isSwapInstruction(_instruction))
 		return false;
-	InstructionInfo const& info = instructionInfo(_instruction);
+	InstructionInfo info = instructionInfo(_instruction);
 	if (info.sideEffects)
 		return false;
 	switch (_instruction)
