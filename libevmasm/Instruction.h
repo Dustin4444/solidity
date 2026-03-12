@@ -497,18 +497,16 @@ consteval std::array<InstructionInfo, 256> buildInstructionInfoTable()
 
 inline constexpr std::array<InstructionInfo, 256> c_instructionInfo = detail::buildInstructionInfoTable();
 
-inline constexpr InstructionInfo c_difficultyInfo = {"DIFFICULTY", 0, 0, 1, false, Tier::Base};
-
 /// Information on all the instructions.
-inline InstructionInfo const& instructionInfo(Instruction _inst, langutil::EVMVersion _evmVersion)
+constexpr InstructionInfo instructionInfo(Instruction _inst, langutil::EVMVersion _evmVersion)
 {
 	if (_inst == Instruction::PREVRANDAO && _evmVersion < langutil::EVMVersion::paris())
-		return c_difficultyInfo;
+		return {"DIFFICULTY", 0, 0, 1, false, Tier::Base};
 	return c_instructionInfo[static_cast<uint8_t>(_inst)];
 }
 
 /// Fast lookup — does not handle the DIFFICULTY alias (pre-Paris).
-inline InstructionInfo const& instructionInfo(Instruction _inst)
+constexpr InstructionInfo instructionInfo(Instruction _inst)
 {
 	return c_instructionInfo[static_cast<uint8_t>(_inst)];
 }
