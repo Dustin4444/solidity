@@ -221,7 +221,7 @@ size_t AssemblyItem::arguments() const
 		solAssert(instruction() != Instruction::CALLF && instruction() != Instruction::JUMPF);
 		// The latest EVMVersion is used here, since the InstructionInfo is assumed to be
 		// the same across all EVM versions except for the instruction name.
-		return static_cast<size_t>(instructionInfo(instruction(), EVMVersion()).args);
+		return static_cast<size_t>(instructionInfo(instruction()).args);
 	}
 	else if (type() == VerbatimBytecode)
 		return std::get<0>(*m_verbatimBytecode);
@@ -243,7 +243,7 @@ size_t AssemblyItem::returnValues() const
 	case RetF:
 		// The latest EVMVersion is used here, since the InstructionInfo is assumed to be
 		// the same across all EVM versions except for the instruction name.
-		return static_cast<size_t>(instructionInfo(instruction(), EVMVersion()).ret);
+		return static_cast<size_t>(instructionInfo(instruction()).ret);
 	case SwapN:
 	case DupN:
 		return static_cast<size_t>(data()) + 1;
@@ -459,7 +459,7 @@ std::ostream& solidity::evmasm::operator<<(std::ostream& _out, AssemblyItem cons
 	case RetF:
 	case SwapN:
 	case DupN:
-		_out << " " << instructionInfo(_item.instruction(), EVMVersion()).name;
+		_out << " " << instructionInfo(_item.instruction()).name;
 		if (_item.instruction() == Instruction::JUMP || _item.instruction() == Instruction::JUMPI)
 			_out << "\t" << _item.getJumpTypeAsString();
 		break;

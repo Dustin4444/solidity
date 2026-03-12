@@ -117,7 +117,7 @@ struct OpPop: SimplePeepholeOptimizerMethod<OpPop>
 		if (_pop == Instruction::POP && _op.type() == Operation)
 		{
 			Instruction instr = _op.instruction();
-			auto const& info = instructionInfo(instr, langutil::EVMVersion());
+			auto const& info = instructionInfo(instr);
 			if (info.ret == 1 && !info.sideEffects)
 			{
 				for (int j = 0; j < info.args; j++)
@@ -142,7 +142,7 @@ struct OpStop: SimplePeepholeOptimizerMethod<OpStop>
 			if (_op.type() == Operation)
 			{
 				Instruction instr = _op.instruction();
-				if (!instructionInfo(instr, langutil::EVMVersion()).sideEffects)
+				if (!instructionInfo(instr).sideEffects)
 				{
 					*_out = {Instruction::STOP, _op.debugData()};
 					return true;
@@ -174,7 +174,7 @@ struct OpReturnRevert: SimplePeepholeOptimizerMethod<OpReturnRevert>
 			(_pushOrDup.type() == Push || _pushOrDup == dupInstruction(1))
 		)
 			if (
-				(_op.type() == Operation && !instructionInfo(_op.instruction(), langutil::EVMVersion()).sideEffects) ||
+				(_op.type() == Operation && !instructionInfo(_op.instruction()).sideEffects) ||
 				_op.type() == Push
 			)
 			{
