@@ -812,7 +812,7 @@ bool AsmAnalyzer::validateInstructions(evmasm::Instruction _instr, SourceLocatio
 			_location,
 			fmt::format(
 				"The \"{instruction}\" instruction is {kind} VMs (you are currently compiling for \"{version}\").",
-				fmt::arg("instruction", boost::to_lower_copy(instructionInfo(_instr, m_evmVersion).name)),
+				fmt::arg("instruction", boost::to_lower_copy(std::string(instructionInfo(_instr, m_evmVersion).name))),
 				fmt::arg("kind", vmKindMessage),
 				fmt::arg("version", m_evmVersion.name())
 			)
@@ -873,7 +873,7 @@ bool AsmAnalyzer::validateInstructions(evmasm::Instruction _instr, SourceLocatio
 			_location,
 			fmt::format(
 				"The \"{instruction}\" instruction is only available in EOF.",
-				fmt::arg("instruction", boost::to_lower_copy(instructionInfo(_instr, m_evmVersion).name))
+				fmt::arg("instruction", boost::to_lower_copy(std::string(instructionInfo(_instr, m_evmVersion).name)))
 			)
 		);
 	}
@@ -901,7 +901,7 @@ bool AsmAnalyzer::validateInstructions(evmasm::Instruction _instr, SourceLocatio
 			_location,
 			fmt::format(
 				"The \"{instruction}\" instruction is {kind} VMs (you are currently compiling to EOF).",
-				fmt::arg("instruction", boost::to_lower_copy(instructionInfo(_instr, m_evmVersion).name)),
+				fmt::arg("instruction", boost::to_lower_copy(std::string(instructionInfo(_instr, m_evmVersion).name))),
 				fmt::arg("kind", "only available in legacy bytecode")
 			)
 		);

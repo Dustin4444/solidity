@@ -635,7 +635,7 @@ void EVMInstructionInterpreter::logTrace(
 )
 {
 	logTrace(
-		evmasm::instructionInfo(_instruction, m_evmVersion).name,
+		std::string(evmasm::instructionInfo(_instruction, m_evmVersion).name),
 		SemanticInformation::memory(_instruction) == SemanticInformation::Effect::Write,
 		_arguments,
 		_data

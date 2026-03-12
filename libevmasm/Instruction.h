@@ -22,13 +22,15 @@
 
 #pragma once
 
-#include <boost/container/detail/addressof.hpp>
-#include <boost/container/flat_map.hpp>
-#include <libevmasm/Exceptions.h>
 #include <liblangutil/EVMVersion.h>
 #include <liblangutil/Exceptions.h>
 #include <libsolutil/Assertions.h>
 #include <libsolutil/Common.h>
+
+#include <array>
+#include <optional>
+#include <span>
+#include <string_view>
 
 namespace solidity::evmasm
 {
@@ -310,21 +312,209 @@ enum class Tier
 /// Information structure for a particular instruction.
 struct InstructionInfo
 {
-	std::string name;   ///< The name of the instruction.
-	int additional;     ///< Additional items required in memory for this instructions (only for PUSH).
-	int args;           ///< Number of items required on the stack for this instruction (and, for the purposes of ret, the number taken from the stack).
-	int ret;            ///< Number of items placed (back) on the stack by this instruction, assuming args items were removed.
-	bool sideEffects;   ///< false if the only effect on the execution environment (apart from gas usage) is a change to a topmost segment of the stack
-	Tier gasPriceTier;  ///< Tier for gas pricing.
+	std::string_view name; ///< The name of the instruction.
+	int additional;        ///< Additional items required in memory for this instructions (only for PUSH).
+	int args;              ///< Number of items required on the stack for this instruction (and, for the purposes of ret, the number taken from the stack).
+	int ret;               ///< Number of items placed (back) on the stack by this instruction, assuming args items were removed.
+	bool sideEffects;      ///< false if the only effect on the execution environment (apart from gas usage) is a change to a topmost segment of the stack
+	Tier gasPriceTier;     ///< Tier for gas pricing.
 };
 
+namespace detail {
+consteval std::array<InstructionInfo, 256> buildInstructionInfoTable()
+{
+	std::array<InstructionInfo, 256> t{};
+	auto set = [&](Instruction i, std::string_view n, int a, int ar, int r, bool se, Tier g) {
+		t[static_cast<uint8_t>(i)] = {n, a, ar, r, se, g};
+	};
+	//                                                        Add Args Ret SideEffects GasPriceTier
+	set(Instruction::STOP,           "STOP",            0,  0,   0,  true,       Tier::Zero);
+	set(Instruction::ADD,            "ADD",             0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::SUB,            "SUB",             0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::MUL,            "MUL",             0,  2,   1,  false,      Tier::Low);
+	set(Instruction::DIV,            "DIV",             0,  2,   1,  false,      Tier::Low);
+	set(Instruction::SDIV,           "SDIV",            0,  2,   1,  false,      Tier::Low);
+	set(Instruction::MOD,            "MOD",             0,  2,   1,  false,      Tier::Low);
+	set(Instruction::SMOD,           "SMOD",            0,  2,   1,  false,      Tier::Low);
+	set(Instruction::EXP,            "EXP",             0,  2,   1,  false,      Tier::Special);
+	set(Instruction::NOT,            "NOT",             0,  1,   1,  false,      Tier::VeryLow);
+	set(Instruction::LT,             "LT",              0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::GT,             "GT",              0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::SLT,            "SLT",             0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::SGT,            "SGT",             0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::EQ,             "EQ",              0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::ISZERO,         "ISZERO",          0,  1,   1,  false,      Tier::VeryLow);
+	set(Instruction::AND,            "AND",             0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::OR,             "OR",              0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::XOR,            "XOR",             0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::BYTE,           "BYTE",            0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::SHL,            "SHL",             0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::SHR,            "SHR",             0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::SAR,            "SAR",             0,  2,   1,  false,      Tier::VeryLow);
+	set(Instruction::CLZ,            "CLZ",             0,  1,   1,  false,      Tier::Low);
+	set(Instruction::ADDMOD,         "ADDMOD",          0,  3,   1,  false,      Tier::Mid);
+	set(Instruction::MULMOD,         "MULMOD",          0,  3,   1,  false,      Tier::Mid);
+	set(Instruction::SIGNEXTEND,     "SIGNEXTEND",      0,  2,   1,  false,      Tier::Low);
+	set(Instruction::KECCAK256,      "KECCAK256",       0,  2,   1,  true,       Tier::Special);
+	set(Instruction::ADDRESS,        "ADDRESS",         0,  0,   1,  false,      Tier::Base);
+	set(Instruction::BALANCE,        "BALANCE",         0,  1,   1,  false,      Tier::Special);
+	set(Instruction::ORIGIN,         "ORIGIN",          0,  0,   1,  false,      Tier::Base);
+	set(Instruction::CALLER,         "CALLER",          0,  0,   1,  false,      Tier::Base);
+	set(Instruction::CALLVALUE,      "CALLVALUE",       0,  0,   1,  false,      Tier::Base);
+	set(Instruction::CALLDATALOAD,   "CALLDATALOAD",    0,  1,   1,  false,      Tier::VeryLow);
+	set(Instruction::CALLDATASIZE,   "CALLDATASIZE",    0,  0,   1,  false,      Tier::Base);
+	set(Instruction::CALLDATACOPY,   "CALLDATACOPY",    0,  3,   0,  true,       Tier::VeryLow);
+	set(Instruction::CODESIZE,       "CODESIZE",        0,  0,   1,  false,      Tier::Base);
+	set(Instruction::CODECOPY,       "CODECOPY",        0,  3,   0,  true,       Tier::VeryLow);
+	set(Instruction::GASPRICE,       "GASPRICE",        0,  0,   1,  false,      Tier::Base);
+	set(Instruction::EXTCODESIZE,    "EXTCODESIZE",     0,  1,   1,  false,      Tier::Special);
+	set(Instruction::EXTCODECOPY,    "EXTCODECOPY",     0,  4,   0,  true,       Tier::Special);
+	set(Instruction::RETURNDATASIZE, "RETURNDATASIZE",  0,  0,   1,  false,      Tier::Base);
+	set(Instruction::RETURNDATACOPY, "RETURNDATACOPY",  0,  3,   0,  true,       Tier::VeryLow);
+	set(Instruction::MCOPY,          "MCOPY",           0,  3,   0,  true,       Tier::VeryLow);
+	set(Instruction::EXTCODEHASH,    "EXTCODEHASH",     0,  1,   1,  false,      Tier::Special);
+	set(Instruction::BLOCKHASH,      "BLOCKHASH",       0,  1,   1,  false,      Tier::BlockHash);
+	set(Instruction::BLOBHASH,       "BLOBHASH",        0,  1,   1,  false,      Tier::VeryLow);
+	set(Instruction::COINBASE,       "COINBASE",        0,  0,   1,  false,      Tier::Base);
+	set(Instruction::TIMESTAMP,      "TIMESTAMP",       0,  0,   1,  false,      Tier::Base);
+	set(Instruction::NUMBER,         "NUMBER",          0,  0,   1,  false,      Tier::Base);
+	set(Instruction::PREVRANDAO,     "PREVRANDAO",      0,  0,   1,  false,      Tier::Base);
+	set(Instruction::GASLIMIT,       "GASLIMIT",        0,  0,   1,  false,      Tier::Base);
+	set(Instruction::CHAINID,        "CHAINID",         0,  0,   1,  false,      Tier::Base);
+	set(Instruction::SELFBALANCE,    "SELFBALANCE",     0,  0,   1,  false,      Tier::Low);
+	set(Instruction::BASEFEE,        "BASEFEE",         0,  0,   1,  false,      Tier::Base);
+	set(Instruction::BLOBBASEFEE,    "BLOBBASEFEE",     0,  0,   1,  false,      Tier::Base);
+	set(Instruction::POP,            "POP",             0,  1,   0,  false,      Tier::Base);
+	set(Instruction::MLOAD,          "MLOAD",           0,  1,   1,  true,       Tier::VeryLow);
+	set(Instruction::MSTORE,         "MSTORE",          0,  2,   0,  true,       Tier::VeryLow);
+	set(Instruction::MSTORE8,        "MSTORE8",         0,  2,   0,  true,       Tier::VeryLow);
+	set(Instruction::SLOAD,          "SLOAD",           0,  1,   1,  false,      Tier::Special);
+	set(Instruction::SSTORE,         "SSTORE",          0,  2,   0,  true,       Tier::Special);
+	set(Instruction::TLOAD,          "TLOAD",           0,  1,   1,  false,      Tier::WarmAccess);
+	set(Instruction::TSTORE,         "TSTORE",          0,  2,   0,  true,       Tier::WarmAccess);
+	set(Instruction::JUMP,           "JUMP",            0,  1,   0,  true,       Tier::Mid);
+	set(Instruction::JUMPI,          "JUMPI",           0,  2,   0,  true,       Tier::High);
+	set(Instruction::PC,             "PC",              0,  0,   1,  false,      Tier::Base);
+	set(Instruction::MSIZE,          "MSIZE",           0,  0,   1,  false,      Tier::Base);
+	set(Instruction::GAS,            "GAS",             0,  0,   1,  false,      Tier::Base);
+	set(Instruction::JUMPDEST,       "JUMPDEST",        0,  0,   0,  true,       Tier::Special);
+	set(Instruction::DATALOADN,      "DATALOADN",       2,  0,   1,  true,       Tier::Low);
+	set(Instruction::RJUMP,          "RJUMP",           2,  0,   0,  true,       Tier::RJump);
+	set(Instruction::RJUMPI,         "RJUMPI",          2,  1,   0,  true,       Tier::RJumpI);
+	set(Instruction::PUSH0,          "PUSH0",           0,  0,   1,  false,      Tier::Base);
+	set(Instruction::PUSH1,          "PUSH1",           1,  0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH2,          "PUSH2",           2,  0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH3,          "PUSH3",           3,  0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH4,          "PUSH4",           4,  0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH5,          "PUSH5",           5,  0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH6,          "PUSH6",           6,  0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH7,          "PUSH7",           7,  0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH8,          "PUSH8",           8,  0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH9,          "PUSH9",           9,  0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH10,         "PUSH10",          10, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH11,         "PUSH11",          11, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH12,         "PUSH12",          12, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH13,         "PUSH13",          13, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH14,         "PUSH14",          14, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH15,         "PUSH15",          15, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH16,         "PUSH16",          16, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH17,         "PUSH17",          17, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH18,         "PUSH18",          18, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH19,         "PUSH19",          19, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH20,         "PUSH20",          20, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH21,         "PUSH21",          21, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH22,         "PUSH22",          22, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH23,         "PUSH23",          23, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH24,         "PUSH24",          24, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH25,         "PUSH25",          25, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH26,         "PUSH26",          26, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH27,         "PUSH27",          27, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH28,         "PUSH28",          28, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH29,         "PUSH29",          29, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH30,         "PUSH30",          30, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH31,         "PUSH31",          31, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::PUSH32,         "PUSH32",          32, 0,   1,  false,      Tier::VeryLow);
+	set(Instruction::DUP1,           "DUP1",            0,  1,   2,  false,      Tier::VeryLow);
+	set(Instruction::DUP2,           "DUP2",            0,  2,   3,  false,      Tier::VeryLow);
+	set(Instruction::DUP3,           "DUP3",            0,  3,   4,  false,      Tier::VeryLow);
+	set(Instruction::DUP4,           "DUP4",            0,  4,   5,  false,      Tier::VeryLow);
+	set(Instruction::DUP5,           "DUP5",            0,  5,   6,  false,      Tier::VeryLow);
+	set(Instruction::DUP6,           "DUP6",            0,  6,   7,  false,      Tier::VeryLow);
+	set(Instruction::DUP7,           "DUP7",            0,  7,   8,  false,      Tier::VeryLow);
+	set(Instruction::DUP8,           "DUP8",            0,  8,   9,  false,      Tier::VeryLow);
+	set(Instruction::DUP9,           "DUP9",            0,  9,   10, false,      Tier::VeryLow);
+	set(Instruction::DUP10,          "DUP10",           0,  10,  11, false,      Tier::VeryLow);
+	set(Instruction::DUP11,          "DUP11",           0,  11,  12, false,      Tier::VeryLow);
+	set(Instruction::DUP12,          "DUP12",           0,  12,  13, false,      Tier::VeryLow);
+	set(Instruction::DUP13,          "DUP13",           0,  13,  14, false,      Tier::VeryLow);
+	set(Instruction::DUP14,          "DUP14",           0,  14,  15, false,      Tier::VeryLow);
+	set(Instruction::DUP15,          "DUP15",           0,  15,  16, false,      Tier::VeryLow);
+	set(Instruction::DUP16,          "DUP16",           0,  16,  17, false,      Tier::VeryLow);
+	set(Instruction::SWAP1,          "SWAP1",           0,  2,   2,  false,      Tier::VeryLow);
+	set(Instruction::SWAP2,          "SWAP2",           0,  3,   3,  false,      Tier::VeryLow);
+	set(Instruction::SWAP3,          "SWAP3",           0,  4,   4,  false,      Tier::VeryLow);
+	set(Instruction::SWAP4,          "SWAP4",           0,  5,   5,  false,      Tier::VeryLow);
+	set(Instruction::SWAP5,          "SWAP5",           0,  6,   6,  false,      Tier::VeryLow);
+	set(Instruction::SWAP6,          "SWAP6",           0,  7,   7,  false,      Tier::VeryLow);
+	set(Instruction::SWAP7,          "SWAP7",           0,  8,   8,  false,      Tier::VeryLow);
+	set(Instruction::SWAP8,          "SWAP8",           0,  9,   9,  false,      Tier::VeryLow);
+	set(Instruction::SWAP9,          "SWAP9",           0,  10,  10, false,      Tier::VeryLow);
+	set(Instruction::SWAP10,         "SWAP10",          0,  11,  11, false,      Tier::VeryLow);
+	set(Instruction::SWAP11,         "SWAP11",          0,  12,  12, false,      Tier::VeryLow);
+	set(Instruction::SWAP12,         "SWAP12",          0,  13,  13, false,      Tier::VeryLow);
+	set(Instruction::SWAP13,         "SWAP13",          0,  14,  14, false,      Tier::VeryLow);
+	set(Instruction::SWAP14,         "SWAP14",          0,  15,  15, false,      Tier::VeryLow);
+	set(Instruction::SWAP15,         "SWAP15",          0,  16,  16, false,      Tier::VeryLow);
+	set(Instruction::SWAP16,         "SWAP16",          0,  17,  17, false,      Tier::VeryLow);
+	set(Instruction::LOG0,           "LOG0",            0,  2,   0,  true,       Tier::Special);
+	set(Instruction::LOG1,           "LOG1",            0,  3,   0,  true,       Tier::Special);
+	set(Instruction::LOG2,           "LOG2",            0,  4,   0,  true,       Tier::Special);
+	set(Instruction::LOG3,           "LOG3",            0,  5,   0,  true,       Tier::Special);
+	set(Instruction::LOG4,           "LOG4",            0,  6,   0,  true,       Tier::Special);
+	set(Instruction::RETF,           "RETF",            0,  0,   0,  true,       Tier::RetF);
+	set(Instruction::CALLF,          "CALLF",           2,  0,   0,  true,       Tier::CallF);
+	set(Instruction::JUMPF,          "JUMPF",           2,  0,   0,  true,       Tier::JumpF);
+	set(Instruction::SWAPN,          "SWAPN",           1,  0,   0,  false,      Tier::VeryLow);
+	set(Instruction::DUPN,           "DUPN",            1,  0,   0,  false,      Tier::VeryLow);
+	set(Instruction::EOFCREATE,      "EOFCREATE",       1,  4,   1,  true,       Tier::Special);
+	set(Instruction::RETURNCONTRACT, "RETURNCONTRACT",  1,  2,   0,  true,       Tier::Special);
+	set(Instruction::CREATE,         "CREATE",          0,  3,   1,  true,       Tier::Special);
+	set(Instruction::CALL,           "CALL",            0,  7,   1,  true,       Tier::Special);
+	set(Instruction::CALLCODE,       "CALLCODE",        0,  7,   1,  true,       Tier::Special);
+	set(Instruction::RETURN,         "RETURN",          0,  2,   0,  true,       Tier::Zero);
+	set(Instruction::DELEGATECALL,   "DELEGATECALL",    0,  6,   1,  true,       Tier::Special);
+	set(Instruction::STATICCALL,     "STATICCALL",      0,  6,   1,  true,       Tier::Special);
+	set(Instruction::EXTCALL,        "EXTCALL",         0,  4,   1,  true,       Tier::Special);
+	set(Instruction::EXTDELEGATECALL,"EXTDELEGATECALL", 0,  3,   1,  true,       Tier::Special);
+	set(Instruction::EXTSTATICCALL,  "EXTSTATICCALL",   0,  3,   1,  true,       Tier::Special);
+	set(Instruction::CREATE2,        "CREATE2",         0,  4,   1,  true,       Tier::Special);
+	set(Instruction::REVERT,         "REVERT",          0,  2,   0,  true,       Tier::Zero);
+	set(Instruction::INVALID,        "INVALID",         0,  0,   0,  true,       Tier::Zero);
+	set(Instruction::SELFDESTRUCT,   "SELFDESTRUCT",    0,  1,   0,  true,       Tier::Special);
+	return t;
+}
+} // namespace detail
+
+inline constexpr std::array<InstructionInfo, 256> c_instructionInfo = detail::buildInstructionInfoTable();
+
 /// Information on all the instructions.
-InstructionInfo instructionInfo(Instruction _inst, langutil::EVMVersion _evmVersion);
+constexpr InstructionInfo instructionInfo(Instruction _inst, langutil::EVMVersion _evmVersion)
+{
+	if (_inst == Instruction::PREVRANDAO && _evmVersion < langutil::EVMVersion::paris())
+		return {"DIFFICULTY", 0, 0, 1, false, Tier::Base};
+	return c_instructionInfo[static_cast<uint8_t>(_inst)];
+}
 
 /// check whether instructions exists.
-bool isValidInstruction(Instruction _inst);
+constexpr bool isValidInstruction(Instruction _inst)
+{
+	return !c_instructionInfo[static_cast<uint8_t>(_inst)].name.empty();
+}
 
-/// Convert from string mnemonic to Instruction type.
-extern const boost::container::flat_map<std::string, Instruction, std::less<>> c_instructions;
+/// O(log n) lookup via sorted array: string mnemonic -> Instruction. Includes "DIFFICULTY" alias.
+std::optional<Instruction> instructionByName(std::string_view _name);
+
+/// All (name, instruction) pairs for iteration. Includes "DIFFICULTY" alias.
+std::span<std::pair<std::string_view, Instruction> const> allNamedInstructions();
 
 }

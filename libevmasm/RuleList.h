@@ -23,6 +23,7 @@
 #pragma once
 
 
+#include <libevmasm/Exceptions.h>
 #include <libevmasm/Instruction.h>
 #include <libevmasm/SimplificationRule.h>
 

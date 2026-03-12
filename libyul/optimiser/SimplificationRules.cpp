@@ -251,7 +251,7 @@ Expression Pattern::toExpression(langutil::DebugData::ConstPtr const& _debugData
 
 		if (!m_instructionBuiltinHandle)
 		{
-			std::string name = util::toLower(instructionInfo(m_instruction, _dialect.evmVersion()).name);
+			std::string name = util::toLower(std::string(instructionInfo(m_instruction, _dialect.evmVersion()).name));
 			std::optional<BuiltinHandle> handle = _dialect.findBuiltin(name);
 			yulAssert(handle);
 			m_instructionBuiltinHandle = *handle;

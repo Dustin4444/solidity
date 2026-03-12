@@ -63,7 +63,7 @@ BuiltinFunctionForEVM instructionBuiltin(evmasm::Instruction const& _instruction
 {
 	evmasm::InstructionInfo const info = evmasm::instructionInfo(_instruction, _evmVersion);
 	BuiltinFunctionForEVM f;
-	f.name = util::toLower(info.name);
+	f.name = util::toLower(std::string(info.name));
 	f.numParameters = static_cast<size_t>(info.args);
 	f.numReturns = static_cast<size_t>(info.ret);
 	f.sideEffects = EVMBuiltins::sideEffectsOfInstruction(_instruction);
@@ -321,7 +321,7 @@ BuiltinFunctionForEVM returncontractBuiltin()
 
 EVMBuiltins::EVMBuiltins()
 {
-	for (auto const& [name, opcode]: evmasm::c_instructions)
+	for (auto const& [instrName, opcode]: evmasm::allNamedInstructions())
 	{
 		if (
 			opcode == evmasm::Instruction::SWAPN ||
@@ -332,7 +332,7 @@ EVMBuiltins::EVMBuiltins()
 			continue;
 
 		// difficulty was replaced by prevrandao after london
-		if (opcode == evmasm::Instruction::PREVRANDAO && name == "DIFFICULTY")
+		if (opcode == evmasm::Instruction::PREVRANDAO && instrName == "DIFFICULTY")
 			m_scopesAndFunctions.emplace_back(instruction, instructionBuiltin(opcode, langutil::EVMVersion::london()));
 		else
 			m_scopesAndFunctions.emplace_back(instruction, instructionBuiltin(opcode, langutil::EVMVersion::current()));

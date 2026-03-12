@@ -236,9 +236,9 @@ AssemblyItem Assembly::createAssemblyItemFromJSON(Json const& _json, std::vector
 
 	AssemblyItem result(0);
 
-	if (c_instructions.count(name))
+	if (auto instr = instructionByName(name))
 	{
-		AssemblyItem item{c_instructions.at(name), langutil::DebugData::create(location)};
+		AssemblyItem item{*instr, langutil::DebugData::create(location)};
 		if (!jumpType.empty())
 		{
 			if (item.instruction() == Instruction::JUMP || item.instruction() == Instruction::JUMPI)

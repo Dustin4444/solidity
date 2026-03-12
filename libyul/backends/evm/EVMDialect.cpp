@@ -150,18 +150,18 @@ std::set<std::string, std::less<>> createReservedIdentifiers(langutil::EVMVersio
 	};
 
 	std::set<std::string, std::less<>> reserved;
-	for (auto const& instr: evmasm::c_instructions)
+	for (auto const& [instrName, opcode]: evmasm::allNamedInstructions())
 	{
-		std::string name = toLower(instr.first);
+		std::string name = toLower(std::string(instrName));
 		if (
-			!baseFeeException(instr.second) &&
+			!baseFeeException(opcode) &&
 			!prevRandaoException(name) &&
-			!blobHashException(instr.second) &&
-			!blobBaseFeeException(instr.second) &&
-			!mcopyException(instr.second) &&
-			!transientStorageException(instr.second) &&
-			!clzException(instr.second) &&
-			!eofIdentifiersException(instr.second)
+			!blobHashException(opcode) &&
+			!blobBaseFeeException(opcode) &&
+			!mcopyException(opcode) &&
+			!transientStorageException(opcode) &&
+			!clzException(opcode) &&
+			!eofIdentifiersException(opcode)
 		)
 			reserved.emplace(name);
 	}

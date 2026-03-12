@@ -76,7 +76,7 @@ Json PlainAssemblyParser::parseAssembly(size_t _nestingLevel)
 		else if (assemblyJSON.contains(".data"))
 			BOOST_THROW_EXCEPTION(std::runtime_error(formatError("The code of an assembly must be specified before its subassemblies.")));
 
-		if (c_instructions.contains(currentToken().value) || currentToken().value == "PUSHSIZE")
+		if (instructionByName(currentToken().value).has_value() || currentToken().value == "PUSHSIZE")
 		{
 			expectNoMoreArguments();
 			codeJSON.push_back({{"name", currentToken().value}});

@@ -298,7 +298,7 @@ unsigned GasMeter::runGas(Instruction _instruction, langutil::EVMVersion _evmVer
 
 	if (auto gasCost = gasCostForTier(instructionInfo(_instruction, _evmVersion).gasPriceTier))
 		return *gasCost;
-	solAssert(false, "Invalid gas tier for instruction " + instructionInfo(_instruction, _evmVersion).name);
+	solAssert(false, "Invalid gas tier for instruction " + std::string(instructionInfo(_instruction, _evmVersion).name));
 }
 
 unsigned GasMeter::pushGas(u256 _value, langutil::EVMVersion _evmVersion)

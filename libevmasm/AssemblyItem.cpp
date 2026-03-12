@@ -91,10 +91,10 @@ std::pair<std::string, std::string> AssemblyItem::nameAndData(langutil::EVMVersi
 	case CallF:
 	case JumpF:
 	case RetF:
-		return {instructionInfo(instruction(), _evmVersion).name, ""};
+		return {std::string(instructionInfo(instruction(), _evmVersion).name), ""};
 	case SwapN:
 	case DupN:
-		return {instructionInfo(instruction(), _evmVersion).name, util::toString(static_cast<size_t>(data())) };
+		return {std::string(instructionInfo(instruction(), _evmVersion).name), util::toString(static_cast<size_t>(data())) };
 	case Push:
 		return {"PUSH", toStringInHex(data())};
 	case PushTag:
@@ -345,7 +345,7 @@ std::string AssemblyItem::toAssemblyText(Assembly const& _assembly) const
 	case Operation:
 	{
 		assertThrow(isValidInstruction(instruction()), AssemblyException, "Invalid instruction.");
-		text = util::toLower(instructionInfo(instruction(), _assembly.evmVersion()).name);
+		text = util::toLower(std::string(instructionInfo(instruction(), _assembly.evmVersion()).name));
 		break;
 	}
 	case Push:
