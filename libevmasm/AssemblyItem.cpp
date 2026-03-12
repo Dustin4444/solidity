@@ -345,7 +345,10 @@ std::string AssemblyItem::toAssemblyText(Assembly const& _assembly) const
 	case Operation:
 	{
 		assertThrow(isValidInstruction(instruction()), AssemblyException, "Invalid instruction.");
-		text = util::toLower(std::string(instructionInfo(instruction(), _assembly.evmVersion()).name));
+		if (instruction() == Instruction::PREVRANDAO && _assembly.evmVersion() < langutil::EVMVersion::paris())
+			text = "difficulty";
+		else
+			text = instructionNameLower(instruction());
 		break;
 	}
 	case Push:

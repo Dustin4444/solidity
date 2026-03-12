@@ -493,22 +493,54 @@ consteval std::array<InstructionInfo, 256> buildInstructionInfoTable()
 	set(Instruction::SELFDESTRUCT,   "SELFDESTRUCT",    0,  1,   0,  true,       Tier::Special);
 	return t;
 }
+struct LowerName
+{
+	char buf[16] = {};
+	uint8_t len = 0;
+	constexpr std::string_view view() const { return {buf, len}; }
+};
+
+consteval std::array<LowerName, 256> buildLowerNameTable()
+{
+	auto t = buildInstructionInfoTable();
+	std::array<LowerName, 256> r{};
+	for (int i = 0; i < 256; ++i)
+	{
+		auto sv = t[static_cast<size_t>(i)].name;
+		r[static_cast<size_t>(i)].len = static_cast<uint8_t>(sv.size());
+		for (size_t j = 0; j < sv.size() && j < 16; ++j)
+			r[static_cast<size_t>(i)].buf[j] = (sv[j] >= 'A' && sv[j] <= 'Z')
+				? static_cast<char>(sv[j] + ('a' - 'A'))
+				: sv[j];
+	}
+	return r;
+}
+
 } // namespace detail
 
 inline constexpr std::array<InstructionInfo, 256> c_instructionInfo = detail::buildInstructionInfoTable();
+inline constexpr std::array<detail::LowerName, 256> c_instructionNameLower = detail::buildLowerNameTable();
+
+inline constexpr InstructionInfo c_difficultyInfo = {"DIFFICULTY", 0, 0, 1, false, Tier::Base};
 
 /// Information on all the instructions.
-constexpr InstructionInfo instructionInfo(Instruction _inst, langutil::EVMVersion _evmVersion)
+inline InstructionInfo const& instructionInfo(Instruction _inst, langutil::EVMVersion _evmVersion)
 {
 	if (_inst == Instruction::PREVRANDAO && _evmVersion < langutil::EVMVersion::paris())
-		return {"DIFFICULTY", 0, 0, 1, false, Tier::Base};
+		return c_difficultyInfo;
 	return c_instructionInfo[static_cast<uint8_t>(_inst)];
 }
 
 /// Fast lookup — does not handle the DIFFICULTY alias (pre-Paris).
-constexpr InstructionInfo instructionInfo(Instruction _inst)
+inline InstructionInfo const& instructionInfo(Instruction _inst)
 {
 	return c_instructionInfo[static_cast<uint8_t>(_inst)];
+}
+
+/// Lowercase instruction name, precomputed. Does not handle the DIFFICULTY alias.
+constexpr std::string_view instructionNameLower(Instruction _inst)
+{
+	return c_instructionNameLower[static_cast<uint8_t>(_inst)].view();
 }
 
 /// check whether instructions exists.
