@@ -9,7 +9,6 @@ contract C {
 // Every case below which uses -999 as offset has tail at a negative position and should revert.
 // ====
 // revertStrings: debug
-// compileViaYul: true
 // ----
 // accessTop(bytes[][][]): 0x20, 1, 0x20, 1, 0x20, 1, 0x20, 0  -> 0x20, 1, 0x20, 1, 0x20, 1, 0x20, 0
 // accessTop(bytes[][][]): 0x20, 1, 0x20, 1, 0x20, 1, -999 ->     FAILURE, hex"08c379a0", 0x20, 43, "ABI decoding: invalid calldata a", "rray offset"

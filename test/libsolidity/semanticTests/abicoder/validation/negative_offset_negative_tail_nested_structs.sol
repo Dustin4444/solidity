@@ -38,12 +38,10 @@ contract SolidityCalldataAccess {
         );
     }
 }
-// NOTE: evmasm behavior differs from IR - IR does report a validation error in accessAndReturn()
 // ====
 // revertStrings: debug
-// compileViaYul: false
 // ----
-// accessAndReturn(((uint256,bytes,uint256))): 32, -100 -> 0, 0x60, 0x72cf883500000000000000000000000000000000000000000000000000000000, 0
+// accessAndReturn(((uint256,bytes,uint256))): 32, -100 -> FAILURE, hex"08c379a0", 0x20, 39, "ABI decoding: invalid byte array", " length"
 // accessAndEmit(((uint256,bytes,uint256))): 32, -100 ->
 // ~ emit LogUint256(uint256): 0x00
 // ~ emit LogBytes(bytes): 0x20, 0x00
