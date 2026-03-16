@@ -554,8 +554,7 @@ public:
 	/// @returns function name that returns constructor arguments copied to memory
 	/// signature: () -> arguments
 	std::string copyConstructorArgumentsToMemoryFunction(
-		ContractDefinition const& _contract,
-		std::string const& _creationObjectName
+		ContractDefinition const& _contract
 	);
 
 	/// @returns the name of a function that copies code from a given address to a newly

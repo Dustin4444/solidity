@@ -24,6 +24,7 @@
 #include <libsolidity/codegen/MultiUseYulFunctionCollector.h>
 #include <libsolidity/ast/AST.h>
 #include <libsolidity/codegen/CompilerUtils.h>
+#include <libsolidity/codegen/ir/Common.h>
 #include <libsolidity/codegen/ir/IRVariable.h>
 
 #include <libsolutil/CommonData.h>
@@ -4589,6 +4590,10 @@ std::string YulUtilFunctions::readFromMemoryOrCalldata(Type const& _type, bool _
 
 std::string YulUtilFunctions::revertReasonIfDebugFunction(std::string const& _message)
 {
+	if (m_revertStrings < RevertStrings::Debug || _message.empty())
+		return m_functionCollector.createFunction("revert_noop", [&]() {
+			return "function revert_noop() { revert(0, 0) }\n";
+		});
 	std::string functionName = "revert_error_" + util::toHex(util::keccak256(_message).asBytes());
 	return m_functionCollector.createFunction(functionName, [&](auto&, auto&) -> std::string {
 		return revertReasonIfDebugBody(m_revertStrings, allocateUnboundedFunction() + "()", _message);
@@ -4762,8 +4767,7 @@ std::string YulUtilFunctions::extractReturndataFunction()
 }
 
 std::string YulUtilFunctions::copyConstructorArgumentsToMemoryFunction(
-	ContractDefinition const& _contract,
-	std::string const& _creationObjectName
+	ContractDefinition const& _contract
 )
 {
 	std::string functionName = "copy_arguments_for_constructor_" +
@@ -4796,7 +4800,7 @@ std::string YulUtilFunctions::copyConstructorArgumentsToMemoryFunction(
 		)")
 		("functionName", functionName)
 		("retParams", returnParams)
-		("object", _creationObjectName)
+		("object", IRNames::creationObject(_contract))
 		("allocate", allocationFunction())
 		("abiDecode", abiFunctions.tupleDecoder(FunctionType(*_contract.constructor()).parameterTypes(), true))
 		("eof", m_eofVersion.has_value())
