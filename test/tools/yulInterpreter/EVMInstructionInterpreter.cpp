@@ -390,6 +390,7 @@ u256 EVMInstructionInterpreter::eval(
 	// --------------- calls ---------------
 	case Instruction::CREATE:
 		accessMemory(arg[1], arg[2]);
+		chargeCopyWordCost(arg[2]);
 		logTrace(_instruction, arg);
 		if (arg[2] != 0)
 			return (0xcccccc + arg[1]) & u256("0xffffffffffffffffffffffffffffffffffffffff");
@@ -397,6 +398,7 @@ u256 EVMInstructionInterpreter::eval(
 			return 0xcccccc;
 	case Instruction::CREATE2:
 		accessMemory(arg[1], arg[2]);
+		chargeCopyWordCost(arg[2]);
 		logTrace(_instruction, arg);
 		if (arg[2] != 0)
 			return (0xdddddd + arg[1]) & u256("0xffffffffffffffffffffffffffffffffffffffff");
@@ -607,7 +609,7 @@ u256 EVMInstructionInterpreter::evalBuiltin(
 			_evaluatedArguments.at(2) != 0 &&
 			accessMemory(_evaluatedArguments.at(0), _evaluatedArguments.at(2))
 		) {
-			chargeCost(_evaluatedArguments.at(2));
+			chargeCopyWordCost(_evaluatedArguments.at(2));
 			copyZeroExtended(
 				m_state.memory,
 				m_state.code,
