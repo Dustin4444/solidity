@@ -102,3 +102,7 @@ To be consistent and aid better evaluation of the utility of the fuzzing diction
   compiles and hopes it crashes. NOTE: does not work well it seems
 - `solc_ossfuzz.cpp`: exe is `solc_mutator_ossfuzz`. Same as above, but with mutator included.
   I sincerely think this mutator thing is junk.
+- `StackReuseCodegenFuzzer.cpp`: exe is `stack_reuse_codegen_ossfuzz`. Generates random Yul via
+  Protobuf, compiles with and without stack-reuse optimisation (i.e. `optimizeStackAllocation`),
+  executes both via evmone, and asserts that the resulting EVM state is identical. The goal is to
+  catch miscompilations introduced by the stack-reuse code-generation pass.
