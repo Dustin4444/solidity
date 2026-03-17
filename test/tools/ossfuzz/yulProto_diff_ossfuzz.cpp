@@ -30,6 +30,7 @@
 #include <libyul/YulStack.h>
 #include <libyul/backends/evm/EVMDialect.h>
 #include <libyul/backends/evm/ConstantOptimiser.h>
+#include <libyul/backends/evm/EVMMetrics.h>
 #include <libyul/Exceptions.h>
 #include <libyul/optimiser/Suite.h>
 
@@ -167,7 +168,7 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 				: 200;
 
 			// Copy the parsed object so we can optimize it independently.
-			auto optimizedObject = std::make_shared<Object>(*stack.parserResult());
+			auto optimizedObject = std::make_shared<yul::Object>(*stack.parserResult());
 			EVMDialect const& dialect = dynamic_cast<EVMDialect const&>(*optimizedObject->dialect());
 			GasMeter meter(dialect, isCreation, meterRuns);
 			OptimiserSuite::run(
