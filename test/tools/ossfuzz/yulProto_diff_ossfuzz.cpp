@@ -144,21 +144,39 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	try {
 		if (_input.optimiser_seq_size() > 0)
 		{
-			// Fuzz an arbitrary optimizer sequence derived from the protobuf input.
+			// Derive optimizer configuration from the protobuf input.
 			std::string const optimizerSeq = buildOptimizerSequence(_input.optimiser_seq());
-			std::string const cleanupSeq = OptimiserSettings::DefaultYulOptimiserCleanupSteps;
+			std::string const cleanupSeq = _input.optimiser_cleanup_seq_size() > 0
+				? buildOptimizerSequence(_input.optimiser_cleanup_seq())
+				: std::string(OptimiserSettings::DefaultYulOptimiserCleanupSteps);
+
+			bool const optimizeStackAllocation = _input.has_optimize_stack_allocation()
+				? _input.optimize_stack_allocation()
+				: true;
+
+			// expected_executions == 0 means creation code (nullopt); otherwise use the value.
+			std::optional<size_t> const expectedExecutions = _input.has_expected_executions()
+				? (_input.expected_executions() == 0
+					? std::nullopt
+					: std::optional<size_t>(_input.expected_executions()))
+				: std::optional<size_t>(200);
+
+			bool const isCreation = _input.has_is_creation() ? _input.is_creation() : false;
+			size_t const meterRuns = (expectedExecutions.has_value() && !isCreation)
+				? *expectedExecutions
+				: 200;
 
 			// Copy the parsed object so we can optimize it independently.
 			auto optimizedObject = std::make_shared<Object>(*stack.parserResult());
 			EVMDialect const& dialect = dynamic_cast<EVMDialect const&>(*optimizedObject->dialect());
-			GasMeter meter(dialect, false, 200);
+			GasMeter meter(dialect, isCreation, meterRuns);
 			OptimiserSuite::run(
 				&meter,
 				*optimizedObject,
-				/*optimizeStackAllocation=*/true,
+				optimizeStackAllocation,
 				optimizerSeq,
 				cleanupSeq,
-				/*expectedExecutionsPerDeployment=*/200
+				expectedExecutions
 			);
 			termReason = yulFuzzerUtil::interpret(
 				os2,
