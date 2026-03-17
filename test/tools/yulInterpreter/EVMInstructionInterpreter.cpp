@@ -375,6 +375,7 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::LOG3:
 	case Instruction::LOG4:
 	{
+		chargeCopyWordCost(arg[1]);
 		bytes logData;
 		if (accessMemory(arg[0], arg[1]))
 			logData = readMemory(arg[0], arg[1]);
@@ -458,6 +459,7 @@ u256 EVMInstructionInterpreter::eval(
 	}
 	case Instruction::REVERT:
 	{
+		chargeCopyWordCost(arg[1]);
 		bytes revertData;
 		if (accessMemory(arg[0], arg[1]))
 			revertData = readMemory(arg[0], arg[1]);
