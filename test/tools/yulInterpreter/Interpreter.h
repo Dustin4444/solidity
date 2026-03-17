@@ -133,6 +133,10 @@ struct InterpreterState
 	// Blob commitments
 	std::array<u256, 2> const blobCommitments = {0x01, 0x02};
 
+	/// Values written by setimmutable, keyed by identifier string.
+	/// loadimmutable reads from this map so the two builtins are consistent.
+	std::map<std::string, u256> immutables;
+
 	/// Prints execution trace and non-zero storage to @param _out.
 	/// Flag @param _disableMemoryTrace, if set, does not produce a memory dump. This
 	/// avoids false positives reports by the fuzzer when certain optimizer steps are

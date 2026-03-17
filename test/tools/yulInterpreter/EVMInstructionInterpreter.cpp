@@ -403,26 +403,48 @@ u256 EVMInstructionInterpreter::eval(
 			return 0xdddddd;
 	case Instruction::CALL:
 	case Instruction::CALLCODE:
+	{
 		accessMemory(arg[3], arg[4]);
 		accessMemory(arg[5], arg[6]);
 		logTrace(_instruction, arg);
 		// Randomly fail based on the called address if it isn't a call to self.
 		// Used for fuzzing.
-		return (
-			(arg[0] > 0) &&
-			(arg[1] == util::h160::Arith(m_state.address) || (arg[1] & 1))
-		) ? 1 : 0;
+		bool const success = (arg[0] > 0) && (arg[1] == util::h160::Arith(m_state.address) || (arg[1] & 1));
+		if (success && accessMemory(arg[5], arg[6]))
+		{
+			// Write deterministic output bytes derived from the callee address.
+			size_t const outSize = size_t(arg[6]);
+			bytes outData(outSize);
+			for (size_t i = 0; i < outSize; ++i)
+				outData[i] = uint8_t((uint64_t(arg[1]) >> (8 * (i % 8))) & 0xff);
+			for (size_t i = 0; i < outSize; ++i)
+				m_state.memory[arg[5] + i] = outData[i];
+			m_state.returndata = outData;
+		}
+		return success ? 1 : 0;
+	}
 	case Instruction::DELEGATECALL:
 	case Instruction::STATICCALL:
+	{
 		accessMemory(arg[2], arg[3]);
 		accessMemory(arg[4], arg[5]);
 		logTrace(_instruction, arg);
 		// Randomly fail based on the called address if it isn't a call to self.
 		// Used for fuzzing.
-		return (
-			(arg[0] > 0) &&
-			(arg[1] == util::h160::Arith(m_state.address) || (arg[1] & 1))
-		) ? 1 : 0;
+		bool const success = (arg[0] > 0) && (arg[1] == util::h160::Arith(m_state.address) || (arg[1] & 1));
+		if (success && accessMemory(arg[4], arg[5]))
+		{
+			// Write deterministic output bytes derived from the callee address.
+			size_t const outSize = size_t(arg[5]);
+			bytes outData(outSize);
+			for (size_t i = 0; i < outSize; ++i)
+				outData[i] = uint8_t((uint64_t(arg[1]) >> (8 * (i % 8))) & 0xff);
+			for (size_t i = 0; i < outSize; ++i)
+				m_state.memory[arg[4] + i] = outData[i];
+			m_state.returndata = outData;
+		}
+		return success ? 1 : 0;
+	}
 	case Instruction::RETURN:
 	{
 		chargeCopyWordCost(arg[1]);
@@ -613,18 +635,20 @@ u256 EVMInstructionInterpreter::evalBuiltin(
 		yulAssert(_arguments.size() == 1);
 		yulAssert(std::holds_alternative<Literal>(_arguments[0]));
 		std::string const identifier = formatLiteral(std::get<Literal>(_arguments[0]));
-		// Return a deterministic value based on the identifier.
-		// This is sufficient for differential fuzzing since the same identifier
-		// will always return the same value, maintaining trace equivalence.
+		// If setimmutable was called with this identifier, return that value.
+		// Fall back to a deterministic keccak-based value for identifiers not yet set.
+		auto it = m_state.immutables.find(identifier);
+		if (it != m_state.immutables.end())
+			return it->second;
 		return u256(h256(keccak256(identifier)));
 	}
 
 	if (fun == "setimmutable")
 	{
 		yulAssert(_arguments.size() == 3);
-		// No-op: The real implementation patches placeholder bytes in memory-loaded runtime code.
-		// For differential fuzzing, this ensures correct code never fails (no false positives), though some
-		// bugs in setimmutable handling may not be detected (potential false negatives).
+		yulAssert(std::holds_alternative<Literal>(_arguments[1]));
+		std::string const identifier = formatLiteral(std::get<Literal>(_arguments[1]));
+		m_state.immutables[identifier] = _evaluatedArguments[2];
 		return 0;
 	}
 
