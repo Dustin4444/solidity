@@ -420,6 +420,7 @@ message Program {
   required Version ver = 3;
   required uint32 step = 4;
   required CallData calldata = 5;
+  repeated uint32 optimiser_seq = 6;
 }
 
 package solidity.yul.test.yul_fuzzer;
