@@ -370,25 +370,17 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::GAS:
 		return 0x99;
 	case Instruction::LOG0:
-		accessMemory(arg[0], arg[1]);
-		logTrace(_instruction, arg);
-		return 0;
 	case Instruction::LOG1:
-		accessMemory(arg[0], arg[1]);
-		logTrace(_instruction, arg);
-		return 0;
 	case Instruction::LOG2:
-		accessMemory(arg[0], arg[1]);
-		logTrace(_instruction, arg);
-		return 0;
 	case Instruction::LOG3:
-		accessMemory(arg[0], arg[1]);
-		logTrace(_instruction, arg);
-		return 0;
 	case Instruction::LOG4:
-		accessMemory(arg[0], arg[1]);
-		logTrace(_instruction, arg);
+	{
+		bytes logData;
+		if (accessMemory(arg[0], arg[1]))
+			logData = readMemory(arg[0], arg[1]);
+		logTrace(_instruction, arg, logData);
 		return 0;
+	}
 	case Instruction::TLOAD:
 		return m_state.transientStorage[h256(arg[0])];
 	case Instruction::TSTORE:
@@ -441,11 +433,15 @@ u256 EVMInstructionInterpreter::eval(
 		BOOST_THROW_EXCEPTION(ExplicitlyTerminatedWithReturn());
 	}
 	case Instruction::REVERT:
-		accessMemory(arg[0], arg[1]);
-		logTrace(_instruction, arg);
+	{
+		bytes revertData;
+		if (accessMemory(arg[0], arg[1]))
+			revertData = readMemory(arg[0], arg[1]);
+		logTrace(_instruction, arg, revertData);
 		m_state.storage.clear();
 		m_state.transientStorage.clear();
 		BOOST_THROW_EXCEPTION(ExplicitlyTerminated());
+	}
 	case Instruction::INVALID:
 		logTrace(_instruction);
 		m_state.storage.clear();
