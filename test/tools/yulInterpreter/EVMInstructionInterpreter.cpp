@@ -801,15 +801,24 @@ void EVMInstructionInterpreter::chargeCost(u256 const& _cost)
 
 	// More than size_t can handle
 	if (_cost > u256(std::numeric_limits<size_t>::max()))
+	{
+		m_state.trace.emplace_back("Instruction cost limit reached.");
 		BOOST_THROW_EXCEPTION(InstructionLimitReached());
+	}
 
 	// wrap around check
 	if (m_state.cost + _cost <= m_state.cost)
+	{
+		m_state.trace.emplace_back("Instruction cost limit reached.");
 		BOOST_THROW_EXCEPTION(InstructionLimitReached());
+	}
 
 	m_state.cost += static_cast<size_t>(_cost);
 	if (m_state.cost >= m_state.maxCost)
+	{
+		m_state.trace.emplace_back("Instruction cost limit reached.");
 		BOOST_THROW_EXCEPTION(InstructionLimitReached());
+	}
 }
 
 void EVMInstructionInterpreter::chargeCopyWordCost(u256 const& _size)

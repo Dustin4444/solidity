@@ -44,6 +44,7 @@ private:
 	std::string interpret(std::shared_ptr<Object const> const& _object);
 
 	bool m_simulateExternalCallsToSelf = false;
+	size_t m_maxCost = 0;
 };
 
 }

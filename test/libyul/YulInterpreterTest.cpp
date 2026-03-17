@@ -51,6 +51,7 @@ YulInterpreterTest::YulInterpreterTest(std::string const& _filename):
 	m_source = m_reader.source();
 	m_expectation = m_reader.simpleExpectations();
 	m_simulateExternalCallsToSelf = m_reader.boolSetting("simulateExternalCall", false);
+	m_maxCost = m_reader.sizetSetting("maxCost", 0);
 }
 
 TestCase::TestResult YulInterpreterTest::run(std::ostream& _stream, std::string const& _linePrefix, bool const _formatted)
@@ -76,6 +77,7 @@ std::string YulInterpreterTest::interpret(std::shared_ptr<Object const> const& _
 	state.maxTraceSize = 32;
 	state.maxSteps = 512;
 	state.maxExprNesting = 64;
+	state.maxCost = m_maxCost;
 	try
 	{
 		Interpreter::run(
