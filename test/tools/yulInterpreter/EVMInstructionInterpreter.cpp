@@ -412,6 +412,7 @@ u256 EVMInstructionInterpreter::eval(
 		bool const success = (arg[0] > 0) && (arg[1] == util::h160::Arith(m_state.address) || (arg[1] & 1));
 		if (success && accessMemory(arg[5], arg[6]))
 		{
+			chargeCopyWordCost(arg[6]);
 			// Write deterministic output bytes derived from the callee address.
 			size_t const outSize = size_t(arg[6]);
 			bytes outData(outSize);
@@ -434,6 +435,7 @@ u256 EVMInstructionInterpreter::eval(
 		bool const success = (arg[0] > 0) && (arg[1] == util::h160::Arith(m_state.address) || (arg[1] & 1));
 		if (success && accessMemory(arg[4], arg[5]))
 		{
+			chargeCopyWordCost(arg[5]);
 			// Write deterministic output bytes derived from the callee address.
 			size_t const outSize = size_t(arg[5]);
 			bytes outData(outSize);
