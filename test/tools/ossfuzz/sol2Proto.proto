@@ -21,28 +21,82 @@ syntax = "proto2";
 // ======================= TYPES =======================
 
 message IntegerType {
-	// Converter maps: 0->8, 1->16, 2->32, 3->64, 4->128, 5->256
+	// All 32 valid Solidity integer widths: 8, 16, 24, ..., 256
+	// Converter maps: enum_value -> (enum_value + 1) * 8
 	enum Width {
 		W8 = 0;
 		W16 = 1;
-		W32 = 2;
-		W64 = 3;
-		W128 = 4;
-		W256 = 5;
+		W24 = 2;
+		W32 = 3;
+		W40 = 4;
+		W48 = 5;
+		W56 = 6;
+		W64 = 7;
+		W72 = 8;
+		W80 = 9;
+		W88 = 10;
+		W96 = 11;
+		W104 = 12;
+		W112 = 13;
+		W120 = 14;
+		W128 = 15;
+		W136 = 16;
+		W144 = 17;
+		W152 = 18;
+		W160 = 19;
+		W168 = 20;
+		W176 = 21;
+		W184 = 22;
+		W192 = 23;
+		W200 = 24;
+		W208 = 25;
+		W216 = 26;
+		W224 = 27;
+		W232 = 28;
+		W240 = 29;
+		W248 = 30;
+		W256 = 31;
 	}
 	required Width width = 1;
 	required bool is_signed = 2;
 }
 
 message FixedBytesType {
-	// Converter maps: 0->1, 1->2, 2->4, 3->8, 4->16, 5->32
+	// All 32 valid Solidity fixed bytes widths: bytes1 through bytes32
+	// Converter maps: enum_value -> enum_value + 1
 	enum Width {
 		B1 = 0;
 		B2 = 1;
-		B4 = 2;
-		B8 = 3;
-		B16 = 4;
-		B32 = 5;
+		B3 = 2;
+		B4 = 3;
+		B5 = 4;
+		B6 = 5;
+		B7 = 6;
+		B8 = 7;
+		B9 = 8;
+		B10 = 9;
+		B11 = 10;
+		B12 = 11;
+		B13 = 12;
+		B14 = 13;
+		B15 = 14;
+		B16 = 15;
+		B17 = 16;
+		B18 = 17;
+		B19 = 18;
+		B20 = 19;
+		B21 = 20;
+		B22 = 21;
+		B23 = 22;
+		B24 = 23;
+		B25 = 24;
+		B26 = 25;
+		B27 = 26;
+		B28 = 27;
+		B29 = 28;
+		B30 = 29;
+		B31 = 30;
+		B32 = 31;
 	}
 	required Width width = 1;
 }
@@ -273,6 +327,18 @@ message AssignExpr {
 	required Expression rhs = 3;
 }
 
+// Access a struct field: structVar.fieldName
+message StructMemberAccess {
+	required VarRef struct_var = 1;
+	required uint32 field_idx = 2;
+}
+
+// Reference an enum member as a uint256: uint256(EnumName.MemberName)
+message EnumLiteral {
+	required uint32 enum_idx = 1;
+	required uint32 member_idx = 2;
+}
+
 message Expression {
 	oneof expr_oneof {
 		Literal lit = 1;
@@ -291,6 +357,8 @@ message Expression {
 		MathExpr math_expr = 14;
 		BuiltinExpr builtin = 15;
 		AssignExpr assign = 16;
+		StructMemberAccess struct_access = 17;
+		EnumLiteral enum_lit = 18;
 	}
 }
 
@@ -351,6 +419,17 @@ message RevertStmt {
 	repeated Expression args = 2;
 }
 
+message DeleteStmt {
+	required VarRef target = 1;
+}
+
+message TryCatchStmt {
+	required uint32 func_id = 1;
+	repeated Expression args = 2;
+	required Block try_body = 3;
+	required Block catch_body = 4;
+}
+
 message Block {
 	repeated Statement stmts = 1;
 }
@@ -375,6 +454,8 @@ message Statement {
 		BreakStmt break_stmt = 12;
 		ContinueStmt continue_stmt = 13;
 		RequireStmt require_stmt = 14;
+		DeleteStmt delete_stmt = 15;
+		TryCatchStmt try_catch = 16;
 	}
 }
 
@@ -430,6 +511,18 @@ enum StateMutability {
 	NONPAYABLE = 3;
 }
 
+message ModifierDef {
+	required Block body = 1;
+}
+
+message ReceiveDef {
+	required Block body = 1;
+}
+
+message FallbackDef {
+	required Block body = 1;
+}
+
 message FunctionDef {
 	repeated ParamDef params = 1;
 	repeated ParamDef returns = 2;
@@ -437,6 +530,8 @@ message FunctionDef {
 	required StateMutability mut = 4;
 	required bool is_virtual = 5;
 	required Block body = 6;
+	// Index into contract's modifiers list
+	optional uint32 modifier_id = 7;
 }
 
 message ConstructorDef {
@@ -461,7 +556,7 @@ message ContractDef {
 		LIBRARY = 3;
 	}
 	required Kind kind = 1;
-	// Indices of base contracts (for inheritance, future use)
+	// Indices of base contracts (for inheritance)
 	repeated uint32 bases = 2;
 	repeated StructDef structs = 3;
 	repeated EnumDef enums = 4;
@@ -470,6 +565,9 @@ message ContractDef {
 	repeated EventDef events = 7;
 	repeated ErrorDef errors = 8;
 	optional ConstructorDef constructor = 9;
+	repeated ModifierDef modifiers = 10;
+	optional ReceiveDef receive = 11;
+	optional FallbackDef fallback_func = 12;
 }
 
 // ======================= TOP-LEVEL =======================

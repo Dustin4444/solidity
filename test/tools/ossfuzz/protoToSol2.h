@@ -77,15 +77,57 @@ private:
 		unsigned numParams;
 	};
 
+	struct ModifierInfo
+	{
+		std::string name;
+	};
+
+	struct StructFieldInfo
+	{
+		std::string name;
+		std::string typeStr;
+		bool isUintCompatible;
+	};
+
+	struct StructDefInfo
+	{
+		std::string name;
+		std::vector<StructFieldInfo> fields;
+	};
+
+	struct EnumDefInfo
+	{
+		std::string name;
+		unsigned numMembers;
+		std::vector<std::string> memberNames;
+	};
+
+	struct StateVarInfo
+	{
+		std::string name;
+		std::string typeStr;
+		bool isUint;
+		bool isStruct;
+		unsigned structDefIdx;
+	};
+
 	struct ContractInfo
 	{
 		std::string name;
 		ContractDef::Kind kind;
 		std::vector<FuncInfo> functions;
-		/// State variable declarations: (name, type-string, is-uint256)
-		std::vector<std::tuple<std::string, std::string, bool>> stateVars;
+		std::vector<StateVarInfo> stateVars;
 		std::vector<EventInfo> events;
 		std::vector<ErrorInfo> errors;
+		std::vector<ModifierInfo> modifiers;
+		std::vector<StructDefInfo> structDefs;
+		std::vector<EnumDefInfo> enumDefs;
+		/// Whether this contract has a base contract
+		bool hasBase = false;
+		/// Index of the base contract in m_contracts (-1 if no base)
+		unsigned baseIdx = 0;
+		/// Whether this contract is used as a base by another
+		bool isBase = false;
 	};
 
 	// ===== Visitor methods =====
@@ -108,6 +150,8 @@ private:
 	std::string visitRevert(RevertStmt const& _s);
 	std::string visitRequire(RequireStmt const& _s);
 	std::string visitUnchecked(UncheckedBlock const& _s);
+	std::string visitDelete(DeleteStmt const& _s);
+	std::string visitTryCatch(TryCatchStmt const& _s);
 
 	// Expression visitors — generate uint256-typed or bool-typed expressions
 	std::string visitUintExpr(Expression const& _e);
@@ -120,6 +164,7 @@ private:
 	std::string elementaryTypeStr(ElementaryType const& _t);
 	std::string elementaryTypeStr(TypeName const& _t);
 	bool isUintType(TypeName const& _t);
+	bool isUintType(ElementaryType const& _t);
 
 	// ===== Scope management =====
 	void pushScope();
@@ -129,16 +174,21 @@ private:
 	/// Find a uint256 variable in scope, using _hint to pick one.
 	/// Falls back to literal "0" if no variables are in scope.
 	std::string findVar(uint32_t _hint);
-	/// Find a uint256 variable that is an lvalue (local or state var).
+	/// Find a uint256 variable that is an lvalue (local only).
+	/// Returns empty string if no local variables exist.
 	std::string findLVar(uint32_t _hint);
 	/// Get all uint256 variables in scope (locals + params + state vars if view/nonpayable).
 	std::vector<std::string> allUintVars();
+	/// Get all struct state variables accessible in current context.
+	std::vector<std::pair<std::string, unsigned>> allStructVars();
 
 	// ===== Helpers =====
 	std::string indent();
 	unsigned randomNumber();
 	std::string defaultUintLiteral();
 	std::string defaultBoolLiteral();
+	/// Collect inherited state vars, events, errors, structs from base
+	void collectInheritedInfo(ContractInfo const& _cinfo);
 
 	// Binary/unary op classification
 	static bool isArithmeticOp(BinaryOp::Op _op);
@@ -165,6 +215,11 @@ private:
 	static constexpr unsigned s_maxEventParams = 3;
 	static constexpr unsigned s_maxErrorParams = 3;
 	static constexpr unsigned s_maxForIter = 5;
+	static constexpr unsigned s_maxModifiers = 3;
+	static constexpr unsigned s_maxStructFields = 4;
+	static constexpr unsigned s_maxEnumMembers = 8;
+	static constexpr unsigned s_maxStructs = 3;
+	static constexpr unsigned s_maxEnums = 3;
 
 	// ===== State =====
 	unsigned m_exprDepth = 0;
@@ -182,12 +237,20 @@ private:
 	unsigned m_currentContract = 0;
 	/// Current contract's uint256 state var names (available in view/nonpayable functions)
 	std::vector<std::string> m_currentUintStateVars;
+	/// Current contract's struct state vars: (name, structDefIdx) pairs
+	std::vector<std::pair<std::string, unsigned>> m_currentStructStateVars;
 	/// Whether current function can read state
 	bool m_canReadState = false;
+	/// Current function's state mutability
+	StateMutability m_currentMutability = NONPAYABLE;
 	/// Current contract's events
 	std::vector<EventInfo> m_currentEvents;
 	/// Current contract's errors
 	std::vector<ErrorInfo> m_currentErrors;
+	/// Current contract's struct definitions (for member access)
+	std::vector<StructDefInfo> m_currentStructDefs;
+	/// Current contract's enum definitions (for enum literals)
+	std::vector<EnumDefInfo> m_currentEnumDefs;
 	/// Scope stack: each scope is a list of uint256 variable names
 	std::vector<std::vector<std::string>> m_scopeStack;
 	/// RNG

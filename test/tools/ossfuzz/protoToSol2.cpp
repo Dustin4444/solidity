@@ -46,11 +46,10 @@ std::string ProtoConverter::visit(Program const& _p)
 	{
 		auto const& c = _p.contracts(i);
 		ContractInfo info;
-		// Reserve "C" for the test contract
 		info.name = "C" + std::to_string(i);
 		info.kind = c.kind();
 
-		// Functions
+		// Functions — use unique names to avoid conflicts with inheritance
 		unsigned numFuncs = std::min(
 			static_cast<unsigned>(c.functions_size()),
 			s_maxFunctions
@@ -58,7 +57,7 @@ std::string ProtoConverter::visit(Program const& _p)
 		for (unsigned j = 0; j < numFuncs; j++)
 		{
 			FuncInfo fi;
-			fi.name = "f" + std::to_string(j);
+			fi.name = "f" + std::to_string(i) + "_" + std::to_string(j);
 			fi.numParams = std::min(
 				static_cast<unsigned>(c.functions(j).params_size()),
 				s_maxParams
@@ -68,7 +67,64 @@ std::string ProtoConverter::visit(Program const& _p)
 			info.functions.push_back(fi);
 		}
 
-		// State variables
+		// Struct definitions
+		unsigned numStructs = std::min(
+			static_cast<unsigned>(c.structs_size()),
+			s_maxStructs
+		);
+		for (unsigned j = 0; j < numStructs; j++)
+		{
+			StructDefInfo sdi;
+			sdi.name = "S" + std::to_string(i) + "_" + std::to_string(j);
+			unsigned numFields = std::max(1u, std::min(
+				static_cast<unsigned>(c.structs(j).fields_size()),
+				s_maxStructFields
+			));
+			for (unsigned k = 0; k < numFields; k++)
+			{
+				StructFieldInfo sfi;
+				sfi.name = "f" + std::to_string(k);
+				if (k < static_cast<unsigned>(c.structs(j).fields_size()))
+				{
+					auto const& ft = c.structs(j).fields(k).type();
+					sfi.typeStr = elementaryTypeStr(ft);
+					sfi.isUintCompatible = isUintType(ft);
+					// Avoid dynamic types in structs to keep things simple
+					if (sfi.typeStr == "string" || sfi.typeStr == "bytes")
+					{
+						sfi.typeStr = "uint256";
+						sfi.isUintCompatible = true;
+					}
+				}
+				else
+				{
+					sfi.typeStr = "uint256";
+					sfi.isUintCompatible = true;
+				}
+				sdi.fields.push_back(sfi);
+			}
+			info.structDefs.push_back(sdi);
+		}
+
+		// Enum definitions
+		unsigned numEnums = std::min(
+			static_cast<unsigned>(c.enums_size()),
+			s_maxEnums
+		);
+		for (unsigned j = 0; j < numEnums; j++)
+		{
+			EnumDefInfo edi;
+			edi.name = "E" + std::to_string(i) + "_" + std::to_string(j);
+			edi.numMembers = std::max(1u, std::min(
+				c.enums(j).num_members(),
+				static_cast<uint32_t>(s_maxEnumMembers)
+			));
+			for (unsigned k = 0; k < edi.numMembers; k++)
+				edi.memberNames.push_back(edi.name + "_m" + std::to_string(k));
+			info.enumDefs.push_back(edi);
+		}
+
+		// State variables — use unique names
 		unsigned numSV = std::min(
 			static_cast<unsigned>(c.state_vars_size()),
 			s_maxStateVars
@@ -76,10 +132,26 @@ std::string ProtoConverter::visit(Program const& _p)
 		for (unsigned j = 0; j < numSV; j++)
 		{
 			auto const& sv = c.state_vars(j);
-			std::string svName = "sv" + std::to_string(j);
-			std::string svType = elementaryTypeStr(sv.type());
-			bool isUint = isUintType(sv.type());
-			info.stateVars.emplace_back(svName, svType, isUint);
+			StateVarInfo svi;
+			svi.name = "sv" + std::to_string(i) + "_" + std::to_string(j);
+
+			// Check if this is a struct type
+			if (sv.type().type_oneof_case() == TypeName::kStructRef && !info.structDefs.empty())
+			{
+				unsigned structIdx = sv.type().struct_ref() % info.structDefs.size();
+				svi.typeStr = info.structDefs[structIdx].name;
+				svi.isUint = false;
+				svi.isStruct = true;
+				svi.structDefIdx = structIdx;
+			}
+			else
+			{
+				svi.typeStr = elementaryTypeStr(sv.type());
+				svi.isUint = isUintType(sv.type());
+				svi.isStruct = false;
+				svi.structDefIdx = 0;
+			}
+			info.stateVars.push_back(svi);
 		}
 
 		// Events
@@ -118,7 +190,41 @@ std::string ProtoConverter::visit(Program const& _p)
 			info.errors.push_back(eri);
 		}
 
+		// Modifiers
+		unsigned numMod = std::min(
+			static_cast<unsigned>(c.modifiers_size()),
+			s_maxModifiers
+		);
+		for (unsigned j = 0; j < numMod; j++)
+		{
+			ModifierInfo mi;
+			mi.name = "mod" + std::to_string(i) + "_" + std::to_string(j);
+			info.modifiers.push_back(mi);
+		}
+
 		m_contracts.push_back(info);
+	}
+
+	// Process inheritance: a contract can inherit from one base with lower index
+	for (unsigned i = 0; i < numContracts; i++)
+	{
+		auto const& c = _p.contracts(i);
+		auto& info = m_contracts[i];
+		bool isLibrary = (info.kind == ContractDef::LIBRARY);
+		bool isInterface = (info.kind == ContractDef::INTERFACE);
+
+		if (!isLibrary && !isInterface && i > 0 && c.bases_size() > 0)
+		{
+			unsigned baseIdx = c.bases(0) % i;
+			auto const& baseInfo = m_contracts[baseIdx];
+			// Can only inherit from non-library, non-interface contracts
+			if (baseInfo.kind != ContractDef::LIBRARY && baseInfo.kind != ContractDef::INTERFACE)
+			{
+				info.hasBase = true;
+				info.baseIdx = baseIdx;
+				m_contracts[baseIdx].isBase = true;
+			}
+		}
 	}
 
 	// Generate source
@@ -146,17 +252,52 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	m_currentContract = _idx;
 
 	bool isLibrary = (info.kind == ContractDef::LIBRARY);
-	// For v1, treat interfaces and abstract contracts as regular contracts
-	// (interfaces would need special handling for bodyless functions)
 
 	std::ostringstream o;
-	o << (isLibrary ? "library " : "contract ") << info.name << " {\n";
+
+	// Contract header with optional inheritance
+	if (isLibrary)
+		o << "library " << info.name << " {\n";
+	else if (info.hasBase)
+		o << "contract " << info.name << " is " << m_contracts[info.baseIdx].name << " {\n";
+	else
+		o << "contract " << info.name << " {\n";
+
+	// Struct definitions
+	for (auto const& sd : info.structDefs)
+	{
+		o << "\tstruct " << sd.name << " {\n";
+		for (auto const& sf : sd.fields)
+			o << "\t\t" << sf.typeStr << " " << sf.name << ";\n";
+		o << "\t}\n";
+	}
+	if (!info.structDefs.empty())
+		o << "\n";
+
+	// Enum definitions
+	for (auto const& ed : info.enumDefs)
+	{
+		o << "\tenum " << ed.name << " {\n";
+		for (unsigned k = 0; k < ed.numMembers; k++)
+		{
+			o << "\t\t" << ed.memberNames[k];
+			if (k + 1 < ed.numMembers)
+				o << ",";
+			o << "\n";
+		}
+		o << "\t}\n";
+	}
+	if (!info.enumDefs.empty())
+		o << "\n";
 
 	// State variables (skip for libraries)
 	if (!isLibrary)
 	{
-		for (auto const& [name, typeStr, _isUint] : info.stateVars)
-			o << "\t" << typeStr << " public " << name << ";\n";
+		for (auto const& sv : info.stateVars)
+		{
+			// Mappings and arrays with dynamic types need storage, which is fine
+			o << "\t" << sv.typeStr << " public " << sv.name << ";\n";
+		}
 		if (!info.stateVars.empty())
 			o << "\n";
 	}
@@ -188,6 +329,30 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	if (!info.events.empty() || !info.errors.empty())
 		o << "\n";
 
+	// Modifiers
+	for (unsigned j = 0; j < info.modifiers.size(); j++)
+	{
+		o << "\tmodifier " << info.modifiers[j].name << "() {\n";
+
+		// Set up state for modifier body
+		m_canReadState = true;
+		m_currentMutability = NONPAYABLE;
+		m_inConstructor = false;
+		m_currentFuncIdx = 0;
+		collectInheritedInfo(info);
+
+		pushScope();
+		m_localVarCount = 0;
+		m_varCounter = 0;
+		m_indentLevel = 2;
+		m_stmtDepth = 0;
+		o << visitBlock(_c.modifiers(j).body());
+		popScope();
+
+		o << "\t\t_;\n";
+		o << "\t}\n\n";
+	}
+
 	// Constructor
 	if (!isLibrary && _c.has_constructor())
 	{
@@ -200,15 +365,9 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		// Set up state for constructor body
 		m_canReadState = true;
 		m_inConstructor = true;
+		m_currentMutability = ctor.payable() ? PAYABLE : NONPAYABLE;
 		m_currentFuncIdx = 0;
-		m_currentUintStateVars.clear();
-		for (auto const& [name, _typeStr, isUint] : info.stateVars)
-		{
-			if (isUint)
-				m_currentUintStateVars.push_back(name);
-		}
-		m_currentEvents = info.events;
-		m_currentErrors = info.errors;
+		collectInheritedInfo(info);
 
 		pushScope();
 		m_localVarCount = 0;
@@ -218,6 +377,50 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		o << visitBlock(ctor.body());
 		popScope();
 		m_inConstructor = false;
+
+		o << "\t}\n\n";
+	}
+
+	// Receive function
+	if (!isLibrary && _c.has_receive())
+	{
+		o << "\treceive() external payable {\n";
+
+		m_canReadState = true;
+		m_currentMutability = PAYABLE;
+		m_inConstructor = false;
+		m_currentFuncIdx = 0;
+		collectInheritedInfo(info);
+
+		pushScope();
+		m_localVarCount = 0;
+		m_varCounter = 0;
+		m_indentLevel = 2;
+		m_stmtDepth = 0;
+		o << visitBlock(_c.receive().body());
+		popScope();
+
+		o << "\t}\n\n";
+	}
+
+	// Fallback function
+	if (!isLibrary && _c.has_fallback_func())
+	{
+		o << "\tfallback() external payable {\n";
+
+		m_canReadState = true;
+		m_currentMutability = PAYABLE;
+		m_inConstructor = false;
+		m_currentFuncIdx = 0;
+		collectInheritedInfo(info);
+
+		pushScope();
+		m_localVarCount = 0;
+		m_varCounter = 0;
+		m_indentLevel = 2;
+		m_stmtDepth = 0;
+		o << visitBlock(_c.fallback_func().body());
+		popScope();
 
 		o << "\t}\n\n";
 	}
@@ -274,21 +477,12 @@ std::string ProtoConverter::visitFunction(
 	case NONPAYABLE: mut = ""; break;
 	}
 
+	// Track current mutability for expression generation
+	m_currentMutability = actualMut;
+
 	// Set up state access
 	m_canReadState = (actualMut == VIEW || actualMut == NONPAYABLE || actualMut == PAYABLE);
-	m_currentUintStateVars.clear();
-	if (m_canReadState && !isLibrary)
-	{
-		for (auto const& [name, _typeStr, isUint] : _cinfo.stateVars)
-		{
-			if (isUint)
-				m_currentUintStateVars.push_back(name);
-		}
-	}
-
-	// Set events/errors for current contract
-	m_currentEvents = _cinfo.events;
-	m_currentErrors = _cinfo.errors;
+	collectInheritedInfo(_cinfo);
 
 	// Push scope and add params
 	pushScope();
@@ -315,6 +509,19 @@ std::string ProtoConverter::visitFunction(
 	o << ") " << vis;
 	if (!mut.empty())
 		o << " " << mut;
+
+	// Add virtual keyword for non-private functions in non-library contracts
+	// that are used as base contracts or that override base functions
+	if (!isLibrary && fi.vis != PRIVATE)
+		o << " virtual";
+
+	// Apply modifier if specified
+	if (_f.has_modifier_id() && !_cinfo.modifiers.empty())
+	{
+		unsigned modIdx = _f.modifier_id() % _cinfo.modifiers.size();
+		o << " " << _cinfo.modifiers[modIdx].name << "()";
+	}
+
 	o << " returns (uint256) {\n";
 	o << body;
 	// Always return something to ensure the function compiles
@@ -376,12 +583,14 @@ std::string ProtoConverter::visitStatement(Statement const& _s)
 		result = visitReturn(_s.return_stmt());
 		break;
 	case Statement::kEmitStmt:
-		result = visitEmit(_s.emit_stmt());
+		// Events are side effects: skip in pure and view functions
+		if (m_currentMutability != PURE && m_currentMutability != VIEW)
+			result = visitEmit(_s.emit_stmt());
 		break;
 	case Statement::kRevertStmt:
-		// Skip revert in generated code to avoid unexpected reverts
-		// during execution. Generate a no-op expression instead.
-		result = "";
+		// Skip revert in constructors (would fail contract creation)
+		if (!m_inConstructor)
+			result = visitRevert(_s.revert_stmt());
 		break;
 	case Statement::kBlock:
 	{
@@ -407,6 +616,12 @@ std::string ProtoConverter::visitStatement(Statement const& _s)
 		break;
 	case Statement::kRequireStmt:
 		result = visitRequire(_s.require_stmt());
+		break;
+	case Statement::kDeleteStmt:
+		result = visitDelete(_s.delete_stmt());
+		break;
+	case Statement::kTryCatch:
+		result = visitTryCatch(_s.try_catch());
 		break;
 	default:
 		break;
@@ -634,6 +849,57 @@ std::string ProtoConverter::visitUnchecked(UncheckedBlock const& _s)
 	return o.str();
 }
 
+std::string ProtoConverter::visitDelete(DeleteStmt const& _s)
+{
+	std::string var = findVar(_s.target().index());
+	// Don't delete literals
+	if (var == defaultUintLiteral())
+		return "";
+	return indent() + "delete " + var + ";\n";
+}
+
+std::string ProtoConverter::visitTryCatch(TryCatchStmt const& _s)
+{
+	// try/catch requires non-pure, non-view context (external call)
+	if (m_currentMutability == PURE || m_currentMutability == VIEW)
+		return "";
+
+	// Find an external function in the current contract to call via this.
+	auto const& cinfo = m_contracts[m_currentContract];
+	std::vector<unsigned> externalFuncs;
+	for (unsigned i = 0; i < cinfo.functions.size(); i++)
+	{
+		if (cinfo.functions[i].vis == EXTERNAL && i != m_currentFuncIdx)
+			externalFuncs.push_back(i);
+	}
+	if (externalFuncs.empty())
+		return "";
+
+	unsigned targetIdx = _s.func_id() % externalFuncs.size();
+	auto const& target = cinfo.functions[externalFuncs[targetIdx]];
+
+	std::ostringstream o;
+	o << indent() << "try this." << target.name << "(";
+	for (unsigned i = 0; i < target.numParams; i++)
+	{
+		if (i > 0) o << ", ";
+		if (i < static_cast<unsigned>(_s.args_size()))
+			o << visitUintExpr(_s.args(i));
+		else
+			o << "0";
+	}
+	o << ") returns (uint256 _tr) {\n";
+	m_indentLevel++;
+	o << visitBlock(_s.try_body());
+	m_indentLevel--;
+	o << indent() << "} catch {\n";
+	m_indentLevel++;
+	o << visitBlock(_s.catch_body());
+	m_indentLevel--;
+	o << indent() << "}\n";
+	return o.str();
+}
+
 // =====================================================================
 // Expression generation
 // =====================================================================
@@ -658,7 +924,6 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		else if (lit.has_addr_lit())
 		{
 			// Generate a deterministic checksummed address as a uint
-			// Use the seed to produce a non-zero address value
 			uint64_t v = lit.addr_lit().val();
 			result = "uint256(uint160(" + std::to_string(v % 1000000) + "))";
 		}
@@ -682,9 +947,16 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		{
 			std::string left = visitUintExpr(op.left());
 			std::string right = visitUintExpr(op.right());
-			// Make division/modulo safe: use (right | 1) to avoid div-by-zero
 			if (op.op() == BinaryOp::DIV || op.op() == BinaryOp::MOD)
+			{
+				// Make division/modulo safe: use (right | 1) to avoid div-by-zero
 				result = left + " " + arithmeticOpStr(op.op()) + " (" + right + " | 1)";
+			}
+			else if (op.op() == BinaryOp::EXP)
+			{
+				// Guard exponentiation: clamp exponent to 0-3 to avoid overflow
+				result = left + " ** (" + right + " % 4)";
+			}
 			else
 				result = left + " " + arithmeticOpStr(op.op()) + " " + right;
 		}
@@ -710,31 +982,46 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			result = "~" + visitUintExpr(op.operand());
 			break;
 		case UnaryOp::NEG:
-			// Unary minus on uint can be problematic, use bitwise not instead
+			// Unary minus on uint is problematic, use bitwise not instead
 			result = "~" + visitUintExpr(op.operand());
 			break;
 		case UnaryOp::INC_PRE:
 		{
 			std::string v = findLVar(op.operand().has_var_ref() ? op.operand().var_ref().index() : 0);
-			result = "++" + v;
+			if (v.empty())
+				result = defaultUintLiteral();
+			else
+				result = "++" + v;
 			break;
 		}
 		case UnaryOp::DEC_PRE:
 		{
+			// Guard: decrement on uint256 at 0 reverts in checked mode.
+			// Use bitwise not instead for safety.
 			std::string v = findLVar(op.operand().has_var_ref() ? op.operand().var_ref().index() : 0);
-			result = "--" + v;
+			if (v.empty())
+				result = defaultUintLiteral();
+			else
+				result = "~" + v;
 			break;
 		}
 		case UnaryOp::INC_POST:
 		{
 			std::string v = findLVar(op.operand().has_var_ref() ? op.operand().var_ref().index() : 0);
-			result = v + "++";
+			if (v.empty())
+				result = defaultUintLiteral();
+			else
+				result = v + "++";
 			break;
 		}
 		case UnaryOp::DEC_POST:
 		{
+			// Guard: same as DEC_PRE, use bitwise not for safety
 			std::string v = findLVar(op.operand().has_var_ref() ? op.operand().var_ref().index() : 0);
-			result = v + "--";
+			if (v.empty())
+				result = defaultUintLiteral();
+			else
+				result = "~" + v;
 			break;
 		}
 		default:
@@ -748,17 +1035,33 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			visitUintExpr(_e.ternary().false_val()) + ")";
 		break;
 	case Expression::kMsgExpr:
+		// msg.sender, msg.value are forbidden in pure functions
+		if (m_currentMutability == PURE)
+		{
+			result = defaultUintLiteral();
+			break;
+		}
 		switch (_e.msg_expr().field())
 		{
 		case MsgExpr::SENDER:
 			result = "uint256(uint160(msg.sender))";
 			break;
 		case MsgExpr::VALUE:
-			result = "msg.value";
+			// msg.value is only available in payable functions
+			if (m_currentMutability == PAYABLE)
+				result = "msg.value";
+			else
+				result = defaultUintLiteral();
 			break;
 		}
 		break;
 	case Expression::kBlockExpr:
+		// block.* is forbidden in pure functions
+		if (m_currentMutability == PURE)
+		{
+			result = defaultUintLiteral();
+			break;
+		}
 		switch (_e.block_expr().field())
 		{
 		case BlockExpr::TIMESTAMP:
@@ -782,6 +1085,12 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		}
 		break;
 	case Expression::kTxExpr:
+		// tx.* is forbidden in pure functions
+		if (m_currentMutability == PURE)
+		{
+			result = defaultUintLiteral();
+			break;
+		}
 		switch (_e.tx_expr().field())
 		{
 		case TxExpr::ORIGIN:
@@ -794,6 +1103,7 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		break;
 	case Expression::kHashExpr:
 	{
+		// keccak256/sha256 are allowed in pure functions
 		auto const& h = _e.hash_expr();
 		std::string inner = visitUintExpr(h.arg());
 		if (h.kind() == HashExpr::KECCAK256)
@@ -815,12 +1125,21 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		break;
 	}
 	case Expression::kBuiltin:
-		result = "gasleft()";
+		// gasleft() is forbidden in pure functions
+		if (m_currentMutability == PURE)
+			result = defaultUintLiteral();
+		else
+			result = "gasleft()";
 		break;
 	case Expression::kAssign:
 	{
 		auto const& a = _e.assign();
 		std::string lhs = findLVar(a.lhs().index());
+		if (lhs.empty())
+		{
+			result = defaultUintLiteral();
+			break;
+		}
 		std::string rhs = visitUintExpr(a.rhs());
 		if (a.op() == AssignExpr::DIV_ASSIGN || a.op() == AssignExpr::MOD_ASSIGN)
 		{
@@ -850,19 +1169,31 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			// Skip external functions (need this. prefix which changes context)
 			if (target.vis != EXTERNAL)
 			{
-				std::ostringstream call;
-				call << target.name << "(";
-				for (unsigned i = 0; i < target.numParams; i++)
+				// Check mutability compatibility:
+				// pure can only call pure
+				// view can call pure or view
+				bool canCall = true;
+				if (m_currentMutability == PURE && target.mut != PURE)
+					canCall = false;
+				if (m_currentMutability == VIEW && target.mut != PURE && target.mut != VIEW)
+					canCall = false;
+
+				if (canCall)
 				{
-					if (i > 0) call << ", ";
-					if (i < static_cast<unsigned>(fc.args_size()))
-						call << visitUintExpr(fc.args(i));
-					else
-						call << "0";
+					std::ostringstream call;
+					call << target.name << "(";
+					for (unsigned i = 0; i < target.numParams; i++)
+					{
+						if (i > 0) call << ", ";
+						if (i < static_cast<unsigned>(fc.args_size()))
+							call << visitUintExpr(fc.args(i));
+						else
+							call << "0";
+					}
+					call << ")";
+					result = call.str();
+					break;
 				}
-				call << ")";
-				result = call.str();
-				break;
 			}
 		}
 		result = findVar(randomNumber());
@@ -875,8 +1206,7 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		auto const& toType = tc.to_type();
 		if (toType.type_oneof_case() == ElementaryType::kIntType)
 		{
-			static const unsigned widths[] = {8, 16, 32, 64, 128, 256};
-			unsigned w = widths[toType.int_type().width() % 6];
+			unsigned w = (static_cast<unsigned>(toType.int_type().width()) % 32 + 1) * 8;
 			if (toType.int_type().is_signed())
 				// Signed round-trip: uint256 -> intN -> int256 -> uint256
 				result = "uint256(int256(int" + std::to_string(w) + "(" + inner + ")))";
@@ -890,8 +1220,79 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			result = inner;
 		break;
 	}
-	case Expression::kIndexAccess:
 	case Expression::kAbiEncode:
+	{
+		// Implement abi.encode/abi.encodePacked as hash to get a uint256
+		auto const& ae = _e.abi_encode();
+		std::ostringstream args;
+		unsigned numArgs = std::min(static_cast<unsigned>(ae.args_size()), 3u);
+		if (numArgs == 0)
+			args << "uint256(0)";
+		else
+		{
+			for (unsigned i = 0; i < numArgs; i++)
+			{
+				if (i > 0) args << ", ";
+				args << visitUintExpr(ae.args(i));
+			}
+		}
+		if (ae.kind() == AbiEncodeExpr::ENCODE)
+			result = "uint256(keccak256(abi.encode(" + args.str() + ")))";
+		else
+			result = "uint256(keccak256(abi.encodePacked(" + args.str() + ")))";
+		break;
+	}
+	case Expression::kStructAccess:
+	{
+		// Access a struct state variable's field
+		auto structVars = allStructVars();
+		if (!structVars.empty() && m_canReadState)
+		{
+			auto const& sa = _e.struct_access();
+			unsigned varIdx = sa.struct_var().index() % structVars.size();
+			auto const& [svName, structDefIdx] = structVars[varIdx];
+			auto const& structDef = m_currentStructDefs[structDefIdx];
+
+			// Find a uint-compatible field
+			std::vector<unsigned> uintFields;
+			for (unsigned k = 0; k < structDef.fields.size(); k++)
+				if (structDef.fields[k].isUintCompatible)
+					uintFields.push_back(k);
+
+			if (!uintFields.empty())
+			{
+				unsigned fieldIdx = sa.field_idx() % uintFields.size();
+				auto const& field = structDef.fields[uintFields[fieldIdx]];
+				std::string access = svName + "." + field.name;
+				// Widen to uint256 if needed
+				if (field.typeStr != "uint256")
+					result = "uint256(" + access + ")";
+				else
+					result = access;
+			}
+			else
+				result = defaultUintLiteral();
+		}
+		else
+			result = defaultUintLiteral();
+		break;
+	}
+	case Expression::kEnumLit:
+	{
+		// Convert an enum member to uint256
+		if (!m_currentEnumDefs.empty())
+		{
+			auto const& el = _e.enum_lit();
+			unsigned enumIdx = el.enum_idx() % m_currentEnumDefs.size();
+			auto const& ed = m_currentEnumDefs[enumIdx];
+			unsigned memberIdx = el.member_idx() % ed.numMembers;
+			result = "uint256(" + ed.name + "." + ed.memberNames[memberIdx] + ")";
+		}
+		else
+			result = defaultUintLiteral();
+		break;
+	}
+	case Expression::kIndexAccess:
 	default:
 		result = findVar(randomNumber());
 		break;
@@ -1049,16 +1450,16 @@ std::string ProtoConverter::elementaryTypeStr(ElementaryType const& _t)
 		return "bool";
 	case ElementaryType::kIntType:
 	{
-		static const unsigned widths[] = {8, 16, 32, 64, 128, 256};
-		unsigned w = widths[_t.int_type().width() % 6];
+		// All 32 valid widths: (enum_value + 1) * 8
+		unsigned w = (static_cast<unsigned>(_t.int_type().width()) % 32 + 1) * 8;
 		return (_t.int_type().is_signed() ? "int" : "uint") + std::to_string(w);
 	}
 	case ElementaryType::kAddressPayable:
 		return _t.address_payable() ? "address payable" : "address";
 	case ElementaryType::kFixedBytes:
 	{
-		static const unsigned widths[] = {1, 2, 4, 8, 16, 32};
-		unsigned w = widths[_t.fixed_bytes().width() % 6];
+		// All 32 valid widths: enum_value + 1
+		unsigned w = static_cast<unsigned>(_t.fixed_bytes().width()) % 32 + 1;
 		return "bytes" + std::to_string(w);
 	}
 	case ElementaryType::kIsString:
@@ -1103,10 +1504,14 @@ bool ProtoConverter::isUintType(TypeName const& _t)
 {
 	if (_t.type_oneof_case() != TypeName::kElementary)
 		return false;
-	auto const& e = _t.elementary();
-	if (e.type_oneof_case() != ElementaryType::kIntType)
+	return isUintType(_t.elementary());
+}
+
+bool ProtoConverter::isUintType(ElementaryType const& _t)
+{
+	if (_t.type_oneof_case() != ElementaryType::kIntType)
 		return false;
-	return !e.int_type().is_signed();
+	return !_t.int_type().is_signed();
 }
 
 // =====================================================================
@@ -1142,6 +1547,13 @@ std::vector<std::string> ProtoConverter::allUintVars()
 	return vars;
 }
 
+std::vector<std::pair<std::string, unsigned>> ProtoConverter::allStructVars()
+{
+	if (m_canReadState)
+		return m_currentStructStateVars;
+	return {};
+}
+
 std::string ProtoConverter::findVar(uint32_t _hint)
 {
 	auto vars = allUintVars();
@@ -1158,8 +1570,60 @@ std::string ProtoConverter::findLVar(uint32_t _hint)
 		for (auto const& v : scope)
 			vars.push_back(v);
 	if (vars.empty())
-		return defaultUintLiteral();
+		return ""; // Return empty to signal no lvalue available
 	return vars[_hint % vars.size()];
+}
+
+void ProtoConverter::collectInheritedInfo(ContractInfo const& _cinfo)
+{
+	bool isLibrary = (_cinfo.kind == ContractDef::LIBRARY);
+
+	m_currentUintStateVars.clear();
+	m_currentStructStateVars.clear();
+	m_currentEvents = _cinfo.events;
+	m_currentErrors = _cinfo.errors;
+	m_currentStructDefs = _cinfo.structDefs;
+	m_currentEnumDefs = _cinfo.enumDefs;
+
+	if (m_canReadState && !isLibrary)
+	{
+		for (auto const& sv : _cinfo.stateVars)
+		{
+			if (sv.isUint)
+				m_currentUintStateVars.push_back(sv.name);
+			if (sv.isStruct)
+				m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx);
+		}
+	}
+
+	// Add inherited info from base contract
+	if (_cinfo.hasBase && _cinfo.baseIdx < m_contracts.size())
+	{
+		auto const& baseInfo = m_contracts[_cinfo.baseIdx];
+
+		if (m_canReadState && !isLibrary)
+		{
+			for (auto const& sv : baseInfo.stateVars)
+			{
+				if (sv.isUint)
+					m_currentUintStateVars.push_back(sv.name);
+				if (sv.isStruct)
+					m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx);
+			}
+		}
+
+		// Inherit events and errors
+		for (auto const& ev : baseInfo.events)
+			m_currentEvents.push_back(ev);
+		for (auto const& err : baseInfo.errors)
+			m_currentErrors.push_back(err);
+
+		// Inherit struct and enum definitions
+		for (auto const& sd : baseInfo.structDefs)
+			m_currentStructDefs.push_back(sd);
+		for (auto const& ed : baseInfo.enumDefs)
+			m_currentEnumDefs.push_back(ed);
+	}
 }
 
 // =====================================================================
