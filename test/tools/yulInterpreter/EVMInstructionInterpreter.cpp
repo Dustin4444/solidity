@@ -237,6 +237,7 @@ u256 EVMInstructionInterpreter::eval(
 	case Instruction::KECCAK256:
 	{
 		chargeCost(50);
+		chargeCopyWordCost(arg[1]);
 		if (!accessMemory(arg[0], arg[1]))
 			return u256("0x1234cafe1234cafe1234cafe") + arg[0];
 		uint64_t offset = uint64_t(arg[0] & uint64_t(-1));
@@ -415,12 +416,17 @@ u256 EVMInstructionInterpreter::eval(
 		bool const success = (arg[0] > 0) && (arg[1] == util::h160::Arith(m_state.address) || (arg[1] & 1));
 		if (success && accessMemory(arg[5], arg[6]))
 		{
+			chargeCopyWordCost(arg[4]);
 			chargeCopyWordCost(arg[6]);
-			// Write deterministic output bytes derived from the callee address.
+			// Build deterministic return data as a hash of the callee address and calldata.
+			bytes hashInput = h256(arg[1]).asBytes();
+			if (arg[4] != 0 && accessMemory(arg[3], arg[4]))
+				hashInput += m_state.readMemory(arg[3], arg[4]);
+			h256 const hash = h256(keccak256(hashInput));
 			size_t const outSize = size_t(arg[6]);
 			bytes outData(outSize);
 			for (size_t i = 0; i < outSize; ++i)
-				outData[i] = uint8_t((uint64_t(arg[1]) >> (8 * (i % 8))) & 0xff);
+				outData[i] = hash[i % 32];
 			for (size_t i = 0; i < outSize; ++i)
 				m_state.memory[arg[5] + i] = outData[i];
 			m_state.returndata = outData;
@@ -438,12 +444,17 @@ u256 EVMInstructionInterpreter::eval(
 		bool const success = (arg[0] > 0) && (arg[1] == util::h160::Arith(m_state.address) || (arg[1] & 1));
 		if (success && accessMemory(arg[4], arg[5]))
 		{
+			chargeCopyWordCost(arg[3]);
 			chargeCopyWordCost(arg[5]);
-			// Write deterministic output bytes derived from the callee address.
+			// Build deterministic return data as a hash of the callee address and calldata.
+			bytes hashInput = h256(arg[1]).asBytes();
+			if (arg[3] != 0 && accessMemory(arg[2], arg[3]))
+				hashInput += m_state.readMemory(arg[2], arg[3]);
+			h256 const hash = h256(keccak256(hashInput));
 			size_t const outSize = size_t(arg[5]);
 			bytes outData(outSize);
 			for (size_t i = 0; i < outSize; ++i)
-				outData[i] = uint8_t((uint64_t(arg[1]) >> (8 * (i % 8))) & 0xff);
+				outData[i] = hash[i % 32];
 			for (size_t i = 0; i < outSize; ++i)
 				m_state.memory[arg[4] + i] = outData[i];
 			m_state.returndata = outData;
@@ -682,6 +693,7 @@ bool EVMInstructionInterpreter::accessMemory(u256 const& _offset, u256 const& _s
 
 bytes EVMInstructionInterpreter::readMemory(u256 const& _offset, u256 const& _size)
 {
+	chargeCost(_size);
 	yulAssert(_size <= s_maxRangeSize, "Too large read.");
 	bytes data(size_t(_size), uint8_t(0));
 	for (size_t i = 0; i < data.size(); ++i)
