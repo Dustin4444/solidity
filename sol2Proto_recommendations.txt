@@ -1,0 +1,58 @@
+sol2Proto Improvement Recommendations
+======================================
+
+COMPLETED (this session):
+- FuncCallExpr: inter-function calls (lower-index only to prevent recursion)
+- TypeConvExpr: explicit type casts with signed/unsigned round-trips
+- ConstructorDef: constructor body generation
+- require()/assert(): new RequireStmt proto message + converter (skipped in constructors)
+- StringLiteral: generates uint256(keccak256(bytes("sN"))) from seed
+- AddressLiteral: generates uint256(uint160(value)) from seed
+- BoolLiteral in uint context: properly maps to 1/0
+
+STILL UNIMPLEMENTED (proto exists, converter skips):
+- IndexAccessExpr: array/mapping indexing. Needs arrays/mappings to be
+  accessible in expressions, not just declared as state vars. Medium effort.
+- AbiEncodeExpr: abi.encode/encodePacked as standalone expressions.
+  Currently only used internally by hash/math wrappers. Low-medium effort.
+- StructDef/EnumDef: declared in proto but never processed. Would need
+  expression support for member access / enum value references. High effort.
+- RevertStmt: disabled to avoid unexpected reverts. Safe to enable since
+  test contract uses low-level call() which catches reverts. Low effort.
+
+MISSING FROM PROTO ENTIRELY:
+
+Medium effort, high value:
+- try/catch: exercises external call + error handling codegen
+- Modifiers: modifier definitions + usage on functions, interact with
+  function bodies in non-trivial ways
+- receive()/fallback(): special dispatch paths in the EVM
+- Inheritance: bases field exists but no override/super/linearization support
+- Free functions: functions outside contracts (top-level)
+
+Medium effort, medium value:
+- type(X).min / type(X).max: type introspection
+- User-defined value types: type Foo is uint256
+- using...for: library binding syntax
+- delete: resetting storage variables
+- new expressions: contract creation within functions
+- bytes.concat() / string.concat()
+
+Low value / high effort:
+- Tuple expressions: (a, b) = foo()
+- Multi-variable declarations
+- Inline assembly (assembly { ... })
+- Member access: x.length, arr.push(), struct fields
+- Imports: multi-source compilation
+
+STRUCTURAL IMPROVEMENTS:
+- FixedBytesType missing widths: proto has B1/B2/B4/B8/B16/B32 but real
+  Solidity supports bytes1-bytes32 (all 32). Missing bytes3,5-7,9-15,17-31.
+- IntegerType missing widths: only 8/16/32/64/128/256. Real Solidity
+  supports all multiples of 8 from 8 to 256 (32 widths total).
+- Everything forced to uint256: despite rich type proto, converter forces
+  all function params, locals, event/error params to uint256. Broader type
+  support would significantly increase codegen coverage.
+- Interfaces/abstract contracts treated as regular contracts: should
+  generate bodyless functions for interfaces, abstract functions for
+  abstract contracts.

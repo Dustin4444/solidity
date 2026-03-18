@@ -1,0 +1,57 @@
+# sol2Proto Improvement Plan
+
+## Phase 1: Bug Fixes
+
+1. Mutability-aware expression generation: pure functions must not generate
+   msg.sender, block.timestamp, tx.origin, gasleft(), etc. View functions must
+   not emit events.
+2. Guard decrement (--) on uint256: wrap in unchecked or add > 0 check to avoid
+   revert at zero.
+3. Guard exponentiation (**): clamp exponent to small values to avoid overflow
+   reverts.
+4. Fix findLVar returning literal "0" for ++/-- (syntax error: ++0 is invalid).
+5. Enable revert generation (currently dead code).
+
+## Phase 2: Implement the Type System
+
+Generate typed variables, params, and returns instead of collapsing everything
+to uint256. This includes:
+- Signed integer arithmetic and conversions
+- Address operations
+- bytes/string storage and memory handling
+- Fixed-bytes operations
+- Bool-specific codegen
+- Type conversions between different elementary types
+
+## Phase 3: Struct/Enum Generation and Usage
+
+- Actually generate struct definitions in contracts
+- Add member access expressions (expr.field)
+- Generate enum definitions and enum literal expressions
+
+## Phase 4: Array/Mapping Access
+
+- Implement IndexAccessExpr for arrays and mappings
+- Add array operations: push, pop, length
+- Generate mapping reads/writes
+
+## Phase 5: Expand Type Widths in Proto
+
+- Integer widths: all multiples of 8 from 8 to 256 (32 values)
+- BytesN widths: all 1 to 32
+
+## Phase 6: Add Modifiers
+
+- ModifierDef message in proto
+- Modifier invocation on functions
+- Modifier body with _; placeholder
+
+## Phase 7: Inheritance Support
+
+- Implement base contract references
+- virtual/override keywords
+- super calls
+
+## Phase 8: Receive/Fallback Functions
+
+## Phase 9: Try/Catch Statements
