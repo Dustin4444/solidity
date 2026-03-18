@@ -26,7 +26,6 @@
 #include <libyul/optimiser/ASTWalker.h>
 
 #include <libevmasm/Instruction.h>
-#include <boost/container/flat_map.hpp>
 
 #include <libsolutil/FixedHash.h>
 #include <libsolutil/CommonData.h>
@@ -83,7 +82,7 @@ struct InterpreterState
 {
 	bytes calldata;
 	bytes returndata;
-	boost::container::flat_map<u256, uint8_t> memory;
+	std::map<u256, uint8_t> memory;
 	/// This is different than memory.size() because we ignore gas.
 	u256 msize;
 	std::map<util::h256, util::h256> storage;
