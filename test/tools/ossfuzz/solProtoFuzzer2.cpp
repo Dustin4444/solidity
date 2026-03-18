@@ -22,6 +22,8 @@
 
 #include <test/EVMHost.h>
 
+#include <libevmasm/Exceptions.h>
+
 #include <evmone/evmone.h>
 #include <src/libfuzzer/libfuzzer_macro.h>
 
@@ -86,12 +88,19 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		/*libraryName=*/"",
 		methodName
 	);
-	auto result = evmoneUtil.compileDeployAndExecute();
-	// If compilation and execution succeeded, the test contract should
-	// return 0. If it doesn't, we found a codegen or optimizer bug.
-	if (result.status_code == EVMC_SUCCESS)
-		solAssert(
-			EvmoneUtility::zeroWord(result.output_data, result.output_size),
-			"Sol proto2 fuzzer: Output incorrect"
-		);
+	try
+	{
+		auto result = evmoneUtil.compileDeployAndExecute();
+		// If compilation and execution succeeded, the test contract should
+		// return 0. If it doesn't, we found a codegen or optimizer bug.
+		if (result.status_code == EVMC_SUCCESS)
+			solAssert(
+				EvmoneUtility::zeroWord(result.output_data, result.output_size),
+				"Sol proto2 fuzzer: Output incorrect"
+			);
+	}
+	catch (evmasm::StackTooDeepException const&)
+	{
+		// Stack-too-deep in legacy codegen is expected for some inputs.
+	}
 }

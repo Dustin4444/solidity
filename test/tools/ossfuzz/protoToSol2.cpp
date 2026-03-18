@@ -642,13 +642,16 @@ std::string ProtoConverter::visitVarDecl(VarDeclStmt const& _s)
 		return "";
 
 	std::string varName = "v" + std::to_string(m_varCounter++);
-	addVar(varName);
 	m_localVarCount++;
 
 	std::ostringstream o;
 	o << indent() << "uint256 " << varName;
 	if (_s.has_init())
 		o << " = " << visitUintExpr(_s.init());
+
+	// Add variable to scope AFTER generating the initializer to prevent
+	// self-referential expressions like `uint256 v0 = f(v0)`.
+	addVar(varName);
 	else
 		o << " = 0";
 	o << ";\n";
