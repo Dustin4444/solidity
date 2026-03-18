@@ -1,0 +1,477 @@
+/*
+	This file is part of solidity.
+
+	solidity is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	solidity is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
+*/
+// SPDX-License-Identifier: GPL-3.0
+
+syntax = "proto2";
+
+// ======================= TYPES =======================
+
+message IntegerType {
+	// Converter maps: 0->8, 1->16, 2->32, 3->64, 4->128, 5->256
+	enum Width {
+		W8 = 0;
+		W16 = 1;
+		W32 = 2;
+		W64 = 3;
+		W128 = 4;
+		W256 = 5;
+	}
+	required Width width = 1;
+	required bool is_signed = 2;
+}
+
+message FixedBytesType {
+	// Converter maps: 0->1, 1->2, 2->4, 3->8, 4->16, 5->32
+	enum Width {
+		B1 = 0;
+		B2 = 1;
+		B4 = 2;
+		B8 = 3;
+		B16 = 4;
+		B32 = 5;
+	}
+	required Width width = 1;
+}
+
+message ElementaryType {
+	oneof type_oneof {
+		bool bool_type = 1;
+		IntegerType int_type = 2;
+		// true = address payable, false = address
+		bool address_payable = 3;
+		FixedBytesType fixed_bytes = 4;
+		// true = string, false = bytes
+		bool is_string = 5;
+	}
+}
+
+message ArrayType {
+	required ElementaryType base = 1;
+	// Omitted = dynamic array
+	optional uint32 length = 2;
+}
+
+message MappingType {
+	required ElementaryType key = 1;
+	required ElementaryType value = 2;
+}
+
+message TypeName {
+	oneof type_oneof {
+		ElementaryType elementary = 1;
+		ArrayType array = 2;
+		MappingType mapping = 3;
+		uint32 struct_ref = 4;
+		uint32 enum_ref = 5;
+	}
+}
+
+// ======================= EXPRESSIONS =======================
+
+message BoolLiteral {
+	required bool val = 1;
+}
+
+message IntegerLiteral {
+	required uint64 val = 1;
+	required bool negative = 2;
+}
+
+message StringLiteral {
+	// Converter generates deterministic string from seed
+	required uint32 seed = 1;
+}
+
+message AddressLiteral {
+	// Converter generates a valid checksummed address
+	required uint64 val = 1;
+}
+
+message Literal {
+	oneof lit_oneof {
+		BoolLiteral bool_lit = 1;
+		IntegerLiteral int_lit = 2;
+		StringLiteral str_lit = 3;
+		AddressLiteral addr_lit = 4;
+	}
+}
+
+// References a variable in the current scope
+message VarRef {
+	required uint32 index = 1;
+}
+
+message BinaryOp {
+	enum Op {
+		// Arithmetic (integer operands -> integer result)
+		ADD = 0;
+		SUB = 1;
+		MUL = 2;
+		DIV = 3;
+		MOD = 4;
+		EXP = 5;
+		// Bitwise (integer operands -> integer result)
+		BIT_AND = 6;
+		BIT_OR = 7;
+		BIT_XOR = 8;
+		SHL = 9;
+		SHR = 10;
+		// Comparison (integer operands -> bool result)
+		LT = 11;
+		GT = 12;
+		LTE = 13;
+		GTE = 14;
+		EQ = 15;
+		NEQ = 16;
+		// Logical (bool operands -> bool result)
+		AND = 17;
+		OR = 18;
+	}
+	required Op op = 1;
+	required Expression left = 2;
+	required Expression right = 3;
+}
+
+message UnaryOp {
+	enum Op {
+		LNOT = 0;     // !x (bool -> bool)
+		BNOT = 1;     // ~x (integer -> integer)
+		NEG = 2;      // -x (signed integer)
+		INC_PRE = 3;  // ++x
+		DEC_PRE = 4;  // --x
+		INC_POST = 5; // x++
+		DEC_POST = 6; // x--
+	}
+	required Op op = 1;
+	required Expression operand = 2;
+}
+
+message TernaryOp {
+	required Expression cond = 1;
+	required Expression true_val = 2;
+	required Expression false_val = 3;
+}
+
+// Call a function defined in the current contract
+message FuncCallExpr {
+	required uint32 func_id = 1;
+	repeated Expression args = 2;
+}
+
+message IndexAccessExpr {
+	required Expression base = 1;
+	required Expression index = 2;
+}
+
+message TypeConvExpr {
+	required ElementaryType to_type = 1;
+	required Expression arg = 2;
+}
+
+// msg.sender, msg.value
+message MsgExpr {
+	enum Field {
+		SENDER = 0;
+		VALUE = 1;
+	}
+	required Field field = 1;
+}
+
+// block.timestamp, block.number, etc.
+message BlockExpr {
+	enum Field {
+		TIMESTAMP = 0;
+		NUMBER = 1;
+		CHAINID = 2;
+		BASEFEE = 3;
+		PREVRANDAO = 4;
+		GASLIMIT = 5;
+	}
+	required Field field = 1;
+}
+
+// tx.origin, tx.gasprice
+message TxExpr {
+	enum Field {
+		ORIGIN = 0;
+		GASPRICE = 1;
+	}
+	required Field field = 1;
+}
+
+// abi.encode, abi.encodePacked
+message AbiEncodeExpr {
+	enum Kind {
+		ENCODE = 0;
+		ENCODE_PACKED = 1;
+	}
+	required Kind kind = 1;
+	repeated Expression args = 2;
+}
+
+// keccak256(abi.encode(...))
+message HashExpr {
+	enum Kind {
+		KECCAK256 = 0;
+		SHA256 = 1;
+	}
+	required Kind kind = 1;
+	required Expression arg = 2;
+}
+
+// addmod(x, y, m), mulmod(x, y, m)
+message MathExpr {
+	enum Kind {
+		ADDMOD = 0;
+		MULMOD = 1;
+	}
+	required Kind kind = 1;
+	required Expression x = 2;
+	required Expression y = 3;
+	required Expression mod = 4;
+}
+
+// gasleft()
+message BuiltinExpr {
+	enum Kind {
+		GASLEFT = 0;
+	}
+	required Kind kind = 1;
+}
+
+// Assignment: x = expr, x += expr, etc.
+message AssignExpr {
+	enum Op {
+		ASSIGN = 0;
+		ADD_ASSIGN = 1;
+		SUB_ASSIGN = 2;
+		MUL_ASSIGN = 3;
+		DIV_ASSIGN = 4;
+		MOD_ASSIGN = 5;
+		AND_ASSIGN = 6;
+		OR_ASSIGN = 7;
+		XOR_ASSIGN = 8;
+		SHL_ASSIGN = 9;
+		SHR_ASSIGN = 10;
+	}
+	required Op op = 1;
+	required VarRef lhs = 2;
+	required Expression rhs = 3;
+}
+
+message Expression {
+	oneof expr_oneof {
+		Literal lit = 1;
+		VarRef var_ref = 2;
+		BinaryOp bin_op = 3;
+		UnaryOp un_op = 4;
+		TernaryOp ternary = 5;
+		FuncCallExpr func_call = 6;
+		IndexAccessExpr index_access = 7;
+		TypeConvExpr type_conv = 8;
+		MsgExpr msg_expr = 9;
+		BlockExpr block_expr = 10;
+		TxExpr tx_expr = 11;
+		AbiEncodeExpr abi_encode = 12;
+		HashExpr hash_expr = 13;
+		MathExpr math_expr = 14;
+		BuiltinExpr builtin = 15;
+		AssignExpr assign = 16;
+	}
+}
+
+// ======================= STATEMENTS =======================
+
+message VarDeclStmt {
+	required TypeName type = 1;
+	optional Expression init = 2;
+}
+
+message ExprStmt {
+	required Expression expr = 1;
+}
+
+message IfStmt {
+	required Expression cond = 1;
+	required Block if_body = 2;
+	optional Block else_body = 3;
+}
+
+message ForStmt {
+	optional VarDeclStmt init = 1;
+	optional Expression cond = 2;
+	optional ExprStmt post = 3;
+	required Block body = 4;
+}
+
+message WhileStmt {
+	required Expression cond = 1;
+	required Block body = 2;
+}
+
+message DoWhileStmt {
+	required Expression cond = 1;
+	required Block body = 2;
+}
+
+message ReturnStmt {
+	optional Expression val = 1;
+}
+
+message BreakStmt {}
+message ContinueStmt {}
+
+message EmitStmt {
+	required uint32 event_id = 1;
+	repeated Expression args = 2;
+}
+
+message RevertStmt {
+	required uint32 error_id = 1;
+	repeated Expression args = 2;
+}
+
+message Block {
+	repeated Statement stmts = 1;
+}
+
+message UncheckedBlock {
+	required Block body = 1;
+}
+
+message Statement {
+	oneof stmt_oneof {
+		VarDeclStmt var_decl = 1;
+		ExprStmt expr_stmt = 2;
+		IfStmt if_stmt = 3;
+		ForStmt for_stmt = 4;
+		WhileStmt while_stmt = 5;
+		DoWhileStmt do_while = 6;
+		ReturnStmt return_stmt = 7;
+		EmitStmt emit_stmt = 8;
+		RevertStmt revert_stmt = 9;
+		Block block = 10;
+		UncheckedBlock unchecked = 11;
+		BreakStmt break_stmt = 12;
+		ContinueStmt continue_stmt = 13;
+	}
+}
+
+// ======================= CONTRACT ELEMENTS =======================
+
+message StructField {
+	required ElementaryType type = 1;
+}
+
+message StructDef {
+	// Converter ensures at least 1 field
+	repeated StructField fields = 1;
+}
+
+message EnumDef {
+	// Converter clamps to 1..256
+	required uint32 num_members = 1;
+}
+
+message EventParam {
+	required ElementaryType type = 1;
+	required bool indexed = 2;
+}
+
+message EventDef {
+	repeated EventParam params = 1;
+	required bool anonymous = 2;
+}
+
+message ErrorParam {
+	required ElementaryType type = 1;
+}
+
+message ErrorDef {
+	repeated ErrorParam params = 1;
+}
+
+message ParamDef {
+	required TypeName type = 1;
+}
+
+enum Visibility {
+	PUBLIC = 0;
+	EXTERNAL = 1;
+	INTERNAL = 2;
+	PRIVATE = 3;
+}
+
+enum StateMutability {
+	PURE = 0;
+	VIEW = 1;
+	PAYABLE = 2;
+	NONPAYABLE = 3;
+}
+
+message FunctionDef {
+	repeated ParamDef params = 1;
+	repeated ParamDef returns = 2;
+	required Visibility vis = 3;
+	required StateMutability mut = 4;
+	required bool is_virtual = 5;
+	required Block body = 6;
+}
+
+message ConstructorDef {
+	required Block body = 1;
+	required bool payable = 2;
+}
+
+message StateVarDecl {
+	required TypeName type = 1;
+	required Visibility vis = 2;
+	required bool is_constant = 3;
+	required bool is_immutable = 4;
+}
+
+// ======================= CONTRACTS =======================
+
+message ContractDef {
+	enum Kind {
+		CONTRACT = 0;
+		ABSTRACT_CONTRACT = 1;
+		INTERFACE = 2;
+		LIBRARY = 3;
+	}
+	required Kind kind = 1;
+	// Indices of base contracts (for inheritance, future use)
+	repeated uint32 bases = 2;
+	repeated StructDef structs = 3;
+	repeated EnumDef enums = 4;
+	repeated StateVarDecl state_vars = 5;
+	repeated FunctionDef functions = 6;
+	repeated EventDef events = 7;
+	repeated ErrorDef errors = 8;
+	optional ConstructorDef constructor = 9;
+}
+
+// ======================= TOP-LEVEL =======================
+
+message Program {
+	repeated ContractDef contracts = 1;
+	required uint64 seed = 2;
+	required bool via_ir = 3;
+	required bool optimize = 4;
+}
+
+package solidity.test.sol2protofuzzer;
