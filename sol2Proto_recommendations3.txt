@@ -1,0 +1,52 @@
+## Bug 1: `delete` on state variables in `view`/`pure` functions (generates invalid Solidity)
+
+**File:** `protoToSol2.cpp:852-858`
+
+`visitDelete` calls `findVar()`, which includes state variable names when `m_canReadState` is true (i.e., for `view`, `nonpayable`, `payable`). In a `view` function, `findVar()` can return a state variable, producing `delete sv0_1;` — which modifies state and is illegal in a `view` function. The compiler will reject it.
+
+**Fix:** `visitDelete` should use `findLVar()` (local vars only), or skip entirely when `m_currentMutability == VIEW || m_currentMutability == PURE`.
+
+---
+
+## Bug 2: Inherited struct state var indices are wrong (wrong field access / potential OOB)
+
+**File:** `protoToSol2.cpp:1577-1627` + `protoToSol2.cpp:1245-1278`
+
+During pre-processing (line 141), `structDefIdx` is set relative to the **owning contract's** `structDefs` vector. In `collectInheritedInfo`, the current contract's struct defs are stored first, then the base's are appended:
+
+```
+m_currentStructDefs = [S1_0, S1_1]        // derived contract's
+m_currentStructDefs += [S0_0, S0_1]       // base contract's (appended)
+```
+
+But inherited state vars still carry `structDefIdx` relative to the **base** contract. For example, `sv0_0` with `structDefIdx=1` (pointing to `S0_1`) now indexes into position 1 of the combined vector, which is `S1_1` — a completely wrong struct definition.
+
+This causes wrong field names in struct member access, and if the base has more struct defs than the derived contract, it can cause **out-of-bounds** access on `m_currentStructDefs`.
+
+**Fix:** When appending inherited struct state vars in `collectInheritedInfo`, offset their `structDefIdx` by the size of the current contract's struct defs:
+```cpp
+m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx + _cinfo.structDefs.size());
+```
+
+---
+
+## Bug 3: Multi-level inheritance not collected
+
+**File:** `protoToSol2.cpp:1600-1626`
+
+`collectInheritedInfo` only traverses one level of inheritance. If C2 -> C1 -> C0, C2 will see C1's state vars, events, errors, structs, enums but **not** C0's. In the generated Solidity, C2 genuinely inherits from C0 (through C1), so C0's members are accessible. This means:
+
+- State variables inherited from C0 are available in C2 at runtime but not generated/referenced by the fuzzer (missed coverage).
+- Worse: if C1 has a struct-typed state variable pointing to a C0-defined struct, and C2 tries to access it, `m_currentStructDefs` won't contain C0's struct definition, potentially causing **OOB access** in `visitUintExpr` (compounding with Bug 2).
+
+**Fix:** Walk the inheritance chain transitively (or flatten it during pre-processing).
+
+---
+
+## Bug 4: Loop variables bypass `m_localVarCount` limit check
+
+**File:** `protoToSol2.cpp:683-693`, `710-720`, `743-752`
+
+`visitVarDecl` correctly guards with `if (m_localVarCount >= s_maxLocalVars) return "";`, but `visitFor`, `visitWhile`, and `visitDoWhile` all create iteration counter variables and increment `m_localVarCount` **without checking the limit first**. Deeply nested loops can push local variable count well beyond `s_maxLocalVars` (10), potentially causing Solidity's "stack too deep" compilation error.
+
+**Fix:** Check `m_localVarCount >= s_maxLocalVars` at the top of each loop visitor and fall back to a simpler construct (or skip) if exceeded.
