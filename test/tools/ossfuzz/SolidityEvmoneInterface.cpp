@@ -151,11 +151,11 @@ evmc::Result EvmoneUtility::compileDeployAndExecute(std::string _fuzzIsabelle)
 	// address map.
 	m_compilationFramework.contractName(m_contractName);
 	auto cOutput = m_compilationFramework.compileContract();
-	solAssert(cOutput.has_value(), "Compiling contract failed");
-	solAssert(
-		!cOutput->byteCode.empty() && !cOutput->methodIdentifiersInContract.empty(),
-		"SolidityEvmoneInterface: Invalid compilation output."
-	);
+	// Compilation can fail for generated inputs; return a failure result.
+	if (!cOutput.has_value() ||
+		cOutput->byteCode.empty() ||
+		cOutput->methodIdentifiersInContract.empty())
+		return evmc::Result{EVMC_INTERNAL_ERROR};
 
 	std::string methodName;
 	if (!_fuzzIsabelle.empty())
