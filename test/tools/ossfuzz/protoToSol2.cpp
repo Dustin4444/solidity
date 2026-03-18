@@ -679,6 +679,10 @@ std::string ProtoConverter::visitIf(IfStmt const& _s)
 
 std::string ProtoConverter::visitFor(ForStmt const& _s)
 {
+	// Skip if we'd exceed local variable limit (iter var needs a slot)
+	if (m_localVarCount >= s_maxLocalVars)
+		return "";
+
 	// Always generate a bounded for loop to prevent infinite loops
 	std::string iterVar = "i" + std::to_string(m_varCounter++);
 	unsigned bound = s_maxForIter;
@@ -706,6 +710,10 @@ std::string ProtoConverter::visitFor(ForStmt const& _s)
 
 std::string ProtoConverter::visitWhile(WhileStmt const& _s)
 {
+	// Skip if we'd exceed local variable limit (counter var needs a slot)
+	if (m_localVarCount >= s_maxLocalVars)
+		return "";
+
 	// Bounded while loop with a counter
 	std::string counterVar = "w" + std::to_string(m_varCounter++);
 	unsigned bound = s_maxForIter;
@@ -739,6 +747,10 @@ std::string ProtoConverter::visitWhile(WhileStmt const& _s)
 
 std::string ProtoConverter::visitDoWhile(DoWhileStmt const& _s)
 {
+	// Skip if we'd exceed local variable limit (counter var needs a slot)
+	if (m_localVarCount >= s_maxLocalVars)
+		return "";
+
 	// Bounded do-while
 	std::string counterVar = "d" + std::to_string(m_varCounter++);
 	unsigned bound = s_maxForIter;
@@ -851,9 +863,10 @@ std::string ProtoConverter::visitUnchecked(UncheckedBlock const& _s)
 
 std::string ProtoConverter::visitDelete(DeleteStmt const& _s)
 {
-	std::string var = findVar(_s.target().index());
-	// Don't delete literals
-	if (var == defaultUintLiteral())
+	// Use findLVar to only delete local variables — deleting state vars
+	// would be invalid in view/pure functions.
+	std::string var = findLVar(_s.target().index());
+	if (var.empty())
 		return "";
 	return indent() + "delete " + var + ";\n";
 }
@@ -1596,10 +1609,19 @@ void ProtoConverter::collectInheritedInfo(ContractInfo const& _cinfo)
 		}
 	}
 
-	// Add inherited info from base contract
-	if (_cinfo.hasBase && _cinfo.baseIdx < m_contracts.size())
+	// Add inherited info from base contracts (walk full inheritance chain)
+	std::vector<unsigned> inheritanceChain;
 	{
-		auto const& baseInfo = m_contracts[_cinfo.baseIdx];
+		ContractInfo const* cur = &_cinfo;
+		while (cur->hasBase && cur->baseIdx < m_contracts.size())
+		{
+			inheritanceChain.push_back(cur->baseIdx);
+			cur = &m_contracts[cur->baseIdx];
+		}
+	}
+	for (unsigned baseIdx : inheritanceChain)
+	{
+		auto const& baseInfo = m_contracts[baseIdx];
 
 		if (m_canReadState && !isLibrary)
 		{
@@ -1608,7 +1630,12 @@ void ProtoConverter::collectInheritedInfo(ContractInfo const& _cinfo)
 				if (sv.isUint)
 					m_currentUintStateVars.push_back(sv.name);
 				if (sv.isStruct)
-					m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx);
+				{
+					// Offset structDefIdx by current size of m_currentStructDefs
+					// so it indexes into the correct position after appending.
+					unsigned offset = m_currentStructDefs.size();
+					m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx + offset);
+				}
 			}
 		}
 
