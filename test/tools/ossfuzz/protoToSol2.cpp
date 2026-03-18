@@ -188,6 +188,40 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	if (!info.events.empty() || !info.errors.empty())
 		o << "\n";
 
+	// Constructor
+	if (!isLibrary && _c.has_constructor())
+	{
+		auto const& ctor = _c.constructor();
+		o << "\tconstructor() ";
+		if (ctor.payable())
+			o << "payable ";
+		o << "{\n";
+
+		// Set up state for constructor body
+		m_canReadState = true;
+		m_inConstructor = true;
+		m_currentFuncIdx = 0;
+		m_currentUintStateVars.clear();
+		for (auto const& [name, _typeStr, isUint] : info.stateVars)
+		{
+			if (isUint)
+				m_currentUintStateVars.push_back(name);
+		}
+		m_currentEvents = info.events;
+		m_currentErrors = info.errors;
+
+		pushScope();
+		m_localVarCount = 0;
+		m_varCounter = 0;
+		m_indentLevel = 2;
+		m_stmtDepth = 0;
+		o << visitBlock(ctor.body());
+		popScope();
+		m_inConstructor = false;
+
+		o << "\t}\n\n";
+	}
+
 	// Functions
 	for (unsigned j = 0; j < info.functions.size(); j++)
 		o << visitFunction(_c.functions(j), info, j) << "\n";
@@ -207,6 +241,7 @@ std::string ProtoConverter::visitFunction(
 )
 {
 	auto const& fi = _cinfo.functions[_funcIdx];
+	m_currentFuncIdx = _funcIdx;
 	bool isLibrary = (_cinfo.kind == ContractDef::LIBRARY);
 
 	// Determine visibility
@@ -369,6 +404,9 @@ std::string ProtoConverter::visitStatement(Statement const& _s)
 	case Statement::kContinueStmt:
 		if (m_inLoop)
 			result = indent() + "continue;\n";
+		break;
+	case Statement::kRequireStmt:
+		result = visitRequire(_s.require_stmt());
 		break;
 	default:
 		break;
@@ -571,6 +609,20 @@ std::string ProtoConverter::visitRevert(RevertStmt const& _s)
 	return o.str();
 }
 
+std::string ProtoConverter::visitRequire(RequireStmt const& _s)
+{
+	// Skip require/assert in constructors to avoid reverting during
+	// contract creation (test contract uses `new` which propagates reverts)
+	if (m_inConstructor)
+		return "";
+
+	std::string cond = visitBoolExpr(_s.cond());
+	if (_s.is_assert())
+		return indent() + "assert(" + cond + ");\n";
+	else
+		return indent() + "require(" + cond + ");\n";
+}
+
 std::string ProtoConverter::visitUnchecked(UncheckedBlock const& _s)
 {
 	std::ostringstream o;
@@ -601,6 +653,21 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		auto const& lit = _e.lit();
 		if (lit.has_int_lit())
 			result = std::to_string(lit.int_lit().val() % 1000);
+		else if (lit.has_bool_lit())
+			result = lit.bool_lit().val() ? "1" : "0";
+		else if (lit.has_addr_lit())
+		{
+			// Generate a deterministic checksummed address as a uint
+			// Use the seed to produce a non-zero address value
+			uint64_t v = lit.addr_lit().val();
+			result = "uint256(uint160(" + std::to_string(v % 1000000) + "))";
+		}
+		else if (lit.has_str_lit())
+		{
+			// Generate a deterministic string literal hashed to uint256
+			uint32_t seed = lit.str_lit().seed();
+			result = "uint256(keccak256(bytes(\"s" + std::to_string(seed % 100) + "\")))";
+		}
 		else
 			result = defaultUintLiteral();
 		break;
@@ -768,8 +835,62 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		break;
 	}
 	case Expression::kFuncCall:
-	case Expression::kIndexAccess:
+	{
+		auto const& fc = _e.func_call();
+		auto const& cinfo = m_contracts[m_currentContract];
+		// Only call functions with lower index to avoid recursion
+		unsigned callableCount = std::min(
+			m_currentFuncIdx,
+			static_cast<unsigned>(cinfo.functions.size())
+		);
+		if (callableCount > 0)
+		{
+			unsigned targetIdx = fc.func_id() % callableCount;
+			auto const& target = cinfo.functions[targetIdx];
+			// Skip external functions (need this. prefix which changes context)
+			if (target.vis != EXTERNAL)
+			{
+				std::ostringstream call;
+				call << target.name << "(";
+				for (unsigned i = 0; i < target.numParams; i++)
+				{
+					if (i > 0) call << ", ";
+					if (i < static_cast<unsigned>(fc.args_size()))
+						call << visitUintExpr(fc.args(i));
+					else
+						call << "0";
+				}
+				call << ")";
+				result = call.str();
+				break;
+			}
+		}
+		result = findVar(randomNumber());
+		break;
+	}
 	case Expression::kTypeConv:
+	{
+		auto const& tc = _e.type_conv();
+		std::string inner = visitUintExpr(tc.arg());
+		auto const& toType = tc.to_type();
+		if (toType.type_oneof_case() == ElementaryType::kIntType)
+		{
+			static const unsigned widths[] = {8, 16, 32, 64, 128, 256};
+			unsigned w = widths[toType.int_type().width() % 6];
+			if (toType.int_type().is_signed())
+				// Signed round-trip: uint256 -> intN -> int256 -> uint256
+				result = "uint256(int256(int" + std::to_string(w) + "(" + inner + ")))";
+			else if (w < 256)
+				// Unsigned narrowing + widening
+				result = "uint256(uint" + std::to_string(w) + "(" + inner + "))";
+			else
+				result = inner;
+		}
+		else
+			result = inner;
+		break;
+	}
+	case Expression::kIndexAccess:
 	case Expression::kAbiEncode:
 	default:
 		result = findVar(randomNumber());

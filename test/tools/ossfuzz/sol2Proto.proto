@@ -335,6 +335,12 @@ message ReturnStmt {
 message BreakStmt {}
 message ContinueStmt {}
 
+message RequireStmt {
+	required Expression cond = 1;
+	// true = assert, false = require
+	required bool is_assert = 2;
+}
+
 message EmitStmt {
 	required uint32 event_id = 1;
 	repeated Expression args = 2;
@@ -368,6 +374,7 @@ message Statement {
 		UncheckedBlock unchecked = 11;
 		BreakStmt break_stmt = 12;
 		ContinueStmt continue_stmt = 13;
+		RequireStmt require_stmt = 14;
 	}
 }
 

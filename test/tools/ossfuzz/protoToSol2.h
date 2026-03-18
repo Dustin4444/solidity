@@ -106,6 +106,7 @@ private:
 	std::string visitReturn(ReturnStmt const& _s);
 	std::string visitEmit(EmitStmt const& _s);
 	std::string visitRevert(RevertStmt const& _s);
+	std::string visitRequire(RequireStmt const& _s);
 	std::string visitUnchecked(UncheckedBlock const& _s);
 
 	// Expression visitors — generate uint256-typed or bool-typed expressions
@@ -172,6 +173,8 @@ private:
 	unsigned m_varCounter = 0;
 	unsigned m_localVarCount = 0;
 	bool m_inLoop = false;
+	bool m_inConstructor = false;
+	unsigned m_currentFuncIdx = 0;
 
 	/// Info about all generated contracts
 	std::vector<ContractInfo> m_contracts;
