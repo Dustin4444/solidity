@@ -1542,7 +1542,9 @@ std::string ProtoConverter::generateTestContract()
 		}
 	}
 
-	// For library contracts, call functions directly and XOR results
+	// For library contracts, call functions directly and XOR results.
+	// Note: library functions are always internal (set in visitFunction),
+	// so no visibility filter is needed here.
 	for (auto const& ci : m_contracts)
 	{
 		if (ci.kind != ContractDef::LIBRARY)

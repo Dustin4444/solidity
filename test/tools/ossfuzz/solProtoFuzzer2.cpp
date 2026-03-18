@@ -104,7 +104,11 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		// Run 2: with optimization
 		auto resultOpt = runOnce(version, source, OptimiserSettings::standard(), viaIR);
 
-		// Differential check: if both succeed, outputs must match
+		// Differential check: if both succeed, outputs must match.
+		// TODO: Consider also asserting when exactly one run succeeds and the
+		// other reverts — that is also a potential miscompilation bug. Currently
+		// we only check the both-succeed case to avoid false positives from
+		// legitimate differences (e.g. gas-related reverts).
 		if (resultNoOpt.status_code == EVMC_SUCCESS && resultOpt.status_code == EVMC_SUCCESS)
 		{
 			solAssert(
