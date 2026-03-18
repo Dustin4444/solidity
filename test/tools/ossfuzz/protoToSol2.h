@@ -202,11 +202,11 @@ private:
 	// ===== Limits =====
 	static constexpr unsigned s_maxExprDepth = 3;
 	static constexpr unsigned s_maxStmtDepth = 3;
-	static constexpr unsigned s_maxLocalVars = 10;
+	static constexpr unsigned s_maxLocalVars = 6;
 	static constexpr unsigned s_maxContracts = 5;
 	static constexpr unsigned s_maxFunctions = 5;
 	static constexpr unsigned s_maxStmtsPerBlock = 5;
-	static constexpr unsigned s_maxParams = 4;
+	static constexpr unsigned s_maxParams = 3;
 	static constexpr unsigned s_maxStateVars = 5;
 	static constexpr unsigned s_maxEvents = 3;
 	static constexpr unsigned s_maxErrors = 3;

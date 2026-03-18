@@ -1,0 +1,60 @@
+## Confirmed Compilation Bug
+
+### 1. Modifier-function mutability mismatch (DEFINITE BUG)
+
+**Location:** `protoToSol2.cpp:336-338` (modifier body generation) + `protoToSol2.cpp:517-521` (modifier application)
+
+Modifier bodies are **always** generated with `m_canReadState = true` and `m_currentMutability = NONPAYABLE`:
+
+```cpp
+// Line 336-338 — generating modifier body
+m_canReadState = true;
+m_currentMutability = NONPAYABLE;
+```
+
+But modifiers can be applied to **any** function regardless of mutability (line 517):
+
+```cpp
+if (_f.has_modifier_id() && !_cinfo.modifiers.empty())
+{
+    unsigned modIdx = _f.modifier_id() % _cinfo.modifiers.size();
+    o << " " << _cinfo.modifiers[modIdx].name << "()";
+}
+```
+
+Solidity enforces the function's declared mutability on its modifier bodies. So:
+
+- **Modifier on `pure` function**: The modifier body may read state vars (via `findVar` since `m_canReadState=true`), use `msg.sender`, `block.timestamp`, `tx.origin`, `gasleft()`, or call non-pure functions. All of these are **compilation errors** inside a `pure` context.
+- **Modifier on `view` function**: The modifier body may emit events (since `m_currentMutability = NONPAYABLE`, emit is NOT skipped at line 585). Emitting events from a `view` context is a **compilation error**.
+
+**Fix**: Either (a) skip modifier application for `pure`/`view` functions, or (b) generate the modifier body respecting the strictest mutability of any function it's applied to, or (c) generate separate modifiers per mutability level.
+
+---
+
+## Likely Compilation Bug
+
+### 2. Stack-too-deep in legacy codegen (BORDERLINE)
+
+`s_maxLocalVars = 10` + `s_maxParams = 4` = 14 named variables simultaneously in scope, plus temporary expression values on the stack. The EVM stack limit for legacy codegen (non-via-IR) is ~16 accessible slots. With complex nested expressions, this **will** hit "Stack too deep" errors when `via_ir = false`.
+
+The proto allows `via_ir = false` (line 566 of proto), so this path is reachable.
+
+**Fix**: Reduce `s_maxLocalVars` to ~6 or `s_maxParams` to ~2 for legacy mode, or force `via_ir = true`.
+
+---
+
+## Structural Issues That Reduce Fuzzer Effectiveness (compile OK, but runtime problems)
+
+### 3. Constructor arithmetic can revert, killing the test contract
+
+The test contract uses direct instantiation (line 1415-1416):
+```cpp
+o << "\t\t" << ci.name << " _t" << ci.name
+  << " = new " << ci.name << "();\n";
+```
+
+`new C0()` is **not** wrapped in a `try/catch` or low-level `.call()`. If C0's constructor reverts (e.g., `uint256 v0 = v1 - v2;` with underflow in checked mode), the entire `test()` function reverts. All subsequent contract instantiations and function calls are lost.
+
+The code already mitigates by skipping `require`/`assert`/`revert` in constructors, but unchecked arithmetic overflow in `+`, `-`, `*`, `**` can still revert.
+
+**Fix**: Wrap constructor bodies in `unchecked { }`, or wrap `new C()` in a try/catch in the test contract.

@@ -359,6 +359,9 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		if (ctor.payable())
 			o << "payable ";
 		o << "{\n";
+		// Wrap constructor body in unchecked to prevent arithmetic reverts
+		// (which would kill the test contract's `new C()` instantiation)
+		o << "\t\tunchecked {\n";
 
 		// Set up state for constructor body
 		m_canReadState = true;
@@ -370,12 +373,13 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		pushScope();
 		m_localVarCount = 0;
 		m_varCounter = 0;
-		m_indentLevel = 2;
+		m_indentLevel = 3;
 		m_stmtDepth = 0;
 		o << visitBlock(ctor.body());
 		popScope();
 		m_inConstructor = false;
 
+		o << "\t\t}\n";
 		o << "\t}\n\n";
 	}
 
@@ -513,8 +517,11 @@ std::string ProtoConverter::visitFunction(
 	if (!isLibrary && fi.vis != PRIVATE)
 		o << " virtual";
 
-	// Apply modifier if specified
-	if (_f.has_modifier_id() && !_cinfo.modifiers.empty())
+	// Apply modifier if specified — only for nonpayable/payable functions.
+	// Modifier bodies are generated with NONPAYABLE mutability, so applying
+	// them to pure (state reads) or view (emit) functions causes compile errors.
+	if (_f.has_modifier_id() && !_cinfo.modifiers.empty() &&
+		actualMut != PURE && actualMut != VIEW)
 	{
 		unsigned modIdx = _f.modifier_id() % _cinfo.modifiers.size();
 		o << " " << _cinfo.modifiers[modIdx].name << "()";
