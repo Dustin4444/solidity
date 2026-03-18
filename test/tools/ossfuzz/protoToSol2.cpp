@@ -1175,7 +1175,9 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		switch (b.kind())
 		{
 		case BuiltinExpr::GASLEFT:
-			result = "gasleft()";
+			// gasleft() is non-deterministic across optimization levels,
+			// so we suppress it for differential testing.
+			result = defaultUintLiteral();
 			break;
 		case BuiltinExpr::BLOCKHASH:
 		{
@@ -1491,6 +1493,9 @@ std::string ProtoConverter::generateTestContract()
 	std::ostringstream o;
 	o << "contract C {\n";
 	o << "\tfunction test() public returns (uint256) {\n";
+	o << "\t\tuint256 _r = 0;\n";
+
+	unsigned callIdx = 0;
 
 	// For each non-library contract, create an instance and call its functions
 	for (auto const& ci : m_contracts)
@@ -1505,6 +1510,7 @@ std::string ProtoConverter::generateTestContract()
 		  << " = new " << ci.name << "();\n";
 
 		// Call each public/external function via low-level call
+		// and XOR the result into _r for differential testing
 		for (auto const& fi : ci.functions)
 		{
 			if (fi.vis != PUBLIC && fi.vis != EXTERNAL)
@@ -1519,16 +1525,24 @@ std::string ProtoConverter::generateTestContract()
 			}
 			sig += ")";
 
-			o << "\t\t(bool _s" << ci.name << fi.name << ", ) = address(_t"
-			  << ci.name << ").call(abi.encodeWithSignature(\""
-			  << sig << "\"";
+			std::string boolVar = "_s" + std::to_string(callIdx);
+			std::string dataVar = "_d" + std::to_string(callIdx);
+			callIdx++;
+
+			o << "\t\t(bool " << boolVar << ", bytes memory " << dataVar
+			  << ") = address(_t" << ci.name
+			  << ").call(abi.encodeWithSignature(\"" << sig << "\"";
 			for (unsigned i = 0; i < fi.numParams; i++)
 				o << ", uint256(" << (i + 1) << ")";
 			o << "));\n";
+
+			// XOR successful return values into _r
+			o << "\t\tif (" << boolVar << " && " << dataVar << ".length == 32) "
+			  << "_r ^= abi.decode(" << dataVar << ", (uint256));\n";
 		}
 	}
 
-	// For library contracts, call functions directly
+	// For library contracts, call functions directly and XOR results
 	for (auto const& ci : m_contracts)
 	{
 		if (ci.kind != ContractDef::LIBRARY)
@@ -1536,7 +1550,7 @@ std::string ProtoConverter::generateTestContract()
 
 		for (auto const& fi : ci.functions)
 		{
-			o << "\t\t" << ci.name << "." << fi.name << "(";
+			o << "\t\t_r ^= " << ci.name << "." << fi.name << "(";
 			for (unsigned i = 0; i < fi.numParams; i++)
 			{
 				if (i > 0) o << ", ";
@@ -1546,7 +1560,7 @@ std::string ProtoConverter::generateTestContract()
 		}
 	}
 
-	o << "\t\treturn 0;\n";
+	o << "\t\treturn _r;\n";
 	o << "\t}\n";
 	o << "}\n";
 	return o.str();

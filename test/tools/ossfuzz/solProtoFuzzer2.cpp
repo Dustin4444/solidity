@@ -28,6 +28,7 @@
 #include <src/libfuzzer/libfuzzer_macro.h>
 
 #include <fstream>
+#include <cstring>
 
 static evmc::VM evmone = evmc::VM{evmc_create_evmone()};
 
@@ -37,6 +38,37 @@ using namespace solidity;
 using namespace solidity::frontend;
 using namespace solidity::test;
 using namespace solidity::util;
+
+/// Helper: compile, deploy, and execute a test contract.
+/// Returns the evmc::Result, or a result with EVMC_INTERNAL_ERROR on failure.
+static evmc::Result runOnce(
+	langutil::EVMVersion _version,
+	StringMap const& _source,
+	OptimiserSettings _optimiserSettings,
+	bool _viaIR
+)
+{
+	EVMHost hostContext(_version, evmone);
+	std::string contractName = "C";
+	std::string methodName = "test()";
+	CompilerInput cInput(
+		_version,
+		_source,
+		contractName,
+		_optimiserSettings,
+		{},
+		/*debugFailure=*/false,
+		_viaIR
+	);
+	EvmoneUtility evmoneUtil(
+		hostContext,
+		cInput,
+		contractName,
+		/*libraryName=*/"",
+		methodName
+	);
+	return evmoneUtil.compileDeployAndExecute();
+}
 
 DEFINE_PROTO_FUZZER(Program const& _input)
 {
@@ -60,44 +92,27 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		std::cout << sol_source << std::endl;
 	}
 
-	// Use the default (latest) EVM version
 	langutil::EVMVersion version;
-	EVMHost hostContext(version, evmone);
-
-	// Choose optimizer settings based on proto flags
-	auto optimiserSettings = _input.optimize()
-		? OptimiserSettings::standard()
-		: OptimiserSettings::minimal();
-
-	std::string contractName = "C";
-	std::string methodName = "test()";
+	bool viaIR = _input.via_ir();
 	StringMap source({{"test.sol", sol_source}});
-	CompilerInput cInput(
-		version,
-		source,
-		contractName,
-		optimiserSettings,
-		{},
-		/*debugFailure=*/false,
-		/*viaIR=*/_input.via_ir()
-	);
-	EvmoneUtility evmoneUtil(
-		hostContext,
-		cInput,
-		contractName,
-		/*libraryName=*/"",
-		methodName
-	);
+
 	try
 	{
-		auto result = evmoneUtil.compileDeployAndExecute();
-		// If compilation and execution succeeded, the test contract should
-		// return 0. If it doesn't, we found a codegen or optimizer bug.
-		if (result.status_code == EVMC_SUCCESS)
+		// Run 1: without optimization
+		auto resultNoOpt = runOnce(version, source, OptimiserSettings::minimal(), viaIR);
+
+		// Run 2: with optimization
+		auto resultOpt = runOnce(version, source, OptimiserSettings::standard(), viaIR);
+
+		// Differential check: if both succeed, outputs must match
+		if (resultNoOpt.status_code == EVMC_SUCCESS && resultOpt.status_code == EVMC_SUCCESS)
+		{
 			solAssert(
-				EvmoneUtility::zeroWord(result.output_data, result.output_size),
-				"Sol proto2 fuzzer: Output incorrect"
+				resultNoOpt.output_size == resultOpt.output_size &&
+				std::memcmp(resultNoOpt.output_data, resultOpt.output_data, resultNoOpt.output_size) == 0,
+				"Sol proto2 fuzzer: optimized vs non-optimized output differs"
 			);
+		}
 	}
 	catch (evmasm::StackTooDeepException const&)
 	{
