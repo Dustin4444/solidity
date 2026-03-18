@@ -1,0 +1,59 @@
+## Differential Testing: Optimized vs Non-Optimized
+
+### Core idea
+Compile the same source twice (with and without optimization), deploy both, call
+test() on both, assert outputs match. Any difference is a compiler/optimizer bug.
+
+### Step 1: Make the test contract return a meaningful value
+
+Currently test() returns 0 unconditionally. Instead, accumulate results from all
+function calls:
+
+    contract C {
+        function test() public returns (uint256) {
+            uint256 _r = 0;
+            C0 _tC0 = new C0();
+            (bool _s0, bytes memory _d0) = address(_tC0).call(
+                abi.encodeWithSignature("f0_0(uint256)", uint256(1)));
+            if (_s0 && _d0.length == 32) _r ^= abi.decode(_d0, (uint256));
+            // ... more calls ...
+            return _r;
+        }
+    }
+
+Now if any function returns a different value under optimization, _r changes
+and we catch it.
+
+### Step 2: Compile and run twice in the fuzzer harness
+
+In solProtoFuzzer2.cpp:
+1. Compile with OptimiserSettings::minimal(), deploy, call test() -> result_noopt
+2. Reset EVM host (fresh state)
+3. Compile with OptimiserSettings::standard(), deploy, call test() -> result_opt
+4. If both EVMC_SUCCESS -> assert output bytes are identical
+5. If one succeeds and one reverts -> that's also a bug (assert)
+
+### Step 3: Suppress non-deterministic expressions
+
+These produce legitimately different values between opt and non-opt runs:
+
+  gasleft()             — Optimized code uses less gas. DON'T generate.
+  address(this).balance — Technically safe (both 0), keep (safe in test env).
+  block.*, msg.*, tx.*  — Same for both runs. Keep.
+  Everything else       — Deterministic. Keep.
+
+So the only change needed: remove gasleft() from generation. Everything else is
+deterministic given the same calldata and block context.
+
+### Step 4: Optional — also test via-IR vs legacy
+
+Could add a third axis: compare viaIR=true vs viaIR=false (both non-optimized).
+This catches IR codegen bugs. Same source, same suppressed expressions, just
+different codegen backend.
+
+### Impact assessment
+
+- Current fuzzer: only checks "does it crash?" and "does return 0 stay 0?"
+- With this change: checks "does every function produce identical results
+  regardless of optimization level?" — catches silent miscompilation bugs,
+  the most dangerous kind.
