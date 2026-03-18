@@ -1282,12 +1282,7 @@ evmc::Result EVMHost::precompileGeneric(
 		return resultWithGas(_message.gas, ret.gas_used, ret.output);
 	}
 	else
-		// FIXME: We're in a noexcept function; this will result in terminate() and then abort().
-		// Still better than nothing - can't be mistaken for revert and Boost will report test name.
-		solThrow(
-			Exception,
-			"Test output for a precompile not defined for input: " + toHex(input, HexPrefix::Add)
-		);
+		return resultWithFailure();
 }
 
 evmc::Result EVMHost::resultWithFailure() noexcept
