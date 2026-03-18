@@ -1078,6 +1078,12 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			else
 				result = defaultUintLiteral();
 			break;
+		case MsgExpr::SIG:
+			result = "uint256(uint32(msg.sig))";
+			break;
+		case MsgExpr::DATA:
+			result = "uint256(keccak256(msg.data))";
+			break;
 		}
 		break;
 	case Expression::kBlockExpr:
@@ -1107,6 +1113,12 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		case BlockExpr::GASLIMIT:
 			result = "block.gaslimit";
 			break;
+		case BlockExpr::COINBASE:
+			result = "uint256(uint160(block.coinbase))";
+			break;
+		case BlockExpr::BLOBBASEFEE:
+			result = "block.blobbasefee";
+			break;
 		}
 		break;
 	case Expression::kTxExpr:
@@ -1128,13 +1140,15 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		break;
 	case Expression::kHashExpr:
 	{
-		// keccak256/sha256 are allowed in pure functions
+		// keccak256/sha256/ripemd160 are allowed in pure functions
 		auto const& h = _e.hash_expr();
 		std::string inner = visitUintExpr(h.arg());
 		if (h.kind() == HashExpr::KECCAK256)
 			result = "uint256(keccak256(abi.encode(" + inner + ")))";
-		else
+		else if (h.kind() == HashExpr::SHA256)
 			result = "uint256(sha256(abi.encode(" + inner + ")))";
+		else
+			result = "uint256(uint160(ripemd160(abi.encode(" + inner + "))))";
 		break;
 	}
 	case Expression::kMathExpr:
@@ -1150,12 +1164,37 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		break;
 	}
 	case Expression::kBuiltin:
-		// gasleft() is forbidden in pure functions
+	{
+		auto const& b = _e.builtin();
+		// All builtins here are forbidden in pure functions
 		if (m_currentMutability == PURE)
+		{
 			result = defaultUintLiteral();
-		else
+			break;
+		}
+		switch (b.kind())
+		{
+		case BuiltinExpr::GASLEFT:
 			result = "gasleft()";
+			break;
+		case BuiltinExpr::BLOCKHASH:
+		{
+			std::string arg = b.has_arg() ? visitUintExpr(b.arg()) : "0";
+			result = "uint256(blockhash(" + arg + "))";
+			break;
+		}
+		case BuiltinExpr::BLOBHASH:
+		{
+			std::string arg = b.has_arg() ? visitUintExpr(b.arg()) : "0";
+			result = "uint256(blobhash(" + arg + "))";
+			break;
+		}
+		case BuiltinExpr::THIS_BALANCE:
+			result = "address(this).balance";
+			break;
+		}
 		break;
+	}
 	case Expression::kAssign:
 	{
 		auto const& a = _e.assign();
@@ -1261,10 +1300,22 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 				args << visitUintExpr(ae.args(i));
 			}
 		}
-		if (ae.kind() == AbiEncodeExpr::ENCODE)
+		switch (ae.kind())
+		{
+		case AbiEncodeExpr::ENCODE:
 			result = "uint256(keccak256(abi.encode(" + args.str() + ")))";
-		else
+			break;
+		case AbiEncodeExpr::ENCODE_PACKED:
 			result = "uint256(keccak256(abi.encodePacked(" + args.str() + ")))";
+			break;
+		case AbiEncodeExpr::ENCODE_WITH_SELECTOR:
+			// Use a deterministic selector bytes4(0x12345678)
+			result = "uint256(keccak256(abi.encodeWithSelector(bytes4(0x12345678), " + args.str() + ")))";
+			break;
+		case AbiEncodeExpr::ENCODE_WITH_SIGNATURE:
+			result = "uint256(keccak256(abi.encodeWithSignature(\"foo(uint256)\", " + args.str() + ")))";
+			break;
+		}
 		break;
 	}
 	case Expression::kStructAccess:
@@ -1315,6 +1366,33 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		}
 		else
 			result = defaultUintLiteral();
+		break;
+	}
+	case Expression::kEcrecover:
+	{
+		// ecrecover(bytes32, uint8, bytes32, bytes32) -> address; pure, never reverts
+		auto const& ec = _e.ecrecover();
+		std::string hash = "bytes32(" + visitUintExpr(ec.hash()) + ")";
+		std::string v = "uint8(27 + (" + visitUintExpr(ec.v()) + ") % 2)";
+		std::string r = "bytes32(" + visitUintExpr(ec.r()) + ")";
+		std::string s = "bytes32(" + visitUintExpr(ec.s()) + ")";
+		result = "uint256(uint160(ecrecover(" + hash + ", " + v + ", " + r + ", " + s + ")))";
+		break;
+	}
+	case Expression::kTypeInfo:
+	{
+		// type(uintN).min / type(uintN).max — pure, compile-time constants
+		auto const& ti = _e.type_info();
+		unsigned w = (static_cast<unsigned>(ti.int_type().width()) % 32 + 1) * 8;
+		bool isSigned = ti.int_type().is_signed();
+		std::string typeName = (isSigned ? "int" : "uint") + std::to_string(w);
+		std::string typeExpr = "type(" + typeName + ")."
+			+ (ti.kind() == TypeInfoExpr::MIN ? "min" : "max");
+		// Signed types need int256 intermediate: uint256(int256(type(intN).min))
+		if (isSigned)
+			result = "uint256(int256(" + typeExpr + "))";
+		else
+			result = "uint256(" + typeExpr + ")";
 		break;
 	}
 	case Expression::kIndexAccess:

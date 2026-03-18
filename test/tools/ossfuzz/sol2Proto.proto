@@ -239,11 +239,13 @@ message TypeConvExpr {
 	required Expression arg = 2;
 }
 
-// msg.sender, msg.value
+// msg.sender, msg.value, msg.sig, msg.data
 message MsgExpr {
 	enum Field {
 		SENDER = 0;
 		VALUE = 1;
+		SIG = 2;
+		DATA = 3;
 	}
 	required Field field = 1;
 }
@@ -257,6 +259,8 @@ message BlockExpr {
 		BASEFEE = 3;
 		PREVRANDAO = 4;
 		GASLIMIT = 5;
+		COINBASE = 6;
+		BLOBBASEFEE = 7;
 	}
 	required Field field = 1;
 }
@@ -270,21 +274,24 @@ message TxExpr {
 	required Field field = 1;
 }
 
-// abi.encode, abi.encodePacked
+// abi.encode, abi.encodePacked, abi.encodeWithSelector, abi.encodeWithSignature
 message AbiEncodeExpr {
 	enum Kind {
 		ENCODE = 0;
 		ENCODE_PACKED = 1;
+		ENCODE_WITH_SELECTOR = 2;
+		ENCODE_WITH_SIGNATURE = 3;
 	}
 	required Kind kind = 1;
 	repeated Expression args = 2;
 }
 
-// keccak256(abi.encode(...))
+// keccak256(abi.encode(...)), sha256(...), ripemd160(...)
 message HashExpr {
 	enum Kind {
 		KECCAK256 = 0;
 		SHA256 = 1;
+		RIPEMD160 = 2;
 	}
 	required Kind kind = 1;
 	required Expression arg = 2;
@@ -302,12 +309,35 @@ message MathExpr {
 	required Expression mod = 4;
 }
 
-// gasleft()
+// gasleft(), blockhash(uint), blobhash(uint), address(this).balance
 message BuiltinExpr {
 	enum Kind {
 		GASLEFT = 0;
+		BLOCKHASH = 1;
+		BLOBHASH = 2;
+		THIS_BALANCE = 3;
 	}
 	required Kind kind = 1;
+	// Used as argument for blockhash/blobhash
+	optional Expression arg = 2;
+}
+
+// ecrecover(bytes32 hash, uint8 v, bytes32 r, bytes32 s) -> address
+message EcrecoverExpr {
+	required Expression hash = 1;
+	required Expression v = 2;
+	required Expression r = 3;
+	required Expression s = 4;
+}
+
+// type(uintN).min, type(uintN).max
+message TypeInfoExpr {
+	enum Kind {
+		MIN = 0;
+		MAX = 1;
+	}
+	required Kind kind = 1;
+	required IntegerType int_type = 2;
 }
 
 // Assignment: x = expr, x += expr, etc.
@@ -362,6 +392,8 @@ message Expression {
 		AssignExpr assign = 16;
 		StructMemberAccess struct_access = 17;
 		EnumLiteral enum_lit = 18;
+		EcrecoverExpr ecrecover = 19;
+		TypeInfoExpr type_info = 20;
 	}
 }
 
