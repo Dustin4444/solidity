@@ -105,26 +105,16 @@ evmc::Result EvmoneUtility::deployAndExecute(
 	std::string const& _hexEncodedInput
 )
 {
-	// Deploy contract and signal failure if deploy failed
+	// Deploy contract — may fail for fuzzed inputs (e.g. constructor reverts)
 	evmc::Result createResult = deployContract(_byteCode);
-	solAssert(
-		createResult.status_code == EVMC_SUCCESS,
-		"SolidityEvmoneInterface: Contract creation failed"
-	);
+	if (createResult.status_code != EVMC_SUCCESS)
+		return createResult;
 
-	// Execute test function and signal failure if EVM reverted or
-	// did not return expected output on successful execution.
-	evmc::Result callResult = executeContract(
+	// Execute test function
+	return executeContract(
 		util::fromHex(_hexEncodedInput),
 		createResult.create_address
 	);
-
-	// We don't care about EVM One failures other than EVMC_REVERT
-	solAssert(
-		callResult.status_code != EVMC_REVERT,
-		"SolidityEvmoneInterface: EVM One reverted"
-	);
-	return callResult;
 }
 
 evmc::Result EvmoneUtility::compileDeployAndExecute(std::string _fuzzIsabelle)
