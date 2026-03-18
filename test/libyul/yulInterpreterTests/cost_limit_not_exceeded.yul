@@ -4,7 +4,7 @@
     mstore(0, add(mul(3, 7), 1))
 }
 // ====
-// maxCost: 3000
+// maxCost: 1000
 // ----
 // Trace:
 // Memory dump:
