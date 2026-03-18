@@ -101,9 +101,12 @@ message FixedBytesType {
 	required Width width = 1;
 }
 
+// Empty marker type for bool (value is irrelevant, only oneof case matters)
+message BoolType {}
+
 message ElementaryType {
 	oneof type_oneof {
-		bool bool_type = 1;
+		BoolType bool_type = 1;
 		IntegerType int_type = 2;
 		// true = address payable, false = address
 		bool address_payable = 3;
@@ -365,7 +368,8 @@ message Expression {
 // ======================= STATEMENTS =======================
 
 message VarDeclStmt {
-	required TypeName type = 1;
+	// All local vars are uint256
+	reserved 1;  // was: TypeName type
 	optional Expression init = 2;
 }
 
@@ -380,9 +384,8 @@ message IfStmt {
 }
 
 message ForStmt {
-	optional VarDeclStmt init = 1;
-	optional Expression cond = 2;
-	optional ExprStmt post = 3;
+	// Always generates a bounded loop; init/cond/post are not used
+	reserved 1, 2, 3;  // was: init, cond, post
 	required Block body = 4;
 }
 
@@ -475,26 +478,14 @@ message EnumDef {
 	required uint32 num_members = 1;
 }
 
-message EventParam {
-	required ElementaryType type = 1;
-	required bool indexed = 2;
-}
-
 message EventDef {
-	repeated EventParam params = 1;
-	required bool anonymous = 2;
-}
-
-message ErrorParam {
-	required ElementaryType type = 1;
+	// All event params are uint256, non-indexed
+	required uint32 num_params = 1;
 }
 
 message ErrorDef {
-	repeated ErrorParam params = 1;
-}
-
-message ParamDef {
-	required TypeName type = 1;
+	// All error params are uint256
+	required uint32 num_params = 1;
 }
 
 enum Visibility {
@@ -524,11 +515,11 @@ message FallbackDef {
 }
 
 message FunctionDef {
-	repeated ParamDef params = 1;
-	repeated ParamDef returns = 2;
+	// All params are uint256; all functions return uint256
+	required uint32 num_params = 1;
+	reserved 2, 5;  // was: returns, is_virtual
 	required Visibility vis = 3;
 	required StateMutability mut = 4;
-	required bool is_virtual = 5;
 	required Block body = 6;
 	// Index into contract's modifiers list
 	optional uint32 modifier_id = 7;
@@ -541,9 +532,8 @@ message ConstructorDef {
 
 message StateVarDecl {
 	required TypeName type = 1;
-	required Visibility vis = 2;
-	required bool is_constant = 3;
-	required bool is_immutable = 4;
+	// All state vars are public
+	reserved 2, 3, 4;  // was: vis, is_constant, is_immutable
 }
 
 // ======================= CONTRACTS =======================
@@ -551,9 +541,7 @@ message StateVarDecl {
 message ContractDef {
 	enum Kind {
 		CONTRACT = 0;
-		ABSTRACT_CONTRACT = 1;
-		INTERFACE = 2;
-		LIBRARY = 3;
+		LIBRARY = 1;
 	}
 	required Kind kind = 1;
 	// Indices of base contracts (for inheritance)

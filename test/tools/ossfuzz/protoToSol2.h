@@ -126,8 +126,6 @@ private:
 		bool hasBase = false;
 		/// Index of the base contract in m_contracts (-1 if no base)
 		unsigned baseIdx = 0;
-		/// Whether this contract is used as a base by another
-		bool isBase = false;
 	};
 
 	// ===== Visitor methods =====

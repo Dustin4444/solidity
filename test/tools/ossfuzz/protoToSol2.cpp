@@ -47,7 +47,8 @@ std::string ProtoConverter::visit(Program const& _p)
 		auto const& c = _p.contracts(i);
 		ContractInfo info;
 		info.name = "C" + std::to_string(i);
-		info.kind = c.kind();
+		// Normalize kind: anything that isn't LIBRARY is treated as CONTRACT
+		info.kind = (c.kind() == ContractDef::LIBRARY) ? ContractDef::LIBRARY : ContractDef::CONTRACT;
 
 		// Functions — use unique names to avoid conflicts with inheritance
 		unsigned numFuncs = std::min(
@@ -59,7 +60,7 @@ std::string ProtoConverter::visit(Program const& _p)
 			FuncInfo fi;
 			fi.name = "f" + std::to_string(i) + "_" + std::to_string(j);
 			fi.numParams = std::min(
-				static_cast<unsigned>(c.functions(j).params_size()),
+				static_cast<unsigned>(c.functions(j).num_params()),
 				s_maxParams
 			);
 			fi.vis = c.functions(j).vis();
@@ -164,7 +165,7 @@ std::string ProtoConverter::visit(Program const& _p)
 			EventInfo ei;
 			ei.name = "Ev" + std::to_string(i) + "_" + std::to_string(j);
 			ei.numParams = std::min(
-				static_cast<unsigned>(c.events(j).params_size()),
+				static_cast<unsigned>(c.events(j).num_params()),
 				s_maxEventParams
 			);
 			if (ei.numParams == 0)
@@ -182,7 +183,7 @@ std::string ProtoConverter::visit(Program const& _p)
 			ErrorInfo eri;
 			eri.name = "Err" + std::to_string(i) + "_" + std::to_string(j);
 			eri.numParams = std::min(
-				static_cast<unsigned>(c.errors(j).params_size()),
+				static_cast<unsigned>(c.errors(j).num_params()),
 				s_maxErrorParams
 			);
 			if (eri.numParams == 0)
@@ -210,19 +211,16 @@ std::string ProtoConverter::visit(Program const& _p)
 	{
 		auto const& c = _p.contracts(i);
 		auto& info = m_contracts[i];
-		bool isLibrary = (info.kind == ContractDef::LIBRARY);
-		bool isInterface = (info.kind == ContractDef::INTERFACE);
 
-		if (!isLibrary && !isInterface && i > 0 && c.bases_size() > 0)
+		if (info.kind != ContractDef::LIBRARY && i > 0 && c.bases_size() > 0)
 		{
 			unsigned baseIdx = c.bases(0) % i;
 			auto const& baseInfo = m_contracts[baseIdx];
-			// Can only inherit from non-library, non-interface contracts
-			if (baseInfo.kind != ContractDef::LIBRARY && baseInfo.kind != ContractDef::INTERFACE)
+			// Can only inherit from non-library contracts
+			if (baseInfo.kind != ContractDef::LIBRARY)
 			{
 				info.hasBase = true;
 				info.baseIdx = baseIdx;
-				m_contracts[baseIdx].isBase = true;
 			}
 		}
 	}
@@ -982,7 +980,10 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		else
 		{
 			// Comparison or logical op used in uint context: wrap in ternary
+			// Undo our depth increment to avoid double-counting (visitBoolExpr will increment)
+			m_exprDepth--;
 			result = "(" + visitBoolExpr(_e) + " ? uint256(1) : uint256(0))";
+			m_exprDepth++;
 		}
 		break;
 	}
@@ -1352,7 +1353,10 @@ std::string ProtoConverter::visitBoolExpr(Expression const& _e)
 		else
 		{
 			// Arithmetic/bitwise used in bool context: convert via comparison
+			// Undo our depth increment to avoid double-counting (visitUintExpr will increment)
+			m_exprDepth--;
 			result = visitUintExpr(_e) + " != 0";
+			m_exprDepth++;
 		}
 		break;
 	}
@@ -1362,8 +1366,13 @@ std::string ProtoConverter::visitBoolExpr(Expression const& _e)
 		if (op.op() == UnaryOp::LNOT)
 			result = "!" + visitBoolExpr(op.operand());
 		else
+		{
 			// Non-logical unary in bool context: compare result to 0
+			// Undo our depth increment to avoid double-counting (visitUintExpr will increment)
+			m_exprDepth--;
 			result = visitUintExpr(_e) + " != 0";
+			m_exprDepth++;
+		}
 		break;
 	}
 	case Expression::kTernary:
@@ -1373,7 +1382,10 @@ std::string ProtoConverter::visitBoolExpr(Expression const& _e)
 		break;
 	default:
 		// For any other expression type, generate a comparison
+		// Undo our depth increment to avoid double-counting (visitUintExpr will increment)
+		m_exprDepth--;
 		result = visitUintExpr(_e) + " != 0";
+		m_exprDepth++;
 		break;
 	}
 
