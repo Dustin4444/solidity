@@ -431,6 +431,12 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	for (unsigned j = 0; j < info.functions.size(); j++)
 		o << visitFunction(_c.functions(j), info, j) << "\n";
 
+	// Calldataload helper: reads a 32-byte word from calldata at the given offset.
+	// Used by CALLDATALOAD builtin expressions. Private to avoid inheritance conflicts.
+	o << "\tfunction _cdl(uint256 _o) private pure returns (uint256 _v) {\n";
+	o << "\t\tassembly { _v := calldataload(_o) }\n";
+	o << "\t}\n";
+
 	o << "}\n";
 	return o.str();
 }
@@ -1166,7 +1172,19 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 	case Expression::kBuiltin:
 	{
 		auto const& b = _e.builtin();
-		// All builtins here are forbidden in pure functions
+		// Calldata builtins are safe in all mutability contexts (including pure)
+		if (b.kind() == BuiltinExpr::CALLDATALOAD)
+		{
+			std::string arg = b.has_arg() ? visitUintExpr(b.arg()) : "0";
+			result = "_cdl(" + arg + ")";
+			break;
+		}
+		if (b.kind() == BuiltinExpr::CALLDATASIZE)
+		{
+			result = "msg.data.length";
+			break;
+		}
+		// Other builtins are forbidden in pure functions
 		if (m_currentMutability == PURE)
 		{
 			result = defaultUintLiteral();
@@ -1194,6 +1212,9 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		case BuiltinExpr::THIS_BALANCE:
 			result = "address(this).balance";
 			break;
+		case BuiltinExpr::CALLDATALOAD:
+		case BuiltinExpr::CALLDATASIZE:
+			break; // handled above
 		}
 		break;
 	}
@@ -1492,10 +1513,18 @@ std::string ProtoConverter::generateTestContract()
 {
 	std::ostringstream o;
 	o << "contract C {\n";
+
+	// Calldataload helper for extracting random values from extra calldata
+	o << "\tfunction _cdl(uint256 _o) private pure returns (uint256 _v) {\n";
+	o << "\t\tassembly { _v := calldataload(_o) }\n";
+	o << "\t}\n\n";
+
 	o << "\tfunction test() public returns (uint256) {\n";
 	o << "\t\tuint256 _r = 0;\n";
 
 	unsigned callIdx = 0;
+	// Track position in extra calldata (after the 4-byte selector)
+	unsigned paramOffset = 0;
 
 	// For each non-library contract, create an instance and call its functions
 	for (auto const& ci : m_contracts)
@@ -1532,8 +1561,10 @@ std::string ProtoConverter::generateTestContract()
 			o << "\t\t(bool " << boolVar << ", bytes memory " << dataVar
 			  << ") = address(_t" << ci.name
 			  << ").call(abi.encodeWithSignature(\"" << sig << "\"";
+			// Use random values from extra calldata as function arguments
 			for (unsigned i = 0; i < fi.numParams; i++)
-				o << ", uint256(" << (i + 1) << ")";
+				o << ", _cdl(" << (4 + (paramOffset + i) * 32) << ")";
+			paramOffset += fi.numParams;
 			o << "));\n";
 
 			// XOR successful return values into _r
@@ -1556,8 +1587,9 @@ std::string ProtoConverter::generateTestContract()
 			for (unsigned i = 0; i < fi.numParams; i++)
 			{
 				if (i > 0) o << ", ";
-				o << "uint256(" << (i + 1) << ")";
+				o << "_cdl(" << (4 + (paramOffset + i) * 32) << ")";
 			}
+			paramOffset += fi.numParams;
 			o << ");\n";
 		}
 	}

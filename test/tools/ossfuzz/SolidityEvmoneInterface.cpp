@@ -117,7 +117,7 @@ evmc::Result EvmoneUtility::deployAndExecute(
 	);
 }
 
-evmc::Result EvmoneUtility::compileDeployAndExecute(std::string _fuzzIsabelle)
+evmc::Result EvmoneUtility::compileDeployAndExecute(std::string _fuzzIsabelle, std::string _extraCalldataHex)
 {
 	std::map<std::string, h160> libraryAddressMap;
 	// Stage 1: Compile and deploy library if present.
@@ -157,6 +157,9 @@ evmc::Result EvmoneUtility::compileDeployAndExecute(std::string _fuzzIsabelle)
 			_fuzzIsabelle.substr(2, _fuzzIsabelle.size());
 	else
 		methodName = cOutput->methodIdentifiersInContract[m_methodName].get<std::string>();
+
+	// Append extra calldata (hex-encoded) after the method selector
+	methodName += _extraCalldataHex;
 
 	return deployAndExecute(
 		cOutput->byteCode,

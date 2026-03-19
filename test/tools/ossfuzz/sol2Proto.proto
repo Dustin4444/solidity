@@ -309,16 +309,19 @@ message MathExpr {
 	required Expression mod = 4;
 }
 
-// gasleft(), blockhash(uint), blobhash(uint), address(this).balance
+// gasleft(), blockhash(uint), blobhash(uint), address(this).balance,
+// calldataload(offset), msg.data.length
 message BuiltinExpr {
 	enum Kind {
 		GASLEFT = 0;
 		BLOCKHASH = 1;
 		BLOBHASH = 2;
 		THIS_BALANCE = 3;
+		CALLDATALOAD = 4;
+		CALLDATASIZE = 5;
 	}
 	required Kind kind = 1;
-	// Used as argument for blockhash/blobhash
+	// Used as argument for blockhash/blobhash/calldataload
 	optional Expression arg = 2;
 }
 
@@ -597,6 +600,9 @@ message Program {
 	required uint64 seed = 2;
 	required bool via_ir = 3;
 	required bool optimize = 4;
+	// Random bytes appended after the 4-byte selector when calling test().
+	// Accessible via calldataload/calldatasize in generated expressions.
+	optional bytes calldata_data = 5;
 }
 
 package solidity.test.sol2protofuzzer;

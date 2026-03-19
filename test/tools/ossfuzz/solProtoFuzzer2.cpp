@@ -41,11 +41,14 @@ using namespace solidity::util;
 
 /// Helper: compile, deploy, and execute a test contract.
 /// Returns the evmc::Result, or a result with EVMC_INTERNAL_ERROR on failure.
+/// @param _extraCalldataHex hex-encoded bytes appended after the function
+/// selector, accessible via calldataload in the generated Solidity code.
 static evmc::Result runOnce(
 	langutil::EVMVersion _version,
 	StringMap const& _source,
 	OptimiserSettings _optimiserSettings,
-	bool _viaIR
+	bool _viaIR,
+	std::string const& _extraCalldataHex = {}
 )
 {
 	EVMHost hostContext(_version, evmone);
@@ -67,7 +70,7 @@ static evmc::Result runOnce(
 		/*libraryName=*/"",
 		methodName
 	);
-	return evmoneUtil.compileDeployAndExecute();
+	return evmoneUtil.compileDeployAndExecute({}, _extraCalldataHex);
 }
 
 DEFINE_PROTO_FUZZER(Program const& _input)
@@ -96,13 +99,21 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	bool viaIR = _input.via_ir();
 	StringMap source({{"test.sol", sol_source}});
 
+	// Convert proto calldata bytes to hex for appending after the method selector
+	std::string extraCalldataHex;
+	if (_input.has_calldata_data())
+	{
+		bytes calldataBytes(_input.calldata_data().begin(), _input.calldata_data().end());
+		extraCalldataHex = toHex(calldataBytes);
+	}
+
 	try
 	{
 		// Run 1: without optimization
-		auto resultNoOpt = runOnce(version, source, OptimiserSettings::minimal(), viaIR);
+		auto resultNoOpt = runOnce(version, source, OptimiserSettings::minimal(), viaIR, extraCalldataHex);
 
 		// Run 2: with optimization
-		auto resultOpt = runOnce(version, source, OptimiserSettings::standard(), viaIR);
+		auto resultOpt = runOnce(version, source, OptimiserSettings::standard(), viaIR, extraCalldataHex);
 
 		// Differential check: if both succeed, outputs must match.
 		// TODO: Consider also asserting when exactly one run succeeds and the

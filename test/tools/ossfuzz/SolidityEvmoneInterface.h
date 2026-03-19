@@ -122,7 +122,12 @@ public:
 	/// and executing test configuration.
 	/// @param _isabelleData contains encoding data to be passed to the
 	/// isabelle test entry point.
-	evmc::Result compileDeployAndExecute(std::string _isabelleData = {});
+	/// @param _extraCalldataHex hex-encoded bytes appended after the method
+	/// selector when calling the test function (for fuzzing calldata).
+	evmc::Result compileDeployAndExecute(
+		std::string _isabelleData = {},
+		std::string _extraCalldataHex = {}
+	);
 	/// Compares the contents of the memory address pointed to
 	/// by `_result` of `_length` bytes to u256 zero.
 	/// @returns true if `_result` is zero, false
