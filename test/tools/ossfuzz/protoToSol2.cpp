@@ -518,6 +518,7 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		// Set up state for constructor body
 		m_canReadState = true;
 		m_inConstructor = true;
+		m_canReturn = false;
 		m_currentMutability = payable ? PAYABLE : NONPAYABLE;
 		m_currentFuncIdx = 0;
 		collectInheritedInfo(info);
@@ -650,6 +651,7 @@ std::string ProtoConverter::visitFunction(
 
 	// Track current mutability for expression generation
 	m_currentMutability = actualMut;
+	m_canReturn = true;
 
 	// Set up state access
 	m_canReadState = (actualMut == VIEW || actualMut == NONPAYABLE || actualMut == PAYABLE);
@@ -763,9 +765,9 @@ std::string ProtoConverter::visitStatement(Statement const& _s)
 		result = visitDoWhile(_s.do_while());
 		break;
 	case Statement::kReturnStmt:
-		// return <value> is invalid in modifier bodies and constructors
-		// (constructors have no return type)
-		if (!m_inModifier && !m_inConstructor)
+		// return <value> is only valid in regular functions (not in
+		// modifiers, constructors, receive, or fallback)
+		if (m_canReturn)
 			result = visitReturn(_s.return_stmt());
 		break;
 	case Statement::kEmitStmt:
@@ -1270,11 +1272,12 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		switch (op.op())
 		{
 		case UnaryOp::BNOT:
-			result = "~" + visitUintExpr(op.operand());
+			// Wrap operand in uint256() to avoid ~0 producing int_const -1
+			result = "~uint256(" + visitUintExpr(op.operand()) + ")";
 			break;
 		case UnaryOp::NEG:
 			// Unary minus is not valid on uint types, use bitwise not instead
-			result = "~" + visitUintExpr(op.operand());
+			result = "~uint256(" + visitUintExpr(op.operand()) + ")";
 			break;
 		case UnaryOp::INC_PRE:
 		{
@@ -1377,7 +1380,7 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			result = "block.gaslimit";
 			break;
 		case BlockExpr::COINBASE:
-			result = "uint256(uint160(block.coinbase))";
+			result = "uint256(uint160(address(block.coinbase)))";
 			break;
 		case BlockExpr::BLOBBASEFEE:
 			result = "block.blobbasefee";
@@ -2334,6 +2337,7 @@ std::string ProtoConverter::setupAndVisitBlock(
 	m_canReadState = (_mut == VIEW || _mut == NONPAYABLE || _mut == PAYABLE);
 	m_currentMutability = _mut;
 	m_inConstructor = false;
+	m_canReturn = false;
 	m_currentFuncIdx = 0;
 	collectInheritedInfo(_cinfo);
 
