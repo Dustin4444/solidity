@@ -131,23 +131,33 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		// Run 2: with optimization
 		auto resultOpt = runOnce(version, source, OptimiserSettings::standard(), viaIR, extraCalldataHex);
 
-		// Differential check: status codes must match. Both runs use the
-		// same gas limit, and gasleft() is suppressed in generated code.
-		solAssert(
-			resultNoOpt.status_code == resultOpt.status_code,
-			"Sol proto2 fuzzer: status code differs (noOpt=" +
-			std::to_string(resultNoOpt.status_code) + " opt=" +
-			std::to_string(resultOpt.status_code) + ")"
-		);
+		// Skip differential checks if either run hit out-of-gas.
+		// With a tight gas limit, optimized code may use less gas and
+		// succeed where unoptimized doesn't (or vice versa). That's
+		// expected and not a bug.
+		bool gasRelated =
+			resultNoOpt.status_code == EVMC_OUT_OF_GAS ||
+			resultOpt.status_code == EVMC_OUT_OF_GAS;
 
-		// If both succeed, outputs must also match.
-		if (resultNoOpt.status_code == EVMC_SUCCESS && resultOpt.status_code == EVMC_SUCCESS)
+		if (!gasRelated)
 		{
+			// Status codes must match (same input, same gas, no gas queries).
 			solAssert(
-				resultNoOpt.output_size == resultOpt.output_size &&
-				std::memcmp(resultNoOpt.output_data, resultOpt.output_data, resultNoOpt.output_size) == 0,
-				"Sol proto2 fuzzer: optimized vs non-optimized output differs"
+				resultNoOpt.status_code == resultOpt.status_code,
+				"Sol proto2 fuzzer: status code differs (noOpt=" +
+				std::to_string(resultNoOpt.status_code) + " opt=" +
+				std::to_string(resultOpt.status_code) + ")"
 			);
+
+			// If both succeed, outputs must also match.
+			if (resultNoOpt.status_code == EVMC_SUCCESS && resultOpt.status_code == EVMC_SUCCESS)
+			{
+				solAssert(
+					resultNoOpt.output_size == resultOpt.output_size &&
+					std::memcmp(resultNoOpt.output_data, resultOpt.output_data, resultNoOpt.output_size) == 0,
+					"Sol proto2 fuzzer: optimized vs non-optimized output differs"
+				);
+			}
 		}
 
 		// Run 3: same optimization but with opposite viaIR flag.
@@ -158,7 +168,10 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 			try
 			{
 				auto resultAlt = runOnce(version, source, OptimiserSettings::minimal(), !viaIR, extraCalldataHex);
-				if (resultAlt.status_code == EVMC_SUCCESS)
+				// Skip if either hit out-of-gas (different codegen paths
+				// have different gas costs).
+				if (resultAlt.status_code != EVMC_OUT_OF_GAS &&
+					resultAlt.status_code == EVMC_SUCCESS)
 				{
 					solAssert(
 						resultNoOpt.output_size == resultAlt.output_size &&
