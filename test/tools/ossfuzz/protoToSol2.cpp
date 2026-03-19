@@ -19,6 +19,7 @@
 #include <test/tools/ossfuzz/protoToSol2.h>
 
 #include <algorithm>
+#include <set>
 
 using namespace solidity::test::sol2protofuzzer;
 
@@ -50,7 +51,9 @@ std::string ProtoConverter::visit(Program const& _p)
 		// Normalize kind: anything that isn't LIBRARY is treated as CONTRACT
 		info.kind = (c.kind() == ContractDef::LIBRARY) ? ContractDef::LIBRARY : ContractDef::CONTRACT;
 
-		// Functions — use unique names to avoid conflicts with inheritance
+		// Functions — use unique names to avoid conflicts with inheritance.
+		// Overloading: if share_name_with_prev is set, reuse the previous
+		// function's name (with a forced-different param count).
 		unsigned numFuncs = std::min(
 			static_cast<unsigned>(c.functions_size()),
 			s_maxFunctions
@@ -65,6 +68,26 @@ std::string ProtoConverter::visit(Program const& _p)
 			);
 			fi.vis = c.functions(j).vis();
 			fi.mut = c.functions(j).mut();
+
+			// Function overloading: share name with previous function
+			if (j > 0 && c.functions(j).has_share_name_with_prev() &&
+				c.functions(j).share_name_with_prev())
+			{
+				auto const& prev = info.functions[j - 1];
+				// Only overload if param counts differ (same name + same
+				// param count = duplicate signature, which is invalid)
+				if (fi.numParams != prev.numParams)
+					fi.name = prev.name;
+				// If param counts match, force a different count
+				else
+				{
+					fi.numParams = (prev.numParams + 1) % (s_maxParams + 1);
+					if (fi.numParams == prev.numParams)
+						fi.numParams = (prev.numParams + 2) % (s_maxParams + 1);
+					fi.name = prev.name;
+				}
+			}
+
 			info.functions.push_back(fi);
 		}
 
@@ -136,12 +159,32 @@ std::string ProtoConverter::visit(Program const& _p)
 			StateVarInfo svi;
 			svi.name = "sv" + std::to_string(i) + "_" + std::to_string(j);
 
+			if (sv.type().type_oneof_case() == TypeName::kArray)
+			{
+				auto const& arr = sv.type().array();
+				svi.typeStr = elementaryTypeStr(sv.type());
+				svi.isArray = true;
+				svi.isFixedArray = arr.has_length();
+				if (svi.isFixedArray)
+					svi.arrayLength = std::max(1u, arr.length() % 10);
+				svi.elementIsUint = isUintType(arr.base());
+			}
+			else if (sv.type().type_oneof_case() == TypeName::kMapping)
+			{
+				auto const& map = sv.type().mapping();
+				svi.typeStr = elementaryTypeStr(sv.type());
+				svi.isMapping = true;
+				svi.elementIsUint = isUintType(map.value());
+				std::string keyType = elementaryTypeStr(map.key());
+				if (keyType == "string" || keyType == "bytes")
+					keyType = "uint256";
+				svi.mappingKeyTypeStr = keyType;
+			}
 			// Check if this is a struct type
-			if (sv.type().type_oneof_case() == TypeName::kStructRef && !info.structDefs.empty())
+			else if (sv.type().type_oneof_case() == TypeName::kStructRef && !info.structDefs.empty())
 			{
 				unsigned structIdx = sv.type().struct_ref() % info.structDefs.size();
 				svi.typeStr = info.structDefs[structIdx].name;
-				svi.isUint = false;
 				svi.isStruct = true;
 				svi.structDefIdx = structIdx;
 			}
@@ -149,8 +192,6 @@ std::string ProtoConverter::visit(Program const& _p)
 			{
 				svi.typeStr = elementaryTypeStr(sv.type());
 				svi.isUint = isUintType(sv.type());
-				svi.isStruct = false;
-				svi.structDefIdx = 0;
 			}
 			info.stateVars.push_back(svi);
 		}
@@ -206,7 +247,8 @@ std::string ProtoConverter::visit(Program const& _p)
 		m_contracts.push_back(info);
 	}
 
-	// Process inheritance: a contract can inherit from one base with lower index
+	// Process inheritance: a contract can inherit from up to 2 bases with lower index.
+	// Diamond inheritance is prevented by checking that no two bases share an ancestor.
 	for (unsigned i = 0; i < numContracts; i++)
 	{
 		auto const& c = _p.contracts(i);
@@ -214,14 +256,64 @@ std::string ProtoConverter::visit(Program const& _p)
 
 		if (info.kind != ContractDef::LIBRARY && i > 0 && c.bases_size() > 0)
 		{
-			unsigned baseIdx = c.bases(0) % i;
-			auto const& baseInfo = m_contracts[baseIdx];
-			// Can only inherit from non-library contracts
-			if (baseInfo.kind != ContractDef::LIBRARY)
+			// Helper: collect all ancestors of a contract (including itself)
+			auto collectAncestors = [&](unsigned idx) -> std::set<unsigned>
 			{
-				info.hasBase = true;
-				info.baseIdx = baseIdx;
+				std::set<unsigned> anc;
+				std::vector<unsigned> stack = {idx};
+				while (!stack.empty())
+				{
+					unsigned cur = stack.back();
+					stack.pop_back();
+					if (!anc.insert(cur).second)
+						continue;
+					for (unsigned b : m_contracts[cur].baseIndices)
+						stack.push_back(b);
+				}
+				return anc;
+			};
+
+			std::set<unsigned> usedAncestors;
+			unsigned maxBases = std::min(static_cast<unsigned>(c.bases_size()), 2u);
+			for (unsigned b = 0; b < maxBases; b++)
+			{
+				unsigned candidateIdx = c.bases(b) % i;
+				auto const& candidate = m_contracts[candidateIdx];
+				if (candidate.kind == ContractDef::LIBRARY)
+					continue;
+
+				// Check no diamond: candidate's ancestor set must not
+				// overlap with any already-chosen base's ancestors.
+				auto candidateAnc = collectAncestors(candidateIdx);
+				bool overlap = false;
+				for (unsigned a : candidateAnc)
+					if (usedAncestors.count(a))
+					{
+						overlap = true;
+						break;
+					}
+				if (!overlap)
+				{
+					info.baseIndices.push_back(candidateIdx);
+					usedAncestors.insert(candidateAnc.begin(), candidateAnc.end());
+				}
 			}
+		}
+	}
+
+	// CREATE2 salt
+	if (_p.has_create2_salt())
+	{
+		m_useCreate2 = true;
+		// Pad or truncate to 32 bytes, then hex-encode
+		std::string saltBytes(_p.create2_salt().begin(), _p.create2_salt().end());
+		saltBytes.resize(32, '\0');
+		m_create2SaltHex.clear();
+		for (unsigned char c : saltBytes)
+		{
+			static char const hex[] = "0123456789abcdef";
+			m_create2SaltHex += hex[c >> 4];
+			m_create2SaltHex += hex[c & 0xf];
 		}
 	}
 
@@ -256,8 +348,16 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	// Contract header with optional inheritance
 	if (isLibrary)
 		o << "library " << info.name << " {\n";
-	else if (info.hasBase)
-		o << "contract " << info.name << " is " << m_contracts[info.baseIdx].name << " {\n";
+	else if (!info.baseIndices.empty())
+	{
+		o << "contract " << info.name << " is ";
+		for (unsigned b = 0; b < info.baseIndices.size(); b++)
+		{
+			if (b > 0) o << ", ";
+			o << m_contracts[info.baseIndices[b]].name;
+		}
+		o << " {\n";
+	}
 	else
 		o << "contract " << info.name << " {\n";
 
@@ -287,6 +387,28 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	}
 	if (!info.enumDefs.empty())
 		o << "\n";
+
+	// `using LibName for uint256;` declarations — attach library functions
+	// as member functions on uint256 values, testing the using-for codepath.
+	if (!isLibrary)
+	{
+		for (auto const& ci : m_contracts)
+		{
+			if (ci.kind != ContractDef::LIBRARY)
+				continue;
+			// Only emit using-for if the library has at least one function
+			// with >= 1 param (the first param becomes the receiver).
+			bool hasCallable = false;
+			for (auto const& lf : ci.functions)
+				if (lf.numParams >= 1)
+				{
+					hasCallable = true;
+					break;
+				}
+			if (hasCallable)
+				o << "\tusing " << ci.name << " for uint256;\n";
+		}
+	}
 
 	// State variables (skip for libraries)
 	if (!isLibrary)
@@ -435,6 +557,13 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	// Used by CALLDATALOAD builtin expressions. Private to avoid inheritance conflicts.
 	o << "\tfunction _cdl(uint256 _o) private pure returns (uint256 _v) {\n";
 	o << "\t\tassembly { _v := calldataload(_o) }\n";
+	o << "\t}\n";
+
+	// Calldatasize helper: returns the total size of calldata in bytes.
+	// Used by CALLDATASIZE builtin expressions. Uses assembly so it can
+	// be called from pure functions (msg.data.length is not pure-safe).
+	o << "\tfunction _cds() private pure returns (uint256 _s) {\n";
+	o << "\t\tassembly { _s := calldatasize() }\n";
 	o << "\t}\n";
 
 	o << "}\n";
@@ -633,6 +762,14 @@ std::string ProtoConverter::visitStatement(Statement const& _s)
 		break;
 	case Statement::kTryCatch:
 		result = visitTryCatch(_s.try_catch());
+		break;
+	case Statement::kIndexAssign:
+		// Array/mapping writes require non-pure, non-view context
+		if (m_currentMutability != PURE && m_currentMutability != VIEW)
+			result = visitIndexAssign(_s.index_assign());
+		break;
+	case Statement::kTupleAssign:
+		result = visitTupleAssign(_s.tuple_assign());
 		break;
 	default:
 		break;
@@ -928,6 +1065,60 @@ std::string ProtoConverter::visitTryCatch(TryCatchStmt const& _s)
 	return o.str();
 }
 
+std::string ProtoConverter::visitIndexAssign(IndexAssignStmt const& _s)
+{
+	// Write to a fixed-size array or mapping state variable
+	if (m_currentIndexableVars.empty())
+		return "";
+
+	unsigned varIdx = _s.var_idx() % m_currentIndexableVars.size();
+	auto const& sv = m_currentIndexableVars[varIdx];
+	std::string indexExpr = visitUintExpr(_s.index());
+	std::string valueExpr = visitUintExpr(_s.value());
+
+	std::ostringstream o;
+	if (sv.isFixedArray)
+	{
+		// Bounds-check with modulo
+		o << indent() << sv.name << "[" << indexExpr << " % "
+		  << sv.arrayLength << "] = ";
+		if (!sv.elementIsUint)
+			o << "uint256(" << valueExpr << ")";
+		else
+			o << valueExpr;
+		o << ";\n";
+	}
+	else if (sv.isMapping)
+	{
+		std::string key = indexExpr;
+		if (sv.mappingKeyTypeStr != "uint256")
+			key = sv.mappingKeyTypeStr + "(" + key + ")";
+		o << indent() << sv.name << "[" << key << "] = " << valueExpr << ";\n";
+	}
+	return o.str();
+}
+
+std::string ProtoConverter::visitTupleAssign(TupleAssignStmt const& _s)
+{
+	// Tuple assignment: (a, b) = (expr1, expr2)
+	// Need at least 2 local variables
+	std::vector<std::string> vars;
+	for (auto const& scope : m_scopeStack)
+		for (auto const& v : scope)
+			vars.push_back(v);
+	if (vars.size() < 2)
+		return "";
+
+	// Pick two different variables
+	unsigned idx1 = 0;
+	unsigned idx2 = vars.size() > 1 ? 1 : 0;
+
+	std::string e1 = visitUintExpr(_s.val1());
+	std::string e2 = visitUintExpr(_s.val2());
+	return indent() + "(" + vars[idx1] + ", " + vars[idx2] + ") = ("
+		+ e1 + ", " + e2 + ");\n";
+}
+
 // =====================================================================
 // Expression generation
 // =====================================================================
@@ -1181,7 +1372,8 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		}
 		if (b.kind() == BuiltinExpr::CALLDATASIZE)
 		{
-			result = "msg.data.length";
+			// Use assembly helper so it works in pure functions
+			result = "_cds()";
 			break;
 		}
 		// Other builtins are forbidden in pure functions
@@ -1268,16 +1460,36 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 				if (canCall)
 				{
 					std::ostringstream call;
-					call << target.name << "(";
-					for (unsigned i = 0; i < target.numParams; i++)
+					// Named argument syntax: func({p0: val, p1: val})
+					bool useNamed = fc.has_use_named_args() &&
+						fc.use_named_args() && target.numParams > 0;
+					if (useNamed)
 					{
-						if (i > 0) call << ", ";
-						if (i < static_cast<unsigned>(fc.args_size()))
-							call << visitUintExpr(fc.args(i));
-						else
-							call << "0";
+						call << target.name << "({";
+						for (unsigned i = 0; i < target.numParams; i++)
+						{
+							if (i > 0) call << ", ";
+							call << "p" << i << ": ";
+							if (i < static_cast<unsigned>(fc.args_size()))
+								call << visitUintExpr(fc.args(i));
+							else
+								call << "0";
+						}
+						call << "})";
 					}
-					call << ")";
+					else
+					{
+						call << target.name << "(";
+						for (unsigned i = 0; i < target.numParams; i++)
+						{
+							if (i > 0) call << ", ";
+							if (i < static_cast<unsigned>(fc.args_size()))
+								call << visitUintExpr(fc.args(i));
+							else
+								call << "0";
+						}
+						call << ")";
+					}
 					result = call.str();
 					break;
 				}
@@ -1419,6 +1631,140 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		break;
 	}
 	case Expression::kIndexAccess:
+	{
+		// Index into a fixed-size array or mapping state variable
+		auto const& ia = _e.index_access();
+		if (!m_currentIndexableVars.empty() && m_canReadState)
+		{
+			unsigned hint = ia.base().has_var_ref() ? ia.base().var_ref().index() : randomNumber();
+			unsigned varIdx = hint % m_currentIndexableVars.size();
+			auto const& sv = m_currentIndexableVars[varIdx];
+			std::string indexExpr = visitUintExpr(ia.index());
+
+			if (sv.isFixedArray)
+			{
+				// Bounds-check with modulo to prevent out-of-bounds revert
+				result = sv.name + "[" + indexExpr + " % " + std::to_string(sv.arrayLength) + "]";
+			}
+			else if (sv.isMapping)
+			{
+				// Mapping access is always safe (returns default for missing key)
+				std::string key = indexExpr;
+				if (sv.mappingKeyTypeStr != "uint256")
+					key = sv.mappingKeyTypeStr + "(" + key + ")";
+				result = sv.name + "[" + key + "]";
+			}
+			// Widen element to uint256 if needed
+			if (!result.empty() && !sv.elementIsUint)
+				result = "uint256(" + result + ")";
+		}
+		else
+			result = findVar(randomNumber());
+		break;
+	}
+	case Expression::kSuperCall:
+	{
+		// super.funcName(args...) — call a base contract's function
+		auto const& sc = _e.super_call();
+		auto const& cinfo = m_contracts[m_currentContract];
+
+		// Collect callable non-private functions from all base contracts
+		struct BaseFuncRef { unsigned contractIdx; unsigned funcIdx; };
+		std::vector<BaseFuncRef> baseFuncs;
+		for (unsigned baseIdx : cinfo.baseIndices)
+		{
+			auto const& base = m_contracts[baseIdx];
+			for (unsigned fi = 0; fi < base.functions.size(); fi++)
+			{
+				auto const& bf = base.functions[fi];
+				if (bf.vis == PRIVATE)
+					continue;
+				// Check mutability compatibility
+				bool canCall = true;
+				if (m_currentMutability == PURE && bf.mut != PURE)
+					canCall = false;
+				if (m_currentMutability == VIEW && bf.mut != PURE && bf.mut != VIEW)
+					canCall = false;
+				if (canCall)
+					baseFuncs.push_back({baseIdx, fi});
+			}
+		}
+		if (!baseFuncs.empty())
+		{
+			unsigned idx = sc.func_idx() % baseFuncs.size();
+			auto const& ref = baseFuncs[idx];
+			auto const& target = m_contracts[ref.contractIdx].functions[ref.funcIdx];
+
+			std::ostringstream call;
+			call << "super." << target.name << "(";
+			for (unsigned i = 0; i < target.numParams; i++)
+			{
+				if (i > 0) call << ", ";
+				if (i < static_cast<unsigned>(sc.args_size()))
+					call << visitUintExpr(sc.args(i));
+				else
+					call << "0";
+			}
+			call << ")";
+			result = call.str();
+		}
+		else
+			result = findVar(randomNumber());
+		break;
+	}
+	case Expression::kLibMemberCall:
+	{
+		// Library member call via `using LibName for uint256`:
+		// receiver.libFunc(remaining_args)
+		auto const& lmc = _e.lib_member_call();
+
+		// Find all callable library functions with >= 1 param
+		struct LibFuncRef { unsigned contractIdx; unsigned funcIdx; };
+		std::vector<LibFuncRef> libFuncs;
+		for (unsigned ci = 0; ci < m_contracts.size(); ci++)
+		{
+			if (m_contracts[ci].kind != ContractDef::LIBRARY)
+				continue;
+			for (unsigned fi = 0; fi < m_contracts[ci].functions.size(); fi++)
+			{
+				auto const& lf = m_contracts[ci].functions[fi];
+				if (lf.numParams < 1)
+					continue;
+				bool canCall = true;
+				if (m_currentMutability == PURE && lf.mut != PURE)
+					canCall = false;
+				if (m_currentMutability == VIEW && lf.mut != PURE && lf.mut != VIEW)
+					canCall = false;
+				if (canCall)
+					libFuncs.push_back({ci, fi});
+			}
+		}
+		if (!libFuncs.empty())
+		{
+			unsigned idx = lmc.func_idx() % libFuncs.size();
+			auto const& ref = libFuncs[idx];
+			auto const& target = m_contracts[ref.contractIdx].functions[ref.funcIdx];
+
+			// Receiver is the implicit first argument
+			std::string receiver = visitUintExpr(lmc.receiver());
+			std::ostringstream call;
+			call << receiver << "." << target.name << "(";
+			// Remaining arguments (first param is the receiver)
+			for (unsigned i = 1; i < target.numParams; i++)
+			{
+				if (i > 1) call << ", ";
+				if ((i - 1) < static_cast<unsigned>(lmc.args_size()))
+					call << visitUintExpr(lmc.args(i - 1));
+				else
+					call << "0";
+			}
+			call << ")";
+			result = call.str();
+		}
+		else
+			result = findVar(randomNumber());
+		break;
+	}
 	default:
 		result = findVar(randomNumber());
 		break;
@@ -1517,6 +1863,9 @@ std::string ProtoConverter::generateTestContract()
 	// Calldataload helper for extracting random values from extra calldata
 	o << "\tfunction _cdl(uint256 _o) private pure returns (uint256 _v) {\n";
 	o << "\t\tassembly { _v := calldataload(_o) }\n";
+	o << "\t}\n";
+	o << "\tfunction _cds() private pure returns (uint256 _s) {\n";
+	o << "\t\tassembly { _s := calldatasize() }\n";
 	o << "\t}\n\n";
 
 	o << "\tfunction test() public returns (uint256) {\n";
@@ -1534,9 +1883,19 @@ std::string ProtoConverter::generateTestContract()
 		if (ci.functions.empty())
 			continue;
 
-		// Create instance
-		o << "\t\t" << ci.name << " _t" << ci.name
-		  << " = new " << ci.name << "();\n";
+		// Create instance (optionally via CREATE2 with salt)
+		if (m_useCreate2)
+		{
+			// Each contract gets a unique salt by XOR-ing with the call index
+			o << "\t\t" << ci.name << " _t" << ci.name
+			  << " = new " << ci.name << "{salt: bytes32(uint256(0x"
+			  << m_create2SaltHex << ") ^ " << callIdx << ")}();\n";
+		}
+		else
+		{
+			o << "\t\t" << ci.name << " _t" << ci.name
+			  << " = new " << ci.name << "();\n";
+		}
 
 		// Call each public/external function via low-level call
 		// and XOR the result into _r for differential testing
@@ -1742,51 +2101,59 @@ void ProtoConverter::collectInheritedInfo(ContractInfo const& _cinfo)
 
 	m_currentUintStateVars.clear();
 	m_currentStructStateVars.clear();
+	m_currentIndexableVars.clear();
 	m_currentEvents = _cinfo.events;
 	m_currentErrors = _cinfo.errors;
 	m_currentStructDefs = _cinfo.structDefs;
 	m_currentEnumDefs = _cinfo.enumDefs;
 
-	if (m_canReadState && !isLibrary)
+	// Helper: process state vars from a contract into the current context
+	auto collectStateVars = [&](std::vector<StateVarInfo> const& _stateVars)
 	{
-		for (auto const& sv : _cinfo.stateVars)
+		if (!m_canReadState || isLibrary)
+			return;
+		for (auto const& sv : _stateVars)
 		{
 			if (sv.isUint)
 				m_currentUintStateVars.push_back(sv.name);
 			if (sv.isStruct)
-				m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx);
-		}
-	}
-
-	// Add inherited info from base contracts (walk full inheritance chain)
-	std::vector<unsigned> inheritanceChain;
-	{
-		ContractInfo const* cur = &_cinfo;
-		while (cur->hasBase && cur->baseIdx < m_contracts.size())
-		{
-			inheritanceChain.push_back(cur->baseIdx);
-			cur = &m_contracts[cur->baseIdx];
-		}
-	}
-	for (unsigned baseIdx : inheritanceChain)
-	{
-		auto const& baseInfo = m_contracts[baseIdx];
-
-		if (m_canReadState && !isLibrary)
-		{
-			for (auto const& sv : baseInfo.stateVars)
 			{
-				if (sv.isUint)
-					m_currentUintStateVars.push_back(sv.name);
-				if (sv.isStruct)
-				{
-					// Offset structDefIdx by current size of m_currentStructDefs
-					// so it indexes into the correct position after appending.
-					unsigned offset = m_currentStructDefs.size();
-					m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx + offset);
-				}
+				unsigned offset = m_currentStructDefs.size();
+				m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx + offset);
 			}
+			// Collect indexable vars: fixed arrays and mappings with uint elements
+			if ((sv.isFixedArray || sv.isMapping) && sv.elementIsUint)
+				m_currentIndexableVars.push_back(sv);
 		}
+	};
+
+	collectStateVars(_cinfo.stateVars);
+
+	// Walk full inheritance chain across all bases (BFS to handle multiple bases)
+	std::vector<unsigned> visited;
+	std::vector<unsigned> queue;
+	for (unsigned b : _cinfo.baseIndices)
+		queue.push_back(b);
+
+	while (!queue.empty())
+	{
+		unsigned baseIdx = queue.front();
+		queue.erase(queue.begin());
+
+		// Avoid visiting the same base twice (possible with multi-path inheritance)
+		bool alreadyVisited = false;
+		for (unsigned v : visited)
+			if (v == baseIdx)
+			{
+				alreadyVisited = true;
+				break;
+			}
+		if (alreadyVisited)
+			continue;
+		visited.push_back(baseIdx);
+
+		auto const& baseInfo = m_contracts[baseIdx];
+		collectStateVars(baseInfo.stateVars);
 
 		// Inherit events and errors
 		for (auto const& ev : baseInfo.events)
@@ -1799,6 +2166,10 @@ void ProtoConverter::collectInheritedInfo(ContractInfo const& _cinfo)
 			m_currentStructDefs.push_back(sd);
 		for (auto const& ed : baseInfo.enumDefs)
 			m_currentEnumDefs.push_back(ed);
+
+		// Continue up the chain
+		for (unsigned b : baseInfo.baseIndices)
+			queue.push_back(b);
 	}
 }
 

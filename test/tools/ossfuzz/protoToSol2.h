@@ -106,9 +106,18 @@ private:
 	{
 		std::string name;
 		std::string typeStr;
-		bool isUint;
-		bool isStruct;
-		unsigned structDefIdx;
+		bool isUint = false;
+		bool isStruct = false;
+		unsigned structDefIdx = 0;
+		// Array tracking
+		bool isArray = false;
+		bool isFixedArray = false;
+		unsigned arrayLength = 0;
+		// Mapping tracking
+		bool isMapping = false;
+		std::string mappingKeyTypeStr;
+		// For arrays/mappings: whether the element/value type is uint-compatible
+		bool elementIsUint = false;
 	};
 
 	struct ContractInfo
@@ -122,10 +131,9 @@ private:
 		std::vector<ModifierInfo> modifiers;
 		std::vector<StructDefInfo> structDefs;
 		std::vector<EnumDefInfo> enumDefs;
-		/// Whether this contract has a base contract
-		bool hasBase = false;
-		/// Index of the base contract in m_contracts (-1 if no base)
-		unsigned baseIdx = 0;
+		/// Indices of base contracts in m_contracts (empty if no bases).
+		/// Ordered from most base-like to most derived-like for C3 linearization.
+		std::vector<unsigned> baseIndices;
 	};
 
 	// ===== Visitor methods =====
@@ -150,6 +158,8 @@ private:
 	std::string visitUnchecked(UncheckedBlock const& _s);
 	std::string visitDelete(DeleteStmt const& _s);
 	std::string visitTryCatch(TryCatchStmt const& _s);
+	std::string visitIndexAssign(IndexAssignStmt const& _s);
+	std::string visitTupleAssign(TupleAssignStmt const& _s);
 
 	// Expression visitors — generate uint256-typed or bool-typed expressions
 	std::string visitUintExpr(Expression const& _e);
@@ -237,6 +247,8 @@ private:
 	std::vector<std::string> m_currentUintStateVars;
 	/// Current contract's struct state vars: (name, structDefIdx) pairs
 	std::vector<std::pair<std::string, unsigned>> m_currentStructStateVars;
+	/// Current contract's indexable state vars (fixed arrays + mappings with uint elements)
+	std::vector<StateVarInfo> m_currentIndexableVars;
 	/// Whether current function can read state
 	bool m_canReadState = false;
 	/// Current function's state mutability
@@ -251,6 +263,10 @@ private:
 	std::vector<EnumDefInfo> m_currentEnumDefs;
 	/// Scope stack: each scope is a list of uint256 variable names
 	std::vector<std::vector<std::string>> m_scopeStack;
+	/// Whether to use CREATE2 (new C{salt: ...}()) in test contract
+	bool m_useCreate2 = false;
+	/// Hex-encoded 32-byte salt for CREATE2 (padded/truncated to 32 bytes)
+	std::string m_create2SaltHex;
 	/// RNG
 	std::shared_ptr<SolRandomNumGenerator> m_randomGen;
 };

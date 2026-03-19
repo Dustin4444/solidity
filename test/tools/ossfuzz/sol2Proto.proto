@@ -227,6 +227,8 @@ message TernaryOp {
 message FuncCallExpr {
 	required uint32 func_id = 1;
 	repeated Expression args = 2;
+	// When true, use named argument syntax: func({p0: val, p1: val})
+	optional bool use_named_args = 3;
 }
 
 message IndexAccessExpr {
@@ -375,6 +377,31 @@ message EnumLiteral {
 	required uint32 member_idx = 2;
 }
 
+// super.funcName(args...) — call a base contract's function via the
+// inheritance chain. Only valid inside contracts that have a base.
+message SuperCallExpr {
+	required uint32 func_idx = 1;
+	repeated Expression args = 2;
+}
+
+// Library member call via `using LibName for uint256`: receiver.libFunc(args...)
+// The receiver is the implicit first argument to the library function.
+message LibMemberCallExpr {
+	required Expression receiver = 1;
+	required uint32 func_idx = 2;
+	repeated Expression args = 3;
+}
+
+// NOTE: We intentionally do NOT fuzz inline assembly blocks (beyond the
+// minimal _cdl/_cds helpers). Inline assembly is YOLO: it bypasses all
+// Solidity-level compiler invariants (type system, memory management,
+// stack layout, control flow analysis). Generating arbitrary assembly
+// would produce programs that violate the assumptions the optimizer and
+// codegen rely on, leading to false-positive "miscompilation" reports
+// that are actually just the fuzzer breaking the compiler's contract.
+// The _cdl/_cds helpers are the sole exception because they are trivial,
+// well-understood wrappers around single opcodes.
+
 message Expression {
 	oneof expr_oneof {
 		Literal lit = 1;
@@ -397,6 +424,8 @@ message Expression {
 		EnumLiteral enum_lit = 18;
 		EcrecoverExpr ecrecover = 19;
 		TypeInfoExpr type_info = 20;
+		SuperCallExpr super_call = 21;
+		LibMemberCallExpr lib_member_call = 22;
 	}
 }
 
@@ -476,6 +505,19 @@ message UncheckedBlock {
 	required Block body = 1;
 }
 
+// Index assignment: stateVar[index] = value (for arrays and mappings)
+message IndexAssignStmt {
+	required uint32 var_idx = 1;
+	required Expression index = 2;
+	required Expression value = 3;
+}
+
+// Tuple assignment: (a, b) = (expr1, expr2) — tests tuple packing/unpacking
+message TupleAssignStmt {
+	required Expression val1 = 1;
+	required Expression val2 = 2;
+}
+
 message Statement {
 	oneof stmt_oneof {
 		VarDeclStmt var_decl = 1;
@@ -494,6 +536,8 @@ message Statement {
 		RequireStmt require_stmt = 14;
 		DeleteStmt delete_stmt = 15;
 		TryCatchStmt try_catch = 16;
+		IndexAssignStmt index_assign = 17;
+		TupleAssignStmt tuple_assign = 18;
 	}
 }
 
@@ -558,6 +602,10 @@ message FunctionDef {
 	required Block body = 6;
 	// Index into contract's modifiers list
 	optional uint32 modifier_id = 7;
+	// When true and there is a previous function in the same contract,
+	// share its name (creating an overloaded function). The param count
+	// is forced to differ from the previous function.
+	optional bool share_name_with_prev = 8;
 }
 
 message ConstructorDef {
@@ -603,6 +651,9 @@ message Program {
 	// Random bytes appended after the 4-byte selector when calling test().
 	// Accessible via calldataload/calldatasize in generated expressions.
 	optional bytes calldata_data = 5;
+	// Salt for CREATE2 deployment in the test contract.
+	// When present, contracts are deployed with new C{salt: ...}().
+	optional bytes create2_salt = 6;
 }
 
 package solidity.test.sol2protofuzzer;
