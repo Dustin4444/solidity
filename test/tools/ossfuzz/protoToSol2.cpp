@@ -428,10 +428,10 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	// State variables (skip for libraries)
 	if (!isLibrary)
 	{
-		unsigned constIdx = 0;
+		// Counter for generating unique literal values for constant/immutable vars
+		unsigned initLiteralIdx = 0;
 		for (auto const& sv : info.stateVars)
 		{
-			// Mappings and arrays with dynamic types need storage, which is fine
 			o << "\t" << sv.typeStr;
 			if (sv.isTransient)
 				o << " transient";
@@ -442,9 +442,9 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 			o << " public " << sv.name;
 			// Constants need a compile-time initializer
 			if (sv.isConstant)
-				o << " = " << sv.typeStr << "(" << (constIdx * 7 + 3) << ")";
+				o << " = " << sv.typeStr << "(" << (initLiteralIdx * 7 + 3) << ")";
 			if (sv.isConstant || sv.isImmutable)
-				constIdx++;
+				initLiteralIdx++;
 			o << ";\n";
 		}
 		if (!info.stateVars.empty())
@@ -482,22 +482,11 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	for (unsigned j = 0; j < info.modifiers.size(); j++)
 	{
 		o << "\tmodifier " << info.modifiers[j].name << "() {\n";
-
-		// Set up state for modifier body
-		m_canReadState = true;
-		m_currentMutability = NONPAYABLE;
-		m_inConstructor = false;
-		m_currentFuncIdx = 0;
-		collectInheritedInfo(info);
-
-		pushScope();
-		m_localVarCount = 0;
-		m_varCounter = 0;
-		m_indentLevel = 2;
-		m_stmtDepth = 0;
-		o << visitBlock(_c.modifiers(j).body());
-		popScope();
-
+		o << "\t\tunchecked {\n";
+		m_inModifier = true;
+		o << setupAndVisitBlock(_c.modifiers(j).body(), info, NONPAYABLE, 3);
+		m_inModifier = false;
+		o << "\t\t}\n";
 		o << "\t\t_;\n";
 		o << "\t}\n\n";
 	}
@@ -558,21 +547,9 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	if (!isLibrary && _c.has_receive())
 	{
 		o << "\treceive() external payable {\n";
-
-		m_canReadState = true;
-		m_currentMutability = PAYABLE;
-		m_inConstructor = false;
-		m_currentFuncIdx = 0;
-		collectInheritedInfo(info);
-
-		pushScope();
-		m_localVarCount = 0;
-		m_varCounter = 0;
-		m_indentLevel = 2;
-		m_stmtDepth = 0;
-		o << visitBlock(_c.receive().body());
-		popScope();
-
+		o << "\t\tunchecked {\n";
+		o << setupAndVisitBlock(_c.receive().body(), info, PAYABLE, 3);
+		o << "\t\t}\n";
 		o << "\t}\n\n";
 	}
 
@@ -580,21 +557,9 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	if (!isLibrary && _c.has_fallback_func())
 	{
 		o << "\tfallback() external payable {\n";
-
-		m_canReadState = true;
-		m_currentMutability = PAYABLE;
-		m_inConstructor = false;
-		m_currentFuncIdx = 0;
-		collectInheritedInfo(info);
-
-		pushScope();
-		m_localVarCount = 0;
-		m_varCounter = 0;
-		m_indentLevel = 2;
-		m_stmtDepth = 0;
-		o << visitBlock(_c.fallback_func().body());
-		popScope();
-
+		o << "\t\tunchecked {\n";
+		o << setupAndVisitBlock(_c.fallback_func().body(), info, PAYABLE, 3);
+		o << "\t\t}\n";
 		o << "\t}\n\n";
 	}
 
@@ -603,15 +568,15 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		o << visitFunction(_c.functions(j), info, j) << "\n";
 
 	// Calldataload helper: reads a 32-byte word from calldata at the given offset.
-	// Used by CALLDATALOAD builtin expressions. Private to avoid inheritance conflicts.
-	o << "\tfunction _cdl(uint256 _o) private pure returns (uint256 _v) {\n";
+	// Used by CALLDATALOAD builtin expressions. Names are per-contract to avoid
+	// "overriding non-virtual function" errors when contracts inherit from each other.
+	o << "\tfunction _cdl" << _idx << "(uint256 _o) private pure returns (uint256 _v) {\n";
 	o << "\t\tassembly { _v := calldataload(_o) }\n";
 	o << "\t}\n";
 
 	// Calldatasize helper: returns the total size of calldata in bytes.
-	// Used by CALLDATASIZE builtin expressions. Uses assembly so it can
-	// be called from pure functions (msg.data.length is not pure-safe).
-	o << "\tfunction _cds() private pure returns (uint256 _s) {\n";
+	// Uses assembly so it can be called from pure functions.
+	o << "\tfunction _cds" << _idx << "() private pure returns (uint256 _s) {\n";
 	o << "\t\tassembly { _s := calldatasize() }\n";
 	o << "\t}\n";
 
@@ -677,8 +642,8 @@ std::string ProtoConverter::visitFunction(
 	for (unsigned i = 0; i < fi.numParams; i++)
 		addVar("p" + std::to_string(i));
 
-	// Generate body
-	m_indentLevel = 2;
+	// Generate body (indented inside the unchecked {} wrapper)
+	m_indentLevel = 3;
 	m_stmtDepth = 0;
 	std::string body = visitBlock(_f.body());
 
@@ -712,9 +677,14 @@ std::string ProtoConverter::visitFunction(
 	}
 
 	o << " returns (uint256) {\n";
+	// Wrap body in unchecked so arithmetic (including --, ++, +, -, *)
+	// never reverts on overflow. This maximizes fuzzer coverage: without
+	// it, most generated programs would just revert on overflow.
+	o << "\t\tunchecked {\n";
 	o << body;
 	// Always return something to ensure the function compiles
-	o << "\t\treturn 0;\n";
+	o << "\t\t\treturn 0;\n";
+	o << "\t\t}\n";
 	o << "\t}\n";
 
 	return o.str();
@@ -727,6 +697,9 @@ std::string ProtoConverter::visitFunction(
 std::string ProtoConverter::visitBlock(Block const& _b)
 {
 	pushScope();
+	// Save local var count so variables declared in this block don't
+	// permanently consume the budget after the block exits.
+	unsigned savedLocalVarCount = m_localVarCount;
 	std::ostringstream o;
 
 	unsigned numStmts = std::min(
@@ -737,6 +710,7 @@ std::string ProtoConverter::visitBlock(Block const& _b)
 		o << visitStatement(_b.stmts(i));
 
 	popScope();
+	m_localVarCount = savedLocalVarCount;
 	return o.str();
 }
 
@@ -769,7 +743,9 @@ std::string ProtoConverter::visitStatement(Statement const& _s)
 		result = visitDoWhile(_s.do_while());
 		break;
 	case Statement::kReturnStmt:
-		result = visitReturn(_s.return_stmt());
+		// return is invalid in modifier bodies
+		if (!m_inModifier)
+			result = visitReturn(_s.return_stmt());
 		break;
 	case Statement::kEmitStmt:
 		// Events are side effects: skip in pure and view functions
@@ -793,8 +769,18 @@ std::string ProtoConverter::visitStatement(Statement const& _s)
 		break;
 	}
 	case Statement::kUnchecked:
-		result = visitUnchecked(_s.unchecked());
+	{
+		// All bodies are already wrapped in unchecked{}, and Solidity
+		// forbids nested unchecked blocks. Generate a plain block instead.
+		std::ostringstream uo;
+		uo << indent() << "{\n";
+		m_indentLevel++;
+		uo << visitBlock(_s.unchecked().body());
+		m_indentLevel--;
+		uo << indent() << "}\n";
+		result = uo.str();
 		break;
+	}
 	case Statement::kBreakStmt:
 		if (m_inLoop)
 			result = indent() + "break;\n";
@@ -1237,6 +1223,8 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 				result = left + " ** (" + right + " % 4)";
 			}
 			else
+				// All function bodies are wrapped in unchecked{}, so arithmetic
+				// never reverts on overflow — it wraps around instead.
 				result = left + " " + arithmeticOpStr(op.op()) + " " + right;
 		}
 		else if (isBitwiseOp(op.op()))
@@ -1264,7 +1252,7 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			result = "~" + visitUintExpr(op.operand());
 			break;
 		case UnaryOp::NEG:
-			// Unary minus on uint is problematic, use bitwise not instead
+			// Unary minus is not valid on uint types, use bitwise not instead
 			result = "~" + visitUintExpr(op.operand());
 			break;
 		case UnaryOp::INC_PRE:
@@ -1278,13 +1266,11 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		}
 		case UnaryOp::DEC_PRE:
 		{
-			// Guard: decrement on uint256 at 0 reverts in checked mode.
-			// Use bitwise not instead for safety.
 			std::string v = findLVar(op.operand().has_var_ref() ? op.operand().var_ref().index() : 0);
 			if (v.empty())
 				result = defaultUintLiteral();
 			else
-				result = "~" + v;
+				result = "--" + v;
 			break;
 		}
 		case UnaryOp::INC_POST:
@@ -1298,12 +1284,11 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		}
 		case UnaryOp::DEC_POST:
 		{
-			// Guard: same as DEC_PRE, use bitwise not for safety
 			std::string v = findLVar(op.operand().has_var_ref() ? op.operand().var_ref().index() : 0);
 			if (v.empty())
 				result = defaultUintLiteral();
 			else
-				result = "~" + v;
+				result = v + "--";
 			break;
 		}
 		default:
@@ -1427,13 +1412,13 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		if (b.kind() == BuiltinExpr::CALLDATALOAD)
 		{
 			std::string arg = b.has_arg() ? visitUintExpr(b.arg()) : "0";
-			result = "_cdl(" + arg + ")";
+			result = "_cdl" + std::to_string(m_currentContract) + "(" + arg + ")";
 			break;
 		}
 		if (b.kind() == BuiltinExpr::CALLDATASIZE)
 		{
 			// Use assembly helper so it works in pure functions
-			result = "_cds()";
+			result = "_cds" + std::to_string(m_currentContract) + "()";
 			break;
 		}
 		// Other builtins are forbidden in pure functions
@@ -1973,13 +1958,27 @@ std::string ProtoConverter::generateTestContract()
 	std::ostringstream o;
 	o << "contract C {\n";
 
+	// Attach library functions via using-for so they can be called
+	// as member functions on uint256 values.
+	for (auto const& ci : m_contracts)
+	{
+		if (ci.kind != ContractDef::LIBRARY)
+			continue;
+		bool hasCallable = false;
+		for (auto const& lf : ci.functions)
+			if (lf.numParams >= 1)
+			{
+				hasCallable = true;
+				break;
+			}
+		if (hasCallable)
+			o << "\tusing " << ci.name << " for uint256;\n";
+	}
+
 	// Calldataload helper for extracting random values from extra calldata
 	o << "\tfunction _cdl(uint256 _o) private pure returns (uint256 _v) {\n";
 	o << "\t\tassembly { _v := calldataload(_o) }\n";
 	o << "\t}\n";
-	o << "\tfunction _cds() private pure returns (uint256 _s) {\n";
-	o << "\t\tassembly { _s := calldatasize() }\n";
-	o << "\t}\n\n";
 
 	o << "\tfunction test() public returns (uint256) {\n";
 	o << "\t\tuint256 _r = 0;\n";
@@ -2045,9 +2044,9 @@ std::string ProtoConverter::generateTestContract()
 		}
 	}
 
-	// For library contracts, call functions directly and XOR results.
-	// Note: library functions are always internal (set in visitFunction),
-	// so no visibility filter is needed here.
+	// For library contracts, call internal functions via using-for member syntax.
+	// Library functions are always internal, so they must be called as
+	// receiver.funcName(remaining_args) where the first param is the receiver.
 	for (auto const& ci : m_contracts)
 	{
 		if (ci.kind != ContractDef::LIBRARY)
@@ -2055,13 +2054,18 @@ std::string ProtoConverter::generateTestContract()
 
 		for (auto const& fi : ci.functions)
 		{
-			o << "\t\t_r ^= " << ci.name << "." << fi.name << "(";
-			for (unsigned i = 0; i < fi.numParams; i++)
+			if (fi.numParams < 1)
+				continue; // Can't call via member syntax without a receiver param
+			// receiver.funcName(remaining_args)
+			o << "\t\t_r ^= _cdl(" << (4 + paramOffset * 32) << ")."
+			  << fi.name << "(";
+			paramOffset++;
+			for (unsigned i = 1; i < fi.numParams; i++)
 			{
-				if (i > 0) o << ", ";
-				o << "_cdl(" << (4 + (paramOffset + i) * 32) << ")";
+				if (i > 1) o << ", ";
+				o << "_cdl(" << (4 + (paramOffset) * 32) << ")";
+				paramOffset++;
 			}
-			paramOffset += fi.numParams;
 			o << ");\n";
 		}
 	}
@@ -2198,7 +2202,8 @@ std::string ProtoConverter::findVar(uint32_t _hint)
 
 std::string ProtoConverter::findLVar(uint32_t _hint)
 {
-	// Only local variables (not state vars) for lvalue operations like ++/--
+	// Local variables and function parameters (from scope stack, not state
+	// vars) for lvalue operations like ++/--/assignment.
 	std::vector<std::string> vars;
 	for (auto const& scope : m_scopeStack)
 		for (auto const& v : scope)
@@ -2297,6 +2302,29 @@ void ProtoConverter::collectInheritedInfo(ContractInfo const& _cinfo)
 // =====================================================================
 // Helpers
 // =====================================================================
+
+std::string ProtoConverter::setupAndVisitBlock(
+	Block const& _body,
+	ContractInfo const& _cinfo,
+	StateMutability _mut,
+	unsigned _indentLevel
+)
+{
+	m_canReadState = (_mut == VIEW || _mut == NONPAYABLE || _mut == PAYABLE);
+	m_currentMutability = _mut;
+	m_inConstructor = false;
+	m_currentFuncIdx = 0;
+	collectInheritedInfo(_cinfo);
+
+	pushScope();
+	m_localVarCount = 0;
+	m_varCounter = 0;
+	m_indentLevel = _indentLevel;
+	m_stmtDepth = 0;
+	std::string result = visitBlock(_body);
+	popScope();
+	return result;
+}
 
 std::string ProtoConverter::indent()
 {

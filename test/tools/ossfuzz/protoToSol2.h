@@ -188,8 +188,8 @@ private:
 	/// Find a uint256 variable in scope, using _hint to pick one.
 	/// Falls back to literal "0" if no variables are in scope.
 	std::string findVar(uint32_t _hint);
-	/// Find a uint256 variable that is an lvalue (local only).
-	/// Returns empty string if no local variables exist.
+	/// Find a uint256 variable that is an lvalue (locals + params, not state vars).
+	/// Returns empty string if no lvalue variables exist.
 	std::string findLVar(uint32_t _hint);
 	/// Get all uint256 variables in scope (locals + params + state vars if view/nonpayable).
 	std::vector<std::string> allUintVars();
@@ -203,6 +203,14 @@ private:
 	std::string defaultBoolLiteral();
 	/// Collect inherited state vars, events, errors, structs from base
 	void collectInheritedInfo(ContractInfo const& _cinfo);
+	/// Set up state for a body block (modifier, receive, fallback, etc.)
+	/// and visit the block. Resets scope, var counters, indent, and stmt depth.
+	std::string setupAndVisitBlock(
+		Block const& _body,
+		ContractInfo const& _cinfo,
+		StateMutability _mut,
+		unsigned _indentLevel
+	);
 
 	// Binary/unary op classification
 	static bool isArithmeticOp(BinaryOp::Op _op);
@@ -243,6 +251,7 @@ private:
 	unsigned m_localVarCount = 0;
 	bool m_inLoop = false;
 	bool m_inConstructor = false;
+	bool m_inModifier = false;
 	unsigned m_currentFuncIdx = 0;
 
 	/// Info about all generated contracts
