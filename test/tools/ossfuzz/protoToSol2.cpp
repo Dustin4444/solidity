@@ -543,10 +543,25 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		o << "\t}\n\n";
 	}
 
+	// Check if any base contract defines receive/fallback (for override keyword)
+	bool baseHasReceive = false;
+	bool baseHasFallback = false;
+	for (unsigned baseIdx : info.baseIndices)
+	{
+		// Check proto for receive/fallback in base contracts
+		if (_p.contracts(baseIdx).has_receive())
+			baseHasReceive = true;
+		if (_p.contracts(baseIdx).has_fallback_func())
+			baseHasFallback = true;
+	}
+
 	// Receive function
 	if (!isLibrary && _c.has_receive())
 	{
-		o << "\treceive() external payable {\n";
+		o << "\treceive() external payable virtual";
+		if (baseHasReceive)
+			o << " override";
+		o << " {\n";
 		o << "\t\tunchecked {\n";
 		o << setupAndVisitBlock(_c.receive().body(), info, PAYABLE, 3);
 		o << "\t\t}\n";
@@ -556,7 +571,10 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	// Fallback function
 	if (!isLibrary && _c.has_fallback_func())
 	{
-		o << "\tfallback() external payable {\n";
+		o << "\tfallback() external payable virtual";
+		if (baseHasFallback)
+			o << " override";
+		o << " {\n";
 		o << "\t\tunchecked {\n";
 		o << setupAndVisitBlock(_c.fallback_func().body(), info, PAYABLE, 3);
 		o << "\t\t}\n";
