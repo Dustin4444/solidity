@@ -1920,7 +1920,7 @@ std::string ProtoConverter::visitBoolExpr(Expression const& _e)
 	{
 		auto const& op = _e.un_op();
 		if (op.op() == UnaryOp::LNOT)
-			result = "!" + visitBoolExpr(op.operand());
+			result = "!(" + visitBoolExpr(op.operand()) + ")";
 		else
 		{
 			// Non-logical unary in bool context: compare result to 0
