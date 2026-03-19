@@ -120,6 +120,10 @@ private:
 		bool elementIsUint = false;
 		// Transient storage (tstore/tload)
 		bool isTransient = false;
+		// Compile-time constant
+		bool isConstant = false;
+		// Set once in constructor
+		bool isImmutable = false;
 	};
 
 	struct ContractInfo

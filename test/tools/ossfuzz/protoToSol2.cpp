@@ -192,11 +192,21 @@ std::string ProtoConverter::visit(Program const& _p)
 			{
 				svi.typeStr = elementaryTypeStr(sv.type());
 				svi.isUint = isUintType(sv.type());
-				// Transient storage only works with value types (not
-				// arrays, mappings, structs, string, or bytes).
-				if (sv.has_is_transient() && sv.is_transient() &&
-					svi.typeStr != "string" && svi.typeStr != "bytes")
-					svi.isTransient = true;
+				// transient/constant/immutable only work with value types
+				// (not arrays, mappings, structs, string, or bytes).
+				// They are mutually exclusive: pick the first one set.
+				// constant/immutable further restricted to uint types for
+				// safe literal initialization (bool/address casts are tricky).
+				bool isValueType = svi.typeStr != "string" && svi.typeStr != "bytes";
+				if (isValueType)
+				{
+					if (svi.isUint && sv.has_is_constant() && sv.is_constant())
+						svi.isConstant = true;
+					else if (svi.isUint && sv.has_is_immutable() && sv.is_immutable())
+						svi.isImmutable = true;
+					else if (sv.has_is_transient() && sv.is_transient())
+						svi.isTransient = true;
+				}
 			}
 			info.stateVars.push_back(svi);
 		}
@@ -424,7 +434,15 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 			o << "\t" << sv.typeStr;
 			if (sv.isTransient)
 				o << " transient";
-			o << " public " << sv.name << ";\n";
+			else if (sv.isConstant)
+				o << " constant";
+			else if (sv.isImmutable)
+				o << " immutable";
+			o << " public " << sv.name;
+			// Constants need a compile-time initializer
+			if (sv.isConstant)
+				o << " = " << sv.typeStr << "(42)";
+			o << ";\n";
 		}
 		if (!info.stateVars.empty())
 			o << "\n";
@@ -481,12 +499,21 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		o << "\t}\n\n";
 	}
 
-	// Constructor
-	if (!isLibrary && _c.has_constructor())
+	// Check if we have immutable vars that need constructor assignment
+	bool hasImmutables = false;
+	for (auto const& sv : info.stateVars)
+		if (sv.isImmutable)
+		{
+			hasImmutables = true;
+			break;
+		}
+
+	// Constructor — generate one if we have a proto constructor or immutable vars
+	if (!isLibrary && (_c.has_constructor() || hasImmutables))
 	{
-		auto const& ctor = _c.constructor();
+		bool payable = _c.has_constructor() && _c.constructor().payable();
 		o << "\tconstructor() ";
-		if (ctor.payable())
+		if (payable)
 			o << "payable ";
 		o << "{\n";
 		// Wrap constructor body in unchecked to prevent arithmetic reverts
@@ -496,7 +523,7 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		// Set up state for constructor body
 		m_canReadState = true;
 		m_inConstructor = true;
-		m_currentMutability = ctor.payable() ? PAYABLE : NONPAYABLE;
+		m_currentMutability = payable ? PAYABLE : NONPAYABLE;
 		m_currentFuncIdx = 0;
 		collectInheritedInfo(info);
 
@@ -505,8 +532,15 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		m_varCounter = 0;
 		m_indentLevel = 3;
 		m_stmtDepth = 0;
-		o << visitBlock(ctor.body());
+		if (_c.has_constructor())
+			o << visitBlock(_c.constructor().body());
 		popScope();
+
+		// Assign immutable state vars
+		for (auto const& sv : info.stateVars)
+			if (sv.isImmutable)
+				o << "\t\t\t" << sv.name << " = " << sv.typeStr << "(42);\n";
+
 		m_inConstructor = false;
 
 		o << "\t\t}\n";
@@ -779,6 +813,15 @@ std::string ProtoConverter::visitStatement(Statement const& _s)
 	case Statement::kTupleAssign:
 		result = visitTupleAssign(_s.tuple_assign());
 		break;
+	case Statement::kSelfdestructStmt:
+		// selfdestruct requires non-pure, non-view. Skip in constructors
+		// (would destroy the contract being created).
+		if (m_currentMutability != PURE && m_currentMutability != VIEW && !m_inConstructor)
+		{
+			std::string addr = visitUintExpr(_s.selfdestruct_stmt().beneficiary());
+			result = indent() + "selfdestruct(payable(address(uint160(" + addr + "))));\n";
+		}
+		break;
 	default:
 		break;
 	}
@@ -1006,6 +1049,8 @@ std::string ProtoConverter::visitRequire(RequireStmt const& _s)
 	std::string cond = visitBoolExpr(_s.cond());
 	if (_s.is_assert())
 		return indent() + "assert(" + cond + ");\n";
+	else if (_s.has_with_message() && _s.with_message())
+		return indent() + "require(" + cond + ", \"req_" + std::to_string(randomNumber() % 100) + "\");\n";
 	else
 		return indent() + "require(" + cond + ");\n";
 }
@@ -1771,6 +1816,59 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		}
 		else
 			result = findVar(randomNumber());
+		break;
+	}
+	case Expression::kConcat:
+	{
+		// bytes.concat() or string.concat() — hash result to uint256
+		auto const& cc = _e.concat();
+		unsigned numArgs = std::min(static_cast<unsigned>(cc.args_size()), 3u);
+		std::ostringstream args;
+		if (numArgs == 0)
+			args << (cc.kind() == ConcatExpr::STRING_CONCAT ? "\"\"" : "bytes(\"\")");
+		else
+		{
+			for (unsigned i = 0; i < numArgs; i++)
+			{
+				if (i > 0) args << ", ";
+				std::string inner = visitUintExpr(cc.args(i));
+				if (cc.kind() == ConcatExpr::STRING_CONCAT)
+					// Convert uint to a deterministic string
+					args << "string(abi.encode(" << inner << "))";
+				else
+					args << "abi.encode(" << inner << ")";
+			}
+		}
+		if (cc.kind() == ConcatExpr::BYTES_CONCAT)
+			result = "uint256(keccak256(bytes.concat(" + args.str() + ")))";
+		else
+			result = "uint256(keccak256(bytes(string.concat(" + args.str() + "))))";
+		break;
+	}
+	case Expression::kSelector:
+	{
+		// this.funcName.selector — get 4-byte function selector
+		// `this.` is not allowed in pure functions
+		if (m_currentMutability == PURE)
+		{
+			result = defaultUintLiteral();
+			break;
+		}
+		auto const& sel = _e.selector();
+		auto const& cinfo = m_contracts[m_currentContract];
+		// Collect public/external functions
+		std::vector<unsigned> pubExtFuncs;
+		for (unsigned i = 0; i < cinfo.functions.size(); i++)
+			if (cinfo.functions[i].vis == PUBLIC || cinfo.functions[i].vis == EXTERNAL)
+				pubExtFuncs.push_back(i);
+		if (!pubExtFuncs.empty())
+		{
+			unsigned idx = sel.func_idx() % pubExtFuncs.size();
+			auto const& target = cinfo.functions[pubExtFuncs[idx]];
+			result = "uint256(uint32(this." + target.name + ".selector))";
+		}
+		else
+			result = defaultUintLiteral();
 		break;
 	}
 	default:

@@ -392,6 +392,21 @@ message LibMemberCallExpr {
 	repeated Expression args = 3;
 }
 
+// bytes.concat() / string.concat() — hashed to uint256
+message ConcatExpr {
+	enum Kind {
+		BYTES_CONCAT = 0;
+		STRING_CONCAT = 1;
+	}
+	required Kind kind = 1;
+	repeated Expression args = 2;
+}
+
+// this.funcName.selector — 4-byte function selector as uint256
+message SelectorExpr {
+	required uint32 func_idx = 1;
+}
+
 // NOTE: We intentionally do NOT fuzz inline assembly blocks (beyond the
 // minimal _cdl/_cds helpers). Inline assembly is YOLO: it bypasses all
 // Solidity-level compiler invariants (type system, memory management,
@@ -426,6 +441,8 @@ message Expression {
 		TypeInfoExpr type_info = 20;
 		SuperCallExpr super_call = 21;
 		LibMemberCallExpr lib_member_call = 22;
+		ConcatExpr concat = 23;
+		SelectorExpr selector = 24;
 	}
 }
 
@@ -474,6 +491,14 @@ message RequireStmt {
 	required Expression cond = 1;
 	// true = assert, false = require
 	required bool is_assert = 2;
+	// When true and is_assert is false, add a string message:
+	// require(cond, "msg_N")
+	optional bool with_message = 3;
+}
+
+// selfdestruct(payable(address(...)))
+message SelfdestructStmt {
+	required Expression beneficiary = 1;
 }
 
 message EmitStmt {
@@ -538,6 +563,7 @@ message Statement {
 		TryCatchStmt try_catch = 16;
 		IndexAssignStmt index_assign = 17;
 		TupleAssignStmt tuple_assign = 18;
+		SelfdestructStmt selfdestruct_stmt = 19;
 	}
 }
 
@@ -621,6 +647,12 @@ message StateVarDecl {
 	// Syntax: `uint256 transient public svN;`
 	// Requires EVM >= Cancun (we always target the latest EVM version).
 	optional bool is_transient = 5;
+	// Compile-time constant: `uint256 constant public svN = LITERAL;`
+	// Only for elementary value types. Mutually exclusive with transient/immutable.
+	optional bool is_constant = 6;
+	// Set once in constructor: `uint256 immutable public svN;`
+	// Only for elementary value types. Mutually exclusive with transient/constant.
+	optional bool is_immutable = 7;
 }
 
 // ======================= CONTRACTS =======================
