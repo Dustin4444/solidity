@@ -1935,7 +1935,7 @@ std::string ProtoConverter::visitBoolExpr(Expression const& _e)
 			// Arithmetic/bitwise used in bool context: convert via comparison
 			// Undo our depth increment to avoid double-counting (visitUintExpr will increment)
 			m_exprDepth--;
-			result = visitUintExpr(_e) + " != 0";
+			result = visitUintExpr(_e) + (randomNumber() % 2 == 0 ? " != 0" : " == 0");
 			m_exprDepth++;
 		}
 		break;
@@ -1950,7 +1950,7 @@ std::string ProtoConverter::visitBoolExpr(Expression const& _e)
 			// Non-logical unary in bool context: compare result to 0
 			// Undo our depth increment to avoid double-counting (visitUintExpr will increment)
 			m_exprDepth--;
-			result = visitUintExpr(_e) + " != 0";
+			result = visitUintExpr(_e) + (randomNumber() % 2 == 0 ? " != 0" : " == 0");
 			m_exprDepth++;
 		}
 		break;
@@ -1964,7 +1964,7 @@ std::string ProtoConverter::visitBoolExpr(Expression const& _e)
 		// For any other expression type, generate a comparison
 		// Undo our depth increment to avoid double-counting (visitUintExpr will increment)
 		m_exprDepth--;
-		result = visitUintExpr(_e) + " != 0";
+		result = visitUintExpr(_e) + (randomNumber() % 2 == 0 ? " != 0" : " == 0");
 		m_exprDepth++;
 		break;
 	}
@@ -2365,12 +2365,16 @@ unsigned ProtoConverter::randomNumber()
 
 std::string ProtoConverter::defaultUintLiteral()
 {
-	return "0";
+	// Vary the fallback literal using the RNG so that expressions don't all
+	// collapse to the same value. This improves fuzzer coverage by producing
+	// non-trivial conditions and arithmetic even at max expression depth.
+	static constexpr unsigned literals[] = {0, 1, 2, 7, 42, 255, 997};
+	return std::to_string(literals[randomNumber() % 7]);
 }
 
 std::string ProtoConverter::defaultBoolLiteral()
 {
-	return "true";
+	return (randomNumber() % 2 == 0) ? "true" : "false";
 }
 
 // =====================================================================
