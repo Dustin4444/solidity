@@ -69,13 +69,11 @@ bool EvmoneUtility::zeroWord(uint8_t const* _result, size_t _length)
 			[](uint8_t _v) { return _v == 0; });
 }
 
-evmc_message EvmoneUtility::initializeMessage(bytes const& _input)
+evmc_message EvmoneUtility::initializeMessage(bytes const& _input, int64_t _gas)
 {
 	// Zero initialize all message fields
 	evmc_message msg = {};
-	// Gas available (value of type int64_t) is set to its maximum
-	// value.
-	msg.gas = std::numeric_limits<int64_t>::max();
+	msg.gas = _gas;
 	msg.input_data = _input.data();
 	msg.input_size = _input.size();
 	return msg;
@@ -86,7 +84,7 @@ evmc::Result EvmoneUtility::executeContract(
 	evmc_address _deployedAddress
 )
 {
-	evmc_message message = initializeMessage(_functionHash);
+	evmc_message message = initializeMessage(_functionHash, m_gas);
 	message.recipient = _deployedAddress;
 	message.code_address = _deployedAddress;
 	message.kind = EVMC_CALL;
@@ -95,7 +93,7 @@ evmc::Result EvmoneUtility::executeContract(
 
 evmc::Result EvmoneUtility::deployContract(bytes const& _code)
 {
-	evmc_message message = initializeMessage(_code);
+	evmc_message message = initializeMessage(_code, m_gas);
 	message.kind = EVMC_CREATE;
 	return m_evmHost.call(message);
 }

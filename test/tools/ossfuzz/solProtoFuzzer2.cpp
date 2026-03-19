@@ -43,6 +43,10 @@ using namespace solidity::util;
 /// Returns the evmc::Result, or a result with EVMC_INTERNAL_ERROR on failure.
 /// @param _extraCalldataHex hex-encoded bytes appended after the function
 /// selector, accessible via calldataload in the generated Solidity code.
+/// Gas limit for EVM execution — low enough to keep fuzzing fast,
+/// high enough to deploy and run simple contracts.
+static constexpr int64_t s_gasLimit = 100000;
+
 static evmc::Result runOnce(
 	langutil::EVMVersion _version,
 	StringMap const& _source,
@@ -68,7 +72,8 @@ static evmc::Result runOnce(
 		cInput,
 		contractName,
 		/*libraryName=*/"",
-		methodName
+		methodName,
+		s_gasLimit
 	);
 	return evmoneUtil.compileDeployAndExecute({}, _extraCalldataHex);
 }
@@ -126,8 +131,8 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		// Run 2: with optimization
 		auto resultOpt = runOnce(version, source, OptimiserSettings::standard(), viaIR, extraCalldataHex);
 
-		// Differential check: status codes must match. Gas is set to
-		// INT64_MAX so gas-related reverts shouldn't cause false positives.
+		// Differential check: status codes must match. Both runs use the
+		// same gas limit, and gasleft() is suppressed in generated code.
 		solAssert(
 			resultNoOpt.status_code == resultOpt.status_code,
 			"Sol proto2 fuzzer: status code differs (noOpt=" +

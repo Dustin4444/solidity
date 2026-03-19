@@ -110,13 +110,15 @@ public:
 		CompilerInput _compilerInput,
 		std::string const& _contractName,
 		std::string const& _libraryName,
-		std::string const& _methodName
+		std::string const& _methodName,
+		int64_t _gas = std::numeric_limits<int64_t>::max()
 	):
 		m_evmHost(_evmHost),
 		m_compilationFramework(_compilerInput),
 		m_contractName(_contractName),
 		m_libraryName(_libraryName),
-		m_methodName(_methodName)
+		m_methodName(_methodName),
+		m_gas(_gas)
 	{}
 	/// @returns the result returned by the EVM host on compiling, deploying,
 	/// and executing test configuration.
@@ -135,10 +137,9 @@ public:
 	static bool zeroWord(uint8_t const* _result, size_t _length);
 	/// @returns an evmc_message with all of its fields zero
 	/// initialized except gas and input fields.
-	/// The gas field is set to the maximum permissible value so that we
-	/// don't run into out of gas errors. The input field is copied from
-	/// @param _input.
-	static evmc_message initializeMessage(bytes const& _input);
+	/// The gas field is set to @param _gas (default: maximum int64_t).
+	/// The input field is copied from @param _input.
+	static evmc_message initializeMessage(bytes const& _input, int64_t _gas = std::numeric_limits<int64_t>::max());
 private:
 	/// @returns the result of the execution of the function whose
 	/// keccak256 hash is @param _functionHash that is deployed at
@@ -174,6 +175,8 @@ private:
 	std::string m_libraryName;
 	/// Method name
 	std::string m_methodName;
+	/// Gas limit for EVM execution
+	int64_t m_gas;
 };
 
 }
