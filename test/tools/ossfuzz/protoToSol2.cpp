@@ -520,11 +520,9 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	for (unsigned j = 0; j < info.modifiers.size(); j++)
 	{
 		o << "\tmodifier " << info.modifiers[j].name << "() {\n";
-		o << "\t\tunchecked {\n";
 		m_inModifier = true;
-		o << setupAndVisitBlock(_c.modifiers(j).body(), info, NONPAYABLE, 3);
+		o << setupAndVisitBlock(_c.modifiers(j).body(), info, NONPAYABLE, 2);
 		m_inModifier = false;
-		o << "\t\t}\n";
 		o << "\t\t_;\n";
 		o << "\t}\n\n";
 	}
@@ -546,9 +544,6 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		if (payable)
 			o << "payable ";
 		o << "{\n";
-		// Wrap constructor body in unchecked to prevent arithmetic reverts
-		// (which would kill the test contract's `new C()` instantiation)
-		o << "\t\tunchecked {\n";
 
 		// Set up state for constructor body
 		m_canReadState = true;
@@ -563,14 +558,14 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 			unsigned immIdx = 0;
 			for (auto const& sv : info.stateVars)
 				if (sv.isImmutable)
-					o << "\t\t\t" << sv.name << " = " << sv.typeStr
+					o << "\t\t" << sv.name << " = " << sv.typeStr
 					  << "(" << (immIdx++ * 7 + 3) << ");\n";
 		}
 
 		pushScope();
 		m_localVarCount = 0;
 		m_varCounter = 0;
-		m_indentLevel = 3;
+		m_indentLevel = 2;
 		m_stmtDepth = 0;
 		if (_c.has_constructor())
 			o << visitBlock(_c.constructor().body());
@@ -578,7 +573,6 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 
 		m_inConstructor = false;
 
-		o << "\t\t}\n";
 		o << "\t}\n\n";
 	}
 
@@ -600,9 +594,7 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		if (baseHasReceive)
 			o << " override";
 		o << " {\n";
-		o << "\t\tunchecked {\n";
-		o << setupAndVisitBlock(_c.receive().body(), info, PAYABLE, 3);
-		o << "\t\t}\n";
+		o << setupAndVisitBlock(_c.receive().body(), info, PAYABLE, 2);
 		o << "\t}\n\n";
 	}
 
@@ -613,9 +605,7 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		if (baseHasFallback)
 			o << " override";
 		o << " {\n";
-		o << "\t\tunchecked {\n";
-		o << setupAndVisitBlock(_c.fallback_func().body(), info, PAYABLE, 3);
-		o << "\t\t}\n";
+		o << setupAndVisitBlock(_c.fallback_func().body(), info, PAYABLE, 2);
 		o << "\t}\n\n";
 	}
 
@@ -648,9 +638,7 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 			if (!isLibrary && fi.vis != PRIVATE)
 				o << " virtual";
 			o << " returns (uint256) {\n";
-			o << "\t\tunchecked {\n";
-			o << "\t\t\treturn " << defaultUintLiteral() << ";\n";
-			o << "\t\t}\n";
+			o << "\t\treturn " << defaultUintLiteral() << ";\n";
 			o << "\t}\n\n";
 		}
 	}
@@ -734,8 +722,8 @@ std::string ProtoConverter::visitFunction(
 	for (unsigned i = 0; i < fi.numParams; i++)
 		addVar("p" + std::to_string(i));
 
-	// Generate body (indented inside the unchecked {} wrapper)
-	m_indentLevel = 3;
+	// Generate body (indented inside function {})
+	m_indentLevel = 2;
 	m_stmtDepth = 0;
 	std::string body = visitBlock(_f.body());
 
@@ -773,26 +761,21 @@ std::string ProtoConverter::visitFunction(
 	}
 
 	o << " returns (uint256) {\n";
-	// Wrap body in unchecked so arithmetic (including --, ++, +, -, *)
-	// never reverts on overflow. This maximizes fuzzer coverage: without
-	// it, most generated programs would just revert on overflow.
-	o << "\t\tunchecked {\n";
 	// Convert non-uint256 parameters to uint256 shadow variables so the
 	// rest of the body can uniformly use uint256 expressions.
 	for (unsigned i = 0; i < fi.numParams; i++)
 	{
 		ParamType pt = (i < fi.paramTypes.size()) ? fi.paramTypes[i] : PARAM_UINT256;
 		if (pt == PARAM_BOOL)
-			o << "\t\t\tuint256 p" << i << " = _p" << i << " ? 1 : 0;\n";
+			o << "\t\tuint256 p" << i << " = _p" << i << " ? 1 : 0;\n";
 		else if (pt == PARAM_ADDRESS)
-			o << "\t\t\tuint256 p" << i << " = uint256(uint160(_p" << i << "));\n";
+			o << "\t\tuint256 p" << i << " = uint256(uint160(_p" << i << "));\n";
 		else if (pt == PARAM_BYTES32)
-			o << "\t\t\tuint256 p" << i << " = uint256(_p" << i << ");\n";
+			o << "\t\tuint256 p" << i << " = uint256(_p" << i << ");\n";
 	}
 	o << body;
 	// Always return something to ensure the function compiles
-	o << "\t\t\treturn 0;\n";
-	o << "\t\t}\n";
+	o << "\t\treturn 0;\n";
 	o << "\t}\n";
 
 	return o.str();
@@ -879,15 +862,24 @@ std::string ProtoConverter::visitStatement(Statement const& _s)
 	}
 	case Statement::kUnchecked:
 	{
-		// All bodies are already wrapped in unchecked{}, and Solidity
-		// forbids nested unchecked blocks. Generate a plain block instead.
-		std::ostringstream uo;
-		uo << indent() << "{\n";
-		m_indentLevel++;
-		uo << visitBlock(_s.unchecked().body());
-		m_indentLevel--;
-		uo << indent() << "}\n";
-		result = uo.str();
+		// Solidity forbids nested unchecked blocks. If we're already inside
+		// one, generate a plain block instead.
+		if (m_inUnchecked)
+		{
+			std::ostringstream uo;
+			uo << indent() << "{\n";
+			m_indentLevel++;
+			uo << visitBlock(_s.unchecked().body());
+			m_indentLevel--;
+			uo << indent() << "}\n";
+			result = uo.str();
+		}
+		else
+		{
+			m_inUnchecked = true;
+			result = visitUnchecked(_s.unchecked());
+			m_inUnchecked = false;
+		}
 		break;
 	}
 	case Statement::kBreakStmt:
@@ -1352,8 +1344,8 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 				result = left + " ** (" + right + " % 4)";
 			}
 			else
-				// All function bodies are wrapped in unchecked{}, so arithmetic
-				// never reverts on overflow — it wraps around instead.
+				// When inside an unchecked{} block, arithmetic wraps on overflow
+				// instead of reverting. Outside unchecked, overflow will revert.
 				result = left + " " + arithmeticOpStr(op.op()) + " " + right;
 		}
 		else if (isBitwiseOp(op.op()))
