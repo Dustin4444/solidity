@@ -743,8 +743,9 @@ std::string ProtoConverter::visitStatement(Statement const& _s)
 		result = visitDoWhile(_s.do_while());
 		break;
 	case Statement::kReturnStmt:
-		// return is invalid in modifier bodies
-		if (!m_inModifier)
+		// return <value> is invalid in modifier bodies and constructors
+		// (constructors have no return type)
+		if (!m_inModifier && !m_inConstructor)
 			result = visitReturn(_s.return_stmt());
 		break;
 	case Statement::kEmitStmt:
