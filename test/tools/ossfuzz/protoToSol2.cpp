@@ -2032,11 +2032,10 @@ std::string ProtoConverter::visitBoolExpr(Expression const& _e)
 		}
 		else
 		{
-			// Arithmetic/bitwise used in bool context: convert via comparison
-			// Undo our depth increment to avoid double-counting (visitUintExpr will increment)
-			m_exprDepth--;
-			result = visitUintExpr(_e) + (randomNumber() % 2 == 0 ? " != 0" : " == 0");
-			m_exprDepth++;
+			// Arithmetic/bitwise op in bool context: generate a runtime-
+			// dependent comparison instead of a potentially trivial
+			// "literal != 0" when no variables are in scope.
+			result = defaultBoolLiteral();
 		}
 		break;
 	}
@@ -2047,11 +2046,8 @@ std::string ProtoConverter::visitBoolExpr(Expression const& _e)
 			result = "!(" + visitBoolExpr(op.operand()) + ")";
 		else
 		{
-			// Non-logical unary in bool context: compare result to 0
-			// Undo our depth increment to avoid double-counting (visitUintExpr will increment)
-			m_exprDepth--;
-			result = visitUintExpr(_e) + (randomNumber() % 2 == 0 ? " != 0" : " == 0");
-			m_exprDepth++;
+			// Non-logical unary in bool context: same as above.
+			result = defaultBoolLiteral();
 		}
 		break;
 	}
@@ -2061,11 +2057,8 @@ std::string ProtoConverter::visitBoolExpr(Expression const& _e)
 			visitBoolExpr(_e.ternary().false_val()) + ")";
 		break;
 	default:
-		// For any other expression type, generate a comparison
-		// Undo our depth increment to avoid double-counting (visitUintExpr will increment)
-		m_exprDepth--;
-		result = visitUintExpr(_e) + (randomNumber() % 2 == 0 ? " != 0" : " == 0");
-		m_exprDepth++;
+		// For any other expression type, generate a runtime comparison.
+		result = defaultBoolLiteral();
 		break;
 	}
 
