@@ -51,7 +51,7 @@ struct RunResult
 
 /// Gas limit for EVM execution — low enough to keep fuzzing fast,
 /// high enough to deploy and run simple contracts.
-static constexpr int64_t s_gasLimit = 100000;
+static constexpr int64_t s_gasLimit = 1000000;
 
 /// Helper: compile, deploy, and execute a test contract.
 /// Returns RunResult with evmc::Result, logs, and storage.
