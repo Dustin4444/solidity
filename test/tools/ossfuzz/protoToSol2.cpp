@@ -2107,27 +2107,20 @@ void ProtoConverter::collectInheritedInfo(ContractInfo const& _cinfo)
 	m_currentStructDefs = _cinfo.structDefs;
 	m_currentEnumDefs = _cinfo.enumDefs;
 
-	// Helper: process state vars from a contract into the current context
-	auto collectStateVars = [&](std::vector<StateVarInfo> const& _stateVars)
+	// Current contract's own state vars — structDefIdx is relative to
+	// _cinfo.structDefs which is already in m_currentStructDefs, so no offset.
+	if (m_canReadState && !isLibrary)
 	{
-		if (!m_canReadState || isLibrary)
-			return;
-		for (auto const& sv : _stateVars)
+		for (auto const& sv : _cinfo.stateVars)
 		{
 			if (sv.isUint)
 				m_currentUintStateVars.push_back(sv.name);
 			if (sv.isStruct)
-			{
-				unsigned offset = m_currentStructDefs.size();
-				m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx + offset);
-			}
-			// Collect indexable vars: fixed arrays and mappings with uint elements
+				m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx);
 			if ((sv.isFixedArray || sv.isMapping) && sv.elementIsUint)
 				m_currentIndexableVars.push_back(sv);
 		}
-	};
-
-	collectStateVars(_cinfo.stateVars);
+	}
 
 	// Walk full inheritance chain across all bases (BFS to handle multiple bases)
 	std::vector<unsigned> visited;
@@ -2153,7 +2146,22 @@ void ProtoConverter::collectInheritedInfo(ContractInfo const& _cinfo)
 		visited.push_back(baseIdx);
 
 		auto const& baseInfo = m_contracts[baseIdx];
-		collectStateVars(baseInfo.stateVars);
+
+		// Inherited state vars — structDefIdx must be offset because base
+		// struct defs are appended after what's already in m_currentStructDefs.
+		if (m_canReadState && !isLibrary)
+		{
+			unsigned structOffset = m_currentStructDefs.size();
+			for (auto const& sv : baseInfo.stateVars)
+			{
+				if (sv.isUint)
+					m_currentUintStateVars.push_back(sv.name);
+				if (sv.isStruct)
+					m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx + structOffset);
+				if ((sv.isFixedArray || sv.isMapping) && sv.elementIsUint)
+					m_currentIndexableVars.push_back(sv);
+			}
+		}
 
 		// Inherit events and errors
 		for (auto const& ev : baseInfo.events)
