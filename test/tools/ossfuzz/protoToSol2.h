@@ -229,7 +229,7 @@ private:
 	static constexpr unsigned s_maxExprDepth = 3;
 	static constexpr unsigned s_maxStmtDepth = 3;
 	static constexpr unsigned s_maxLocalVars = 6;
-	static constexpr unsigned s_maxContracts = 5;
+	static constexpr unsigned s_maxContracts = 3;
 	static constexpr unsigned s_maxFunctions = 5;
 	static constexpr unsigned s_maxStmtsPerBlock = 5;
 	static constexpr unsigned s_maxParams = 3;
@@ -283,6 +283,9 @@ private:
 	std::vector<EnumDefInfo> m_currentEnumDefs;
 	/// Scope stack: each scope is a list of uint256 variable names
 	std::vector<std::vector<std::string>> m_scopeStack;
+	/// Whether current contract used _cdl/_cds helpers (emit only if needed)
+	bool m_usedCdl = false;
+	bool m_usedCds = false;
 	/// Whether to use CREATE2 (new C{salt: ...}()) in test contract
 	bool m_useCreate2 = false;
 	/// Hex-encoded 32-byte salt for CREATE2 (padded/truncated to 32 bytes)

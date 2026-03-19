@@ -373,6 +373,8 @@ std::string ProtoConverter::visit(Program const& _p)
 std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 {
 	auto const& info = m_contracts[_idx];
+	m_usedCdl = false;
+	m_usedCds = false;
 	m_currentContract = _idx;
 
 	bool isLibrary = (info.kind == ContractDef::LIBRARY);
@@ -632,18 +634,21 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		}
 	}
 
-	// Calldataload helper: reads a 32-byte word from calldata at the given offset.
-	// Used by CALLDATALOAD builtin expressions. Names are per-contract to avoid
-	// "overriding non-virtual function" errors when contracts inherit from each other.
-	o << "\tfunction _cdl" << _idx << "(uint256 _o) private pure returns (uint256 _v) {\n";
-	o << "\t\tassembly { _v := calldataload(_o) }\n";
-	o << "\t}\n";
-
-	// Calldatasize helper: returns the total size of calldata in bytes.
-	// Uses assembly so it can be called from pure functions.
-	o << "\tfunction _cds" << _idx << "() private pure returns (uint256 _s) {\n";
-	o << "\t\tassembly { _s := calldatasize() }\n";
-	o << "\t}\n";
+	// Only emit calldataload/calldatasize helpers if actually used by
+	// expressions in this contract. Skipping them reduces code size and
+	// compilation time for the common case where they're not needed.
+	if (m_usedCdl)
+	{
+		o << "\tfunction _cdl" << _idx << "(uint256 _o) private pure returns (uint256 _v) {\n";
+		o << "\t\tassembly { _v := calldataload(_o) }\n";
+		o << "\t}\n";
+	}
+	if (m_usedCds)
+	{
+		o << "\tfunction _cds" << _idx << "() private pure returns (uint256 _s) {\n";
+		o << "\t\tassembly { _s := calldatasize() }\n";
+		o << "\t}\n";
+	}
 
 	o << "}\n";
 	return o.str();
@@ -1481,12 +1486,14 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		{
 			std::string arg = b.has_arg() ? visitUintExpr(b.arg()) : "0";
 			result = "_cdl" + std::to_string(m_currentContract) + "(" + arg + ")";
+			m_usedCdl = true;
 			break;
 		}
 		if (b.kind() == BuiltinExpr::CALLDATASIZE)
 		{
 			// Use assembly helper so it works in pure functions
 			result = "_cds" + std::to_string(m_currentContract) + "()";
+			m_usedCds = true;
 			break;
 		}
 		// Other builtins are forbidden in pure functions

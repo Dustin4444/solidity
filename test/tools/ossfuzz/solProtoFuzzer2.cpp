@@ -114,6 +114,11 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		// Run 1: without optimization
 		auto resultNoOpt = runOnce(version, source, OptimiserSettings::minimal(), viaIR, extraCalldataHex);
 
+		// Skip second compilation if first failed (compilation error,
+		// deploy revert, etc.) — no point optimizing broken code.
+		if (resultNoOpt.status_code != EVMC_SUCCESS)
+			return;
+
 		// Run 2: with optimization
 		auto resultOpt = runOnce(version, source, OptimiserSettings::standard(), viaIR, extraCalldataHex);
 
