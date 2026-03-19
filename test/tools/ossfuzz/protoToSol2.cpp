@@ -259,6 +259,9 @@ std::string ProtoConverter::visit(Program const& _p)
 			info.modifiers.push_back(mi);
 		}
 
+		info.hasReceive = c.has_receive();
+		info.hasFallback = c.has_fallback_func();
+
 		m_contracts.push_back(info);
 	}
 
@@ -548,10 +551,9 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	bool baseHasFallback = false;
 	for (unsigned baseIdx : info.baseIndices)
 	{
-		// Check proto for receive/fallback in base contracts
-		if (_p.contracts(baseIdx).has_receive())
+		if (m_contracts[baseIdx].hasReceive)
 			baseHasReceive = true;
-		if (_p.contracts(baseIdx).has_fallback_func())
+		if (m_contracts[baseIdx].hasFallback)
 			baseHasFallback = true;
 	}
 

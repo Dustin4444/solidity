@@ -140,6 +140,8 @@ private:
 		/// Indices of base contracts in m_contracts (empty if no bases).
 		/// Ordered from most base-like to most derived-like for C3 linearization.
 		std::vector<unsigned> baseIndices;
+		bool hasReceive = false;
+		bool hasFallback = false;
 	};
 
 	// ===== Visitor methods =====
