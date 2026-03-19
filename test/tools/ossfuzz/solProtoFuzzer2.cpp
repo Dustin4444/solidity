@@ -95,7 +95,9 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		std::cout << sol_source << std::endl;
 	}
 
-	langutil::EVMVersion version;
+	// Always fuzz the latest EVM version to maximize feature coverage
+	// (transient storage, EOF, etc.). Do NOT parameterize this.
+	langutil::EVMVersion version = langutil::EVMVersion::current();
 	bool viaIR = _input.via_ir();
 	StringMap source({{"test.sol", sol_source}});
 

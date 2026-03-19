@@ -617,6 +617,10 @@ message StateVarDecl {
 	required TypeName type = 1;
 	// All state vars are public
 	reserved 2, 3, 4;  // was: vis, is_constant, is_immutable
+	// When true, the variable uses transient storage (tstore/tload under the hood).
+	// Syntax: `uint256 transient public svN;`
+	// Requires EVM >= Cancun (we always target the latest EVM version).
+	optional bool is_transient = 5;
 }
 
 // ======================= CONTRACTS =======================

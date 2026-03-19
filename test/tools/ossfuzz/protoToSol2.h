@@ -118,6 +118,8 @@ private:
 		std::string mappingKeyTypeStr;
 		// For arrays/mappings: whether the element/value type is uint-compatible
 		bool elementIsUint = false;
+		// Transient storage (tstore/tload)
+		bool isTransient = false;
 	};
 
 	struct ContractInfo

@@ -192,6 +192,11 @@ std::string ProtoConverter::visit(Program const& _p)
 			{
 				svi.typeStr = elementaryTypeStr(sv.type());
 				svi.isUint = isUintType(sv.type());
+				// Transient storage only works with value types (not
+				// arrays, mappings, structs, string, or bytes).
+				if (sv.has_is_transient() && sv.is_transient() &&
+					svi.typeStr != "string" && svi.typeStr != "bytes")
+					svi.isTransient = true;
 			}
 			info.stateVars.push_back(svi);
 		}
@@ -416,7 +421,10 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		for (auto const& sv : info.stateVars)
 		{
 			// Mappings and arrays with dynamic types need storage, which is fine
-			o << "\t" << sv.typeStr << " public " << sv.name << ";\n";
+			o << "\t" << sv.typeStr;
+			if (sv.isTransient)
+				o << " transient";
+			o << " public " << sv.name << ";\n";
 		}
 		if (!info.stateVars.empty())
 			o << "\n";
