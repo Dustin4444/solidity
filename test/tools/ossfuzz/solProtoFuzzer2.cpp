@@ -95,6 +95,10 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		std::cout << sol_source << std::endl;
 	}
 
+	// Skip overly large sources — they compile slowly and reduce throughput
+	if (sol_source.size() > 20000)
+		return;
+
 	// Always fuzz the latest EVM version to maximize feature coverage
 	// (transient storage, EOF, etc.). Do NOT parameterize this.
 	langutil::EVMVersion version = langutil::EVMVersion::current();
@@ -122,11 +126,16 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		// Run 2: with optimization
 		auto resultOpt = runOnce(version, source, OptimiserSettings::standard(), viaIR, extraCalldataHex);
 
-		// Differential check: if both succeed, outputs must match.
-		// TODO: Consider also asserting when exactly one run succeeds and the
-		// other reverts — that is also a potential miscompilation bug. Currently
-		// we only check the both-succeed case to avoid false positives from
-		// legitimate differences (e.g. gas-related reverts).
+		// Differential check: status codes must match. Gas is set to
+		// INT64_MAX so gas-related reverts shouldn't cause false positives.
+		solAssert(
+			resultNoOpt.status_code == resultOpt.status_code,
+			"Sol proto2 fuzzer: status code differs (noOpt=" +
+			std::to_string(resultNoOpt.status_code) + " opt=" +
+			std::to_string(resultOpt.status_code) + ")"
+		);
+
+		// If both succeed, outputs must also match.
 		if (resultNoOpt.status_code == EVMC_SUCCESS && resultOpt.status_code == EVMC_SUCCESS)
 		{
 			solAssert(
@@ -134,6 +143,30 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 				std::memcmp(resultNoOpt.output_data, resultOpt.output_data, resultNoOpt.output_size) == 0,
 				"Sol proto2 fuzzer: optimized vs non-optimized output differs"
 			);
+		}
+
+		// Run 3: same optimization but with opposite viaIR flag.
+		// Comparing viaIR vs legacy catches IR codegen bugs.
+		// Only attempt if first run succeeded (source is valid).
+		if (resultNoOpt.status_code == EVMC_SUCCESS)
+		{
+			try
+			{
+				auto resultAlt = runOnce(version, source, OptimiserSettings::minimal(), !viaIR, extraCalldataHex);
+				if (resultAlt.status_code == EVMC_SUCCESS)
+				{
+					solAssert(
+						resultNoOpt.output_size == resultAlt.output_size &&
+						std::memcmp(resultNoOpt.output_data, resultAlt.output_data, resultNoOpt.output_size) == 0,
+						"Sol proto2 fuzzer: viaIR=" + std::string(viaIR ? "true" : "false") +
+						" vs viaIR=" + std::string(!viaIR ? "true" : "false") + " output differs"
+					);
+				}
+			}
+			catch (evmasm::StackTooDeepException const&)
+			{
+				// Legacy codegen may hit stack-too-deep for inputs that work with viaIR
+			}
 		}
 	}
 	catch (evmasm::StackTooDeepException const&)

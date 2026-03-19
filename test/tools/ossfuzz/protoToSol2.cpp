@@ -1260,15 +1260,35 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			result = lit.bool_lit().val() ? "1" : "0";
 		else if (lit.has_addr_lit())
 		{
-			// Generate a deterministic checksummed address as a uint
+			// Generate a deterministic address as a uint.
+			// Include special values: address(0), small addresses, and wider range.
 			uint64_t v = lit.addr_lit().val();
-			result = "uint256(uint160(" + std::to_string(v % 1000000) + "))";
+			unsigned kind = v % 8;
+			if (kind == 0)
+				result = "uint256(uint160(0))"; // address(0)
+			else if (kind == 1)
+				result = "uint256(uint160(1))"; // precompile range
+			else if (kind == 2)
+				result = "uint256(uint160(0xdead))"; // common test address
+			else
+				result = "uint256(uint160(" + std::to_string(v) + "))"; // full range
 		}
 		else if (lit.has_str_lit())
 		{
-			// Generate a deterministic string literal hashed to uint256
+			// Generate a deterministic string literal hashed to uint256.
+			// Vary length and content for better coverage: empty, short, long.
 			uint32_t seed = lit.str_lit().seed();
-			result = "uint256(keccak256(bytes(\"s" + std::to_string(seed % 100) + "\")))";
+			unsigned kind = seed % 4;
+			std::string strContent;
+			if (kind == 0)
+				strContent = ""; // empty string
+			else if (kind == 1)
+				strContent = "s" + std::to_string(seed % 100); // short
+			else if (kind == 2)
+				strContent = "str_" + std::to_string(seed) + "_abcdefghijklmnop"; // medium
+			else
+				strContent = std::string(64, 'x') + std::to_string(seed); // long
+			result = "uint256(keccak256(bytes(\"" + strContent + "\")))";
 		}
 		else
 			result = defaultUintLiteral();
