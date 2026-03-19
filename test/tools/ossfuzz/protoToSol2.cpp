@@ -2500,7 +2500,37 @@ std::string ProtoConverter::defaultUintLiteral()
 
 std::string ProtoConverter::defaultBoolLiteral()
 {
-	return (randomNumber() % 2 == 0) ? "true" : "false";
+	// In pure functions we can't access runtime state, so use true/false.
+	if (m_currentMutability == PURE)
+		return (randomNumber() % 2 == 0) ? "true" : "false";
+
+	// Generate a comparison between two runtime values so conditions are
+	// non-trivial and actually depend on execution context. This avoids
+	// degenerate "if (0 != 0)" patterns.
+	static constexpr const char* lhsExprs[] = {
+		"uint256(uint160(msg.sender))",
+		"block.timestamp",
+		"block.number",
+		"uint256(uint160(tx.origin))",
+		"uint256(keccak256(msg.data))",
+		"block.prevrandao",
+	};
+	static constexpr const char* rhsExprs[] = {
+		"uint256(uint160(block.coinbase))",
+		"block.chainid",
+		"block.basefee",
+		"block.blobbasefee",
+		"uint256(blockhash(0))",
+		"address(this).balance",
+	};
+	static constexpr const char* cmpOps[] = {
+		" != ", " == ", " < ", " > ", " <= ", " >= ",
+	};
+	unsigned r = randomNumber();
+	std::string lhs = lhsExprs[r % 6];
+	std::string rhs = rhsExprs[(r / 6) % 6];
+	std::string op = cmpOps[(r / 36) % 6];
+	return lhs + op + rhs;
 }
 
 // =====================================================================
