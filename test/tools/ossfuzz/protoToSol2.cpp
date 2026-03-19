@@ -428,6 +428,7 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	// State variables (skip for libraries)
 	if (!isLibrary)
 	{
+		unsigned constIdx = 0;
 		for (auto const& sv : info.stateVars)
 		{
 			// Mappings and arrays with dynamic types need storage, which is fine
@@ -441,7 +442,9 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 			o << " public " << sv.name;
 			// Constants need a compile-time initializer
 			if (sv.isConstant)
-				o << " = " << sv.typeStr << "(42)";
+				o << " = " << sv.typeStr << "(" << (constIdx * 7 + 3) << ")";
+			if (sv.isConstant || sv.isImmutable)
+				constIdx++;
 			o << ";\n";
 		}
 		if (!info.stateVars.empty())
@@ -527,6 +530,15 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		m_currentFuncIdx = 0;
 		collectInheritedInfo(info);
 
+		// Assign immutable state vars before the body so the body can read them
+		{
+			unsigned immIdx = 0;
+			for (auto const& sv : info.stateVars)
+				if (sv.isImmutable)
+					o << "\t\t\t" << sv.name << " = " << sv.typeStr
+					  << "(" << (immIdx++ * 7 + 3) << ");\n";
+		}
+
 		pushScope();
 		m_localVarCount = 0;
 		m_varCounter = 0;
@@ -535,11 +547,6 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		if (_c.has_constructor())
 			o << visitBlock(_c.constructor().body());
 		popScope();
-
-		// Assign immutable state vars
-		for (auto const& sv : info.stateVars)
-			if (sv.isImmutable)
-				o << "\t\t\t" << sv.name << " = " << sv.typeStr << "(42);\n";
 
 		m_inConstructor = false;
 
