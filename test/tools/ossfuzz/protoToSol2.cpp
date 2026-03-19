@@ -58,6 +58,17 @@ std::string ProtoConverter::visit(Program const& _p)
 			static_cast<unsigned>(c.functions_size()),
 			s_maxFunctions
 		);
+		// Non-library contracts need at least one public function so the
+		// test contract can call it. Inject one if the proto has none.
+		if (numFuncs == 0 && info.kind != ContractDef::LIBRARY)
+		{
+			FuncInfo fi;
+			fi.name = "f" + std::to_string(i) + "_0";
+			fi.numParams = 0;
+			fi.vis = PUBLIC;
+			fi.mut = PURE;
+			info.functions.push_back(fi);
+		}
 		for (unsigned j = 0; j < numFuncs; j++)
 		{
 			FuncInfo fi;
@@ -68,6 +79,11 @@ std::string ProtoConverter::visit(Program const& _p)
 			);
 			fi.vis = c.functions(j).vis();
 			fi.mut = c.functions(j).mut();
+
+			// Force the first function of non-library contracts to be
+			// PUBLIC so the test contract can always call at least one.
+			if (j == 0 && info.kind != ContractDef::LIBRARY)
+				fi.vis = PUBLIC;
 
 			// Function overloading: share name with previous function
 			if (j > 0 && c.functions(j).has_share_name_with_prev() &&
@@ -585,8 +601,36 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	}
 
 	// Functions
+	unsigned numProtoFuncs = std::min(
+		static_cast<unsigned>(_c.functions_size()),
+		s_maxFunctions
+	);
 	for (unsigned j = 0; j < info.functions.size(); j++)
-		o << visitFunction(_c.functions(j), info, j) << "\n";
+	{
+		if (j < numProtoFuncs)
+			o << visitFunction(_c.functions(j), info, j) << "\n";
+		else
+		{
+			// Injected function with no proto body — generate a stub
+			auto const& fi = info.functions[j];
+			o << "\tfunction " << fi.name << "(";
+			for (unsigned p = 0; p < fi.numParams; p++)
+			{
+				if (p > 0) o << ", ";
+				o << "uint256 p" << p;
+			}
+			o << ") public";
+			if (fi.mut == PURE) o << " pure";
+			else if (fi.mut == VIEW) o << " view";
+			if (!isLibrary && fi.vis != PRIVATE)
+				o << " virtual";
+			o << " returns (uint256) {\n";
+			o << "\t\tunchecked {\n";
+			o << "\t\t\treturn " << defaultUintLiteral() << ";\n";
+			o << "\t\t}\n";
+			o << "\t}\n\n";
+		}
+	}
 
 	// Calldataload helper: reads a 32-byte word from calldata at the given offset.
 	// Used by CALLDATALOAD builtin expressions. Names are per-contract to avoid
