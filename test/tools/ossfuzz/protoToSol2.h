@@ -63,6 +63,8 @@ private:
 		unsigned numParams;
 		Visibility vis;
 		StateMutability mut;
+		/// Per-parameter types (size == numParams).
+		std::vector<ParamType> paramTypes;
 	};
 
 	struct EventInfo
@@ -213,6 +215,10 @@ private:
 		StateMutability _mut,
 		unsigned _indentLevel
 	);
+
+	// Parameter type helpers
+	static std::string paramTypeSolStr(ParamType _t);
+	static std::string paramTypeAbiStr(ParamType _t);
 
 	// Binary/unary op classification
 	static bool isArithmeticOp(BinaryOp::Op _op);

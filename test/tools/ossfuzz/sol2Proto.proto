@@ -619,6 +619,15 @@ message FallbackDef {
 	required Block body = 1;
 }
 
+// Type of a function parameter.  The function body always converts non-uint256
+// parameters to a uint256 shadow variable, so expressions stay uniform.
+enum ParamType {
+	PARAM_UINT256 = 0;
+	PARAM_BOOL = 1;
+	PARAM_ADDRESS = 2;
+	PARAM_BYTES32 = 3;
+}
+
 message FunctionDef {
 	// All params are uint256; all functions return uint256
 	required uint32 num_params = 1;
@@ -632,6 +641,9 @@ message FunctionDef {
 	// share its name (creating an overloaded function). The param count
 	// is forced to differ from the previous function.
 	optional bool share_name_with_prev = 8;
+	// Type for each parameter.  If fewer entries than num_params, the
+	// remaining parameters default to uint256.
+	repeated ParamType param_types = 9;
 }
 
 message ConstructorDef {

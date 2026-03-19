@@ -79,6 +79,14 @@ std::string ProtoConverter::visit(Program const& _p)
 			);
 			fi.vis = c.functions(j).vis();
 			fi.mut = c.functions(j).mut();
+			// Populate per-parameter types from proto (default: PARAM_UINT256)
+			for (unsigned p = 0; p < fi.numParams; p++)
+			{
+				if (p < static_cast<unsigned>(c.functions(j).param_types_size()))
+					fi.paramTypes.push_back(c.functions(j).param_types(p));
+				else
+					fi.paramTypes.push_back(PARAM_UINT256);
+			}
 
 			// Force the first function of non-library contracts to be
 			// PUBLIC so the test contract can always call at least one.
@@ -101,6 +109,15 @@ std::string ProtoConverter::visit(Program const& _p)
 					if (fi.numParams == prev.numParams)
 						fi.numParams = (prev.numParams + 2) % (s_maxParams + 1);
 					fi.name = prev.name;
+					// Rebuild paramTypes for new numParams
+					fi.paramTypes.clear();
+					for (unsigned p = 0; p < fi.numParams; p++)
+					{
+						if (p < static_cast<unsigned>(c.functions(j).param_types_size()))
+							fi.paramTypes.push_back(c.functions(j).param_types(p));
+						else
+							fi.paramTypes.push_back(PARAM_UINT256);
+					}
 				}
 			}
 
@@ -619,7 +636,11 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 			for (unsigned p = 0; p < fi.numParams; p++)
 			{
 				if (p > 0) o << ", ";
-				o << "uint256 p" << p;
+				ParamType pt = (p < fi.paramTypes.size()) ? fi.paramTypes[p] : PARAM_UINT256;
+				if (pt == PARAM_UINT256)
+					o << "uint256 p" << p;
+				else
+					o << paramTypeSolStr(pt) << " _p" << p;
 			}
 			o << ") public";
 			if (fi.mut == PURE) o << " pure";
@@ -706,7 +727,7 @@ std::string ProtoConverter::visitFunction(
 	m_canReadState = (actualMut == VIEW || actualMut == NONPAYABLE || actualMut == PAYABLE);
 	collectInheritedInfo(_cinfo);
 
-	// Push scope and add params
+	// Push scope and add params (as uint256 shadow vars)
 	pushScope();
 	m_localVarCount = 0;
 	m_varCounter = 0;
@@ -726,7 +747,11 @@ std::string ProtoConverter::visitFunction(
 	for (unsigned i = 0; i < fi.numParams; i++)
 	{
 		if (i > 0) o << ", ";
-		o << "uint256 p" << i;
+		ParamType pt = (i < fi.paramTypes.size()) ? fi.paramTypes[i] : PARAM_UINT256;
+		if (pt == PARAM_UINT256)
+			o << "uint256 p" << i;
+		else
+			o << paramTypeSolStr(pt) << " _p" << i;
 	}
 	o << ") " << vis;
 	if (!mut.empty())
@@ -752,6 +777,18 @@ std::string ProtoConverter::visitFunction(
 	// never reverts on overflow. This maximizes fuzzer coverage: without
 	// it, most generated programs would just revert on overflow.
 	o << "\t\tunchecked {\n";
+	// Convert non-uint256 parameters to uint256 shadow variables so the
+	// rest of the body can uniformly use uint256 expressions.
+	for (unsigned i = 0; i < fi.numParams; i++)
+	{
+		ParamType pt = (i < fi.paramTypes.size()) ? fi.paramTypes[i] : PARAM_UINT256;
+		if (pt == PARAM_BOOL)
+			o << "\t\t\tuint256 p" << i << " = _p" << i << " ? 1 : 0;\n";
+		else if (pt == PARAM_ADDRESS)
+			o << "\t\t\tuint256 p" << i << " = uint256(uint160(_p" << i << "));\n";
+		else if (pt == PARAM_BYTES32)
+			o << "\t\t\tuint256 p" << i << " = uint256(_p" << i << ");\n";
+	}
 	o << body;
 	// Always return something to ensure the function compiles
 	o << "\t\t\treturn 0;\n";
@@ -2082,7 +2119,9 @@ std::string ProtoConverter::generateTestContract()
 	// Track position in extra calldata (after the 4-byte selector)
 	unsigned paramOffset = 0;
 
-	// For each non-library contract, create an instance and call its functions
+	// For each non-library contract, create an instance inside try/catch
+	// and call its functions.  If the constructor reverts, we skip that
+	// contract but continue testing the others.
 	for (auto const& ci : m_contracts)
 	{
 		if (ci.kind == ContractDef::LIBRARY)
@@ -2090,19 +2129,20 @@ std::string ProtoConverter::generateTestContract()
 		if (ci.functions.empty())
 			continue;
 
-		// Create instance (optionally via CREATE2 with salt)
+		std::string instVar = "_t" + ci.name;
+
+		// Wrap construction + calls in a try/catch so a reverting
+		// constructor doesn't abort the entire test.
 		if (m_useCreate2)
 		{
-			// Each contract gets a unique salt by XOR-ing with the call index
-			o << "\t\t" << ci.name << " _t" << ci.name
-			  << " = new " << ci.name << "{salt: bytes32(uint256(0x"
-			  << m_create2SaltHex << ") ^ " << callIdx << ")}();\n";
+			o << "\t\ttry new " << ci.name << "{salt: bytes32(uint256(0x"
+			  << m_create2SaltHex << ") ^ " << callIdx << ")}(";
 		}
 		else
 		{
-			o << "\t\t" << ci.name << " _t" << ci.name
-			  << " = new " << ci.name << "();\n";
+			o << "\t\ttry new " << ci.name << "(";
 		}
+		o << ") returns (" << ci.name << " " << instVar << ") {\n";
 
 		// Call each public/external function via low-level call
 		// and XOR the result into _r for differential testing
@@ -2111,12 +2151,13 @@ std::string ProtoConverter::generateTestContract()
 			if (fi.vis != PUBLIC && fi.vis != EXTERNAL)
 				continue;
 
-			// Build signature string
+			// Build signature string with actual param types
 			std::string sig = fi.name + "(";
 			for (unsigned i = 0; i < fi.numParams; i++)
 			{
 				if (i > 0) sig += ",";
-				sig += "uint256";
+				ParamType pt = (i < fi.paramTypes.size()) ? fi.paramTypes[i] : PARAM_UINT256;
+				sig += paramTypeAbiStr(pt);
 			}
 			sig += ")";
 
@@ -2124,19 +2165,41 @@ std::string ProtoConverter::generateTestContract()
 			std::string dataVar = "_d" + std::to_string(callIdx);
 			callIdx++;
 
-			o << "\t\t(bool " << boolVar << ", bytes memory " << dataVar
-			  << ") = address(_t" << ci.name
+			o << "\t\t\t(bool " << boolVar << ", bytes memory " << dataVar
+			  << ") = address(" << instVar
 			  << ").call(abi.encodeWithSignature(\"" << sig << "\"";
-			// Use random values from extra calldata as function arguments
+			// Use random values from extra calldata as function arguments,
+			// cast to the appropriate type
 			for (unsigned i = 0; i < fi.numParams; i++)
-				o << ", _cdl(" << (4 + (paramOffset + i) * 32) << ")";
+			{
+				ParamType pt = (i < fi.paramTypes.size()) ? fi.paramTypes[i] : PARAM_UINT256;
+				std::string raw = "_cdl(" + std::to_string(4 + (paramOffset + i) * 32) + ")";
+				switch (pt)
+				{
+				case PARAM_BOOL:
+					o << ", " << raw << " % 2 == 1";
+					break;
+				case PARAM_ADDRESS:
+					o << ", address(uint160(" << raw << "))";
+					break;
+				case PARAM_BYTES32:
+					o << ", bytes32(" << raw << ")";
+					break;
+				default:
+					o << ", " << raw;
+					break;
+				}
+			}
 			paramOffset += fi.numParams;
 			o << "));\n";
 
 			// XOR successful return values into _r
-			o << "\t\tif (" << boolVar << " && " << dataVar << ".length == 32) "
+			o << "\t\t\tif (" << boolVar << " && " << dataVar << ".length == 32) "
 			  << "_r ^= abi.decode(" << dataVar << ", (uint256));\n";
 		}
+
+		// Close try block, empty catch (skip this contract on revert)
+		o << "\t\t} catch {}\n";
 	}
 
 	// For library contracts, call internal functions via using-for member syntax.
@@ -2526,6 +2589,28 @@ std::string ProtoConverter::logicalOpStr(BinaryOp::Op _op)
 	case BinaryOp::AND: return "&&";
 	case BinaryOp::OR: return "||";
 	default: return "&&";
+	}
+}
+
+std::string ProtoConverter::paramTypeSolStr(ParamType _t)
+{
+	switch (_t)
+	{
+	case PARAM_BOOL: return "bool";
+	case PARAM_ADDRESS: return "address";
+	case PARAM_BYTES32: return "bytes32";
+	default: return "uint256";
+	}
+}
+
+std::string ProtoConverter::paramTypeAbiStr(ParamType _t)
+{
+	switch (_t)
+	{
+	case PARAM_BOOL: return "bool";
+	case PARAM_ADDRESS: return "address";
+	case PARAM_BYTES32: return "bytes32";
+	default: return "uint256";
 	}
 }
 
