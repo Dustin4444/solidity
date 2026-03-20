@@ -3609,9 +3609,57 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 		break;
 	}
 	case Type::Category::Module:
-		_memberAccess.annotation().isPure = *_memberAccess.expression().annotation().isPure;
+	{
+		// Module has only exported symbols members, so accessedMemberAnnotation.referencedDeclaration is not `NULL`.
+		// See `ModuleType::nativeMembers` for details.
+		solAssert(_memberAccess.annotation().referencedDeclaration);
+		// All currently accessible members via a module type are pure.
+		_memberAccess.annotation().isPure = true;
 		_memberAccess.annotation().isLValue = false;
+
+		// Below only the sanity checks.
+		solAssert(
+			_memberAccess.annotation().type->category() == Type::Category::Function ||
+			_memberAccess.annotation().type->category() == Type::Category::TypeType ||
+			_memberAccess.annotation().type->category() == Type::Category::Module ||
+			dynamic_cast<VariableDeclaration const*>(_memberAccess.annotation().referencedDeclaration),
+			"Impossible member type for module type member access"
+		);
+
+		if (_memberAccess.annotation().type->category() == Type::Category::Function)
+		{
+			auto const* functionTypeMember = static_cast<FunctionType const*>(_memberAccess.annotation().type);
+			solAssert (
+				functionTypeMember->isPure() ||
+				functionTypeMember->kind() == FunctionType::Kind::Event ||
+				functionTypeMember->kind() == FunctionType::Kind::Internal,
+				"Impossible declaration type for function call kind"
+			);
+
+			if (functionTypeMember->kind() == FunctionType::Kind::Internal)
+				solAssert(dynamic_cast<FunctionDefinition const*>(_memberAccess.annotation().referencedDeclaration), "Impossible declaration type for internal function call kind");
+		}
+
+		if (_memberAccess.annotation().type->category() == Type::Category::TypeType)
+		{
+			auto const* typeTypeMember = static_cast<TypeType const*>(_memberAccess.annotation().type);
+			solAssert(
+				typeTypeMember->actualType()->category() == Type::Category::Struct ||
+				typeTypeMember->actualType()->category() == Type::Category::Enum ||
+				typeTypeMember->actualType()->category() == Type::Category::Contract ||
+				typeTypeMember->actualType()->category() == Type::Category::UserDefinedValueType,
+				"Impossible `TypeType` category as module member."
+			);
+		}
+
+		if (
+			auto const* accessedMemberVariableDeclaration =
+				dynamic_cast<VariableDeclaration const*>(_memberAccess.annotation().referencedDeclaration)
+		)
+			solAssert(accessedMemberVariableDeclaration->isConstant(), "Only constant variables are allowed at file level.");
+
 		break;
+	}
 	case Type::Category::Address:
 		if (memberName == "codehash" && !m_evmVersion.hasExtCodeHash())
 			m_errorReporter.typeError(
