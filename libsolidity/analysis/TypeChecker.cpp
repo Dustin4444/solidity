@@ -3329,6 +3329,19 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 
 	_memberAccess.annotation().requiredLookup = requiredLookup;
 
+	// Sanity check. Only module, struct and contract instances as well as contract types can have accessible variables.
+	if (dynamic_cast<VariableDeclaration const*>(_memberAccess.annotation().referencedDeclaration))
+	{
+		if (owningObjectType->category() == Type::Category::TypeType)
+			solAssert(static_cast<TypeType const*>(owningObjectType)->actualType()->category() == Type::Category::Contract);
+		else
+			solAssert(
+				owningObjectType->category() == Type::Category::Module ||
+				owningObjectType->category() == Type::Category::Struct ||
+				owningObjectType->category() == Type::Category::Contract
+			);
+	}
+
 	switch (owningObjectType->category())
 	{
 	case Type::Category::Struct:
