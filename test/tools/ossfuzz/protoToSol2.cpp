@@ -1026,7 +1026,7 @@ std::string ProtoConverter::visitStatement(Statement const& _s)
 		if (m_currentMutability != PURE && m_currentMutability != VIEW && !m_inConstructor)
 		{
 			std::string addr = visitUintExpr(_s.selfdestruct_stmt().beneficiary());
-			result = indent() + "selfdestruct(payable(address(uint160(" + addr + "))));\n";
+			result = indent() + "selfdestruct(payable(address(uint160(uint256(" + addr + ")))));\n";
 		}
 		break;
 	default:
@@ -1580,7 +1580,9 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 		auto const& op = _e.bin_op();
 		if (isArithmeticOp(op.op()))
 		{
-			std::string left = visitUintExpr(op.left());
+			// Wrap left in uint256() to force uint256 type and prevent
+			// negative int_const folding (e.g. 0 - 42 = int_const -42)
+			std::string left = "uint256(" + visitUintExpr(op.left()) + ")";
 			std::string right = visitUintExpr(op.right());
 			if (op.op() == BinaryOp::DIV || op.op() == BinaryOp::MOD)
 			{
