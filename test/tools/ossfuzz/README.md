@@ -196,6 +196,11 @@ It supports two modes:
 - **Differential mismatch** (default): minimizes while preserving exit code 1
 - **Compiler crash** (`--crash`): minimizes while preserving exit code 3
 
+Each time a successful reduction is found, the tool saves a numbered progress
+file (e.g. `bad-log.min.001.sol`, `bad-log.min.002.sol`, ...) so you can
+inspect or use intermediate results. In `--crash` mode, it also prints `solc`
+repro commands for each progress file.
+
 ### Usage
 
 Minimize a differential mismatch:
@@ -235,6 +240,8 @@ LD_LIBRARY_PATH=/home/matesoos/development/evmone/build/lib:$LD_LIBRARY_PATH \
 - `--calldata <hex>` — extra calldata hex string
 - `--via-ir true|false` — initial viaIR setting (default: `true`)
 - `--output <file>` — output file (default: `<input>.min.sol`)
+- `--solc <path>` — path to `solc` binary for repro commands (auto-detected
+  from `--runner` if not set; only used with `--crash`)
 - `--timeout <seconds>` — timeout per `sol_debug_runner` invocation (default: 30)
 
 ### How it works
@@ -245,3 +252,15 @@ LD_LIBRARY_PATH=/home/matesoos/development/evmone/build/lib:$LD_LIBRARY_PATH \
 4. **Phase 3** — minimize Solidity source at character granularity using ddmin
 5. **Phase 4** — cleanup: remove blank lines, trim whitespace
 6. **Final verification** — confirm the minimized output still reproduces
+
+Progress files are saved after each successful reduction. In `--crash` mode,
+each progress file is accompanied by `solc` commands you can copy-paste to
+reproduce the crash directly:
+
+```
+  -> Saved: bad-log.min.003.sol (245 bytes, 12 lines)
+     repro: ./build-normal/solc/solc bad-log.min.003.sol --via-ir
+     repro: ./build-normal/solc/solc bad-log.min.003.sol
+     repro: ./build-normal/solc/solc bad-log.min.003.sol --optimize --via-ir
+     repro: ./build-normal/solc/solc bad-log.min.003.sol --optimize
+```
