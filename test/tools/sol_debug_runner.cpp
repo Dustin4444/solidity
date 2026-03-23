@@ -118,7 +118,8 @@ static RunResult runOnce(
 	EVMVersion _version,
 	StringMap const& _source,
 	OptimiserSettings _optimiserSettings,
-	bool _viaIR
+	bool _viaIR,
+	std::string const& _extraCalldataHex = {}
 )
 {
 	RunResult result;
@@ -154,7 +155,7 @@ static RunResult runOnce(
 		s_gasLimit
 	);
 
-	evmc::Result evmResult = evmoneUtil.compileDeployAndExecute();
+	evmc::Result evmResult = evmoneUtil.compileDeployAndExecute({}, _extraCalldataHex);
 	result.statusCode = evmResult.status_code;
 	if (evmResult.output_data && evmResult.output_size > 0)
 		result.output = bytes(evmResult.output_data, evmResult.output_data + evmResult.output_size);
@@ -253,7 +254,8 @@ static void printRunResult(std::string const& _label, RunResult const& _run, std
 	_out << std::endl;
 }
 
-static void compareRuns(
+/// @returns true if a mismatch was found.
+static bool compareRuns(
 	std::string const& _labelA,
 	RunResult const& _a,
 	std::string const& _labelB,
@@ -268,7 +270,7 @@ static void compareRuns(
 			<< _labelA << "=" << (_a.compilationFailed ? "yes" : "no") << ", "
 			<< _labelB << "=" << (_b.compilationFailed ? "yes" : "no") << ")"
 			<< std::endl;
-		return;
+		return false;
 	}
 
 	if (_a.statusCode == EVMC_OUT_OF_GAS || _b.statusCode == EVMC_OUT_OF_GAS)
@@ -277,9 +279,10 @@ static void compareRuns(
 			<< _labelA << "=" << statusCodeToString(_a.statusCode) << ", "
 			<< _labelB << "=" << statusCodeToString(_b.statusCode) << ")"
 			<< std::endl;
-		return;
+		return false;
 	}
 
+	bool mismatch = false;
 	auto matchStr = [](bool _match) -> std::string {
 		return _match
 			? std::string(GREEN) + "MATCH" + RESET
@@ -288,6 +291,7 @@ static void compareRuns(
 
 	// Status code
 	bool statusMatch = (_a.statusCode == _b.statusCode);
+	if (!statusMatch) mismatch = true;
 	std::cout << "  Status:  " << matchStr(statusMatch)
 		<< " (" << statusCodeToString(_a.statusCode) << " vs " << statusCodeToString(_b.statusCode) << ")"
 		<< std::endl;
@@ -297,17 +301,21 @@ static void compareRuns(
 		// Output
 		bool outputMatch = (_a.output.size() == _b.output.size() &&
 			std::memcmp(_a.output.data(), _b.output.data(), _a.output.size()) == 0);
+		if (!outputMatch) mismatch = true;
 		std::cout << "  Output:  " << matchStr(outputMatch) << std::endl;
 
 		// Logs
 		bool logsMatch = logsEqual(_a.logs, _b.logs);
+		if (!logsMatch) mismatch = true;
 		std::cout << "  Logs:    " << matchStr(logsMatch) << std::endl;
 
 		// Storage
 		bool storageMatch = storageEqual(_a.storage, _b.storage);
+		if (!storageMatch) mismatch = true;
 		std::cout << "  Storage: " << matchStr(storageMatch) << std::endl;
 	}
 	std::cout << std::endl;
+	return mismatch;
 }
 
 static void writeToFile(std::string const& _path, std::string const& _content)
@@ -330,6 +338,7 @@ int main(int argc, char* argv[])
 		("input-file", po::value<std::string>(), "Solidity source file")
 		("output-dir", po::value<std::string>()->default_value(""), "Directory to write output files (optional)")
 		("via-ir", po::value<bool>()->default_value(true), "Initial viaIR setting (default: true)")
+		("calldata", po::value<std::string>()->default_value(""), "Extra calldata in hex (e.g. \"a0ffba\"), appended after method selector")
 	;
 
 	po::positional_options_description positional;
@@ -349,7 +358,7 @@ int main(int argc, char* argv[])
 
 	if (vm.count("help") || !vm.count("input-file"))
 	{
-		std::cout << "Usage: sol_debug_runner <file.sol> [--output-dir <dir>] [--via-ir true|false]" << std::endl;
+		std::cout << "Usage: sol_debug_runner <file.sol> [--output-dir <dir>] [--via-ir true|false] [--calldata <hex>]" << std::endl;
 		std::cout << desc << std::endl;
 		return vm.count("help") ? 0 : 1;
 	}
@@ -357,6 +366,7 @@ int main(int argc, char* argv[])
 	std::string inputFile = vm["input-file"].as<std::string>();
 	std::string outputDir = vm["output-dir"].as<std::string>();
 	bool viaIR = vm["via-ir"].as<bool>();
+	std::string extraCalldataHex = vm["calldata"].as<std::string>();
 
 	// Read source file
 	std::ifstream ifs(inputFile);
@@ -370,6 +380,8 @@ int main(int argc, char* argv[])
 	std::cout << "Source file: " << inputFile << " (" << solSource.size() << " bytes)" << std::endl;
 	std::cout << "viaIR: " << (viaIR ? "true" : "false") << std::endl;
 	std::cout << "Gas limit: " << s_gasLimit << std::endl;
+	if (!extraCalldataHex.empty())
+		std::cout << "Extra calldata: " << extraCalldataHex << std::endl;
 	std::cout << std::endl;
 
 	// Load evmone VM (relies on LD_LIBRARY_PATH to find the shared library)
@@ -404,7 +416,7 @@ int main(int argc, char* argv[])
 		std::cout << "Running: " << config.label << "..." << std::endl;
 		try
 		{
-			results.push_back(runOnce(evmVM, version, source, config.optimiser, config.viaIR));
+			results.push_back(runOnce(evmVM, version, source, config.optimiser, config.viaIR, extraCalldataHex));
 		}
 		catch (evmasm::StackTooDeepException const&)
 		{
@@ -429,16 +441,17 @@ int main(int argc, char* argv[])
 		printRunResult(configs[i].label, results[i], std::cout);
 
 	// Run differential comparisons (same as fuzzer)
+	bool anyMismatch = false;
 	std::cout << YELLOW << "========== DIFFERENTIAL COMPARISONS ==========" << RESET << std::endl << std::endl;
 
 	// Same viaIR: noOpt vs opt
-	compareRuns(configs[0].label, results[0], configs[1].label, results[1]);
+	anyMismatch |= compareRuns(configs[0].label, results[0], configs[1].label, results[1]);
 	// Opposite viaIR: noOpt vs opt
-	compareRuns(configs[2].label, results[2], configs[3].label, results[3]);
+	anyMismatch |= compareRuns(configs[2].label, results[2], configs[3].label, results[3]);
 	// Cross viaIR: noOpt(viaIR) vs noOpt(!viaIR)
-	compareRuns(configs[0].label, results[0], configs[2].label, results[2]);
+	anyMismatch |= compareRuns(configs[0].label, results[0], configs[2].label, results[2]);
 	// Cross viaIR: opt(viaIR) vs opt(!viaIR)
-	compareRuns(configs[1].label, results[1], configs[3].label, results[3]);
+	anyMismatch |= compareRuns(configs[1].label, results[1], configs[3].label, results[3]);
 
 	// Print outputs for all configs
 	std::cout << YELLOW << "========== OUTPUTS ==========" << RESET << std::endl << std::endl;
@@ -505,5 +518,5 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	return 0;
+	return anyMismatch ? EXIT_FAILURE : EXIT_SUCCESS;
 }
