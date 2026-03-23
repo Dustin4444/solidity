@@ -426,6 +426,51 @@ int main(int argc, char* argv[])
 	// Cross viaIR: opt(viaIR) vs opt(!viaIR)
 	compareRuns(configs[1].label, results[1], configs[3].label, results[3]);
 
+	// Print outputs for all configs
+	std::cout << "========== OUTPUTS ==========" << std::endl << std::endl;
+	for (size_t i = 0; i < configs.size(); i++)
+	{
+		std::cout << "--- " << configs[i].label << " ---" << std::endl;
+		if (results[i].compilationFailed)
+			std::cout << "  COMPILATION FAILED" << std::endl;
+		else
+		{
+			std::cout << "  Status: " << statusCodeToString(results[i].statusCode) << std::endl;
+			std::cout << "  Output (" << results[i].output.size() << " bytes): "
+				<< toHexString(results[i].output) << std::endl;
+		}
+		std::cout << std::endl;
+	}
+
+	// Print logs for all configs
+	std::cout << "========== LOGS ==========" << std::endl << std::endl;
+	for (size_t i = 0; i < configs.size(); i++)
+	{
+		std::cout << "--- " << configs[i].label << " ---" << std::endl;
+		if (results[i].compilationFailed)
+			std::cout << "  COMPILATION FAILED" << std::endl;
+		else if (results[i].logs.empty())
+			std::cout << "  (no logs)" << std::endl;
+		else
+		{
+			for (size_t j = 0; j < results[i].logs.size(); j++)
+			{
+				auto const& log = results[i].logs[j];
+				std::cout << "  Log[" << j << "]:" << std::endl;
+				std::cout << "    Creator: " << toHexString(log.creator) << std::endl;
+				std::cout << "    Data (" << log.data.size() << " bytes): ";
+				std::ostringstream dataSS;
+				for (uint8_t b : log.data)
+					dataSS << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
+				std::cout << dataSS.str() << std::endl;
+				std::cout << "    Topics (" << log.topics.size() << "):" << std::endl;
+				for (size_t k = 0; k < log.topics.size(); k++)
+					std::cout << "      [" << k << "]: " << toHexString(log.topics[k]) << std::endl;
+			}
+		}
+		std::cout << std::endl;
+	}
+
 	// Write output files if requested
 	if (!outputDir.empty())
 	{
