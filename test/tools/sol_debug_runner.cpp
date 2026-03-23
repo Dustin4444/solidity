@@ -44,6 +44,12 @@ using namespace solidity;
 
 namespace po = boost::program_options;
 
+// ANSI color codes
+static constexpr char const* GREEN = "\033[32m";
+static constexpr char const* RED = "\033[31m";
+static constexpr char const* YELLOW = "\033[33m";
+static constexpr char const* RESET = "\033[0m";
+
 static constexpr int64_t s_gasLimit = 1000000;
 
 /// Result of a single compile-deploy-execute run.
@@ -208,7 +214,7 @@ static bool storageEqual(
 
 static void printRunResult(std::string const& _label, RunResult const& _run, std::ostream& _out)
 {
-	_out << "=== " << _label << " ===" << std::endl;
+	_out << YELLOW << "=== " << _label << " ===" << RESET << std::endl;
 
 	if (_run.compilationFailed)
 	{
@@ -274,9 +280,15 @@ static void compareRuns(
 		return;
 	}
 
+	auto matchStr = [](bool _match) -> std::string {
+		return _match
+			? std::string(GREEN) + "MATCH" + RESET
+			: std::string(RED) + "DIFFER" + RESET;
+	};
+
 	// Status code
 	bool statusMatch = (_a.statusCode == _b.statusCode);
-	std::cout << "  Status:  " << (statusMatch ? "MATCH" : "DIFFER")
+	std::cout << "  Status:  " << matchStr(statusMatch)
 		<< " (" << statusCodeToString(_a.statusCode) << " vs " << statusCodeToString(_b.statusCode) << ")"
 		<< std::endl;
 
@@ -285,15 +297,15 @@ static void compareRuns(
 		// Output
 		bool outputMatch = (_a.output.size() == _b.output.size() &&
 			std::memcmp(_a.output.data(), _b.output.data(), _a.output.size()) == 0);
-		std::cout << "  Output:  " << (outputMatch ? "MATCH" : "DIFFER") << std::endl;
+		std::cout << "  Output:  " << matchStr(outputMatch) << std::endl;
 
 		// Logs
 		bool logsMatch = logsEqual(_a.logs, _b.logs);
-		std::cout << "  Logs:    " << (logsMatch ? "MATCH" : "DIFFER") << std::endl;
+		std::cout << "  Logs:    " << matchStr(logsMatch) << std::endl;
 
 		// Storage
 		bool storageMatch = storageEqual(_a.storage, _b.storage);
-		std::cout << "  Storage: " << (storageMatch ? "MATCH" : "DIFFER") << std::endl;
+		std::cout << "  Storage: " << matchStr(storageMatch) << std::endl;
 	}
 	std::cout << std::endl;
 }
@@ -417,7 +429,7 @@ int main(int argc, char* argv[])
 		printRunResult(configs[i].label, results[i], std::cout);
 
 	// Run differential comparisons (same as fuzzer)
-	std::cout << "========== DIFFERENTIAL COMPARISONS ==========" << std::endl << std::endl;
+	std::cout << YELLOW << "========== DIFFERENTIAL COMPARISONS ==========" << RESET << std::endl << std::endl;
 
 	// Same viaIR: noOpt vs opt
 	compareRuns(configs[0].label, results[0], configs[1].label, results[1]);
@@ -429,7 +441,7 @@ int main(int argc, char* argv[])
 	compareRuns(configs[1].label, results[1], configs[3].label, results[3]);
 
 	// Print outputs for all configs
-	std::cout << "========== OUTPUTS ==========" << std::endl << std::endl;
+	std::cout << YELLOW << "========== OUTPUTS ==========" << RESET << std::endl << std::endl;
 	for (size_t i = 0; i < configs.size(); i++)
 	{
 		std::cout << "--- " << configs[i].label << " ---" << std::endl;
@@ -445,7 +457,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Print logs for all configs
-	std::cout << "========== LOGS ==========" << std::endl;
+	std::cout << YELLOW << "========== LOGS ==========" << RESET << std::endl;
 	std::cout << "NOTE: Creator addresses differ across configs because different bytecodes" << std::endl;
 	std::cout << "produce different CREATE/CREATE2 addresses. This is expected and not a bug." << std::endl;
 	std::cout << std::endl;
