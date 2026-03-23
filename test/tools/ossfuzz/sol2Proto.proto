@@ -146,6 +146,13 @@ message BoolLiteral {
 message IntegerLiteral {
 	required uint64 val = 1;
 	required bool negative = 2;
+	// Optional ether denomination suffix: wei, gwei, ether
+	enum EtherUnit {
+		WEI = 0;
+		GWEI = 1;
+		ETHER = 2;
+	}
+	optional EtherUnit ether_unit = 3;
 }
 
 message StringLiteral {
@@ -443,6 +450,7 @@ message Expression {
 		LibMemberCallExpr lib_member_call = 22;
 		ConcatExpr concat = 23;
 		SelectorExpr selector = 24;
+		ArrayLengthExpr array_length = 25;
 	}
 }
 
@@ -494,6 +502,9 @@ message RequireStmt {
 	// When true and is_assert is false, add a string message:
 	// require(cond, "msg_N")
 	optional bool with_message = 3;
+	// When set and is_assert is false, use a custom error:
+	// require(cond, ErrorName(args))
+	optional uint32 error_id = 4;
 }
 
 // selfdestruct(payable(address(...)))
@@ -543,6 +554,28 @@ message TupleAssignStmt {
 	required Expression val2 = 2;
 }
 
+// Push to a dynamic storage array: arr.push(value) or arr.push()
+message ArrayPushStmt {
+	required uint32 var_idx = 1;
+	optional Expression value = 2;
+}
+
+// Pop from a dynamic storage array: arr.pop()
+message ArrayPopStmt {
+	required uint32 var_idx = 1;
+}
+
+// Destructure a multi-return function call: (a, b) = f(args)
+message TupleDestructStmt {
+	required uint32 func_id = 1;
+	repeated Expression args = 2;
+}
+
+// Array length expression: arr.length
+message ArrayLengthExpr {
+	required uint32 var_idx = 1;
+}
+
 message Statement {
 	oneof stmt_oneof {
 		VarDeclStmt var_decl = 1;
@@ -564,6 +597,9 @@ message Statement {
 		IndexAssignStmt index_assign = 17;
 		TupleAssignStmt tuple_assign = 18;
 		SelfdestructStmt selfdestruct_stmt = 19;
+		ArrayPushStmt array_push = 20;
+		ArrayPopStmt array_pop = 21;
+		TupleDestructStmt tuple_destruct = 22;
 	}
 }
 
@@ -584,8 +620,10 @@ message EnumDef {
 }
 
 message EventDef {
-	// All event params are uint256, non-indexed
+	// All event params are uint256
 	required uint32 num_params = 1;
+	// Per-parameter indexed flag (max 3 indexed per event)
+	repeated bool indexed_params = 2;
 }
 
 message ErrorDef {
@@ -644,6 +682,8 @@ message FunctionDef {
 	// Type for each parameter.  If fewer entries than num_params, the
 	// remaining parameters default to uint256.
 	repeated ParamType param_types = 9;
+	// When true, function returns (uint256, uint256) instead of uint256
+	optional bool returns_two = 10;
 }
 
 message ConstructorDef {
@@ -689,6 +729,12 @@ message ContractDef {
 	optional FallbackDef fallback_func = 12;
 }
 
+// Free function: file-level, implicitly internal, always pure
+message FreeFunctionDef {
+	required uint32 num_params = 1;
+	required Block body = 2;
+}
+
 // ======================= TOP-LEVEL =======================
 
 message Program {
@@ -702,6 +748,8 @@ message Program {
 	// Salt for CREATE2 deployment in the test contract.
 	// When present, contracts are deployed with new C{salt: ...}().
 	optional bytes create2_salt = 6;
+	// File-level free functions (implicitly internal, pure)
+	repeated FreeFunctionDef free_functions = 7;
 }
 
 package solidity.test.sol2protofuzzer;

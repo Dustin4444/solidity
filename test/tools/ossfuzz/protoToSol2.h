@@ -65,12 +65,22 @@ private:
 		StateMutability mut;
 		/// Per-parameter types (size == numParams).
 		std::vector<ParamType> paramTypes;
+		/// When true, function returns (uint256, uint256) instead of uint256.
+		bool returnTwo = false;
+	};
+
+	struct FreeFuncInfo
+	{
+		std::string name;
+		unsigned numParams;
 	};
 
 	struct EventInfo
 	{
 		std::string name;
 		unsigned numParams;
+		/// Per-parameter indexed flags (size == numParams, max 3 true)
+		std::vector<bool> indexedParams;
 	};
 
 	struct ErrorInfo
@@ -170,6 +180,9 @@ private:
 	std::string visitTryCatch(TryCatchStmt const& _s);
 	std::string visitIndexAssign(IndexAssignStmt const& _s);
 	std::string visitTupleAssign(TupleAssignStmt const& _s);
+	std::string visitArrayPush(ArrayPushStmt const& _s);
+	std::string visitArrayPop(ArrayPopStmt const& _s);
+	std::string visitTupleDestruct(TupleDestructStmt const& _s);
 
 	// Expression visitors — generate uint256-typed or bool-typed expressions
 	std::string visitUintExpr(Expression const& _e);
@@ -245,6 +258,7 @@ private:
 	static constexpr unsigned s_maxEventParams = 3;
 	static constexpr unsigned s_maxErrorParams = 3;
 	static constexpr unsigned s_maxForIter = 5;
+	static constexpr unsigned s_maxFreeFunctions = 3;
 	static constexpr unsigned s_maxModifiers = 3;
 	static constexpr unsigned s_maxStructFields = 4;
 	static constexpr unsigned s_maxEnumMembers = 8;
@@ -264,6 +278,8 @@ private:
 	/// True only inside regular functions (which return uint256).
 	/// False in constructors, modifiers, receive, and fallback.
 	bool m_canReturn = false;
+	/// True when current function returns (uint256, uint256)
+	bool m_currentReturnsTwo = false;
 	unsigned m_currentFuncIdx = 0;
 
 	/// Info about all generated contracts
@@ -276,6 +292,8 @@ private:
 	std::vector<std::pair<std::string, unsigned>> m_currentStructStateVars;
 	/// Current contract's indexable state vars (fixed arrays + mappings with uint elements)
 	std::vector<StateVarInfo> m_currentIndexableVars;
+	/// Current contract's dynamic (non-fixed) array state vars (for push/pop/length)
+	std::vector<StateVarInfo> m_currentDynArrayVars;
 	/// Whether current function can read state
 	bool m_canReadState = false;
 	/// Current function's state mutability
@@ -297,6 +315,8 @@ private:
 	bool m_useCreate2 = false;
 	/// Hex-encoded 32-byte salt for CREATE2 (padded/truncated to 32 bytes)
 	std::string m_create2SaltHex;
+	/// Free functions info
+	std::vector<FreeFuncInfo> m_freeFunctions;
 	/// RNG
 	std::shared_ptr<SolRandomNumGenerator> m_randomGen;
 };

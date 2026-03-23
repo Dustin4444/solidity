@@ -88,6 +88,9 @@ std::string ProtoConverter::visit(Program const& _p)
 					fi.paramTypes.push_back(PARAM_UINT256);
 			}
 
+			// Multiple return values
+			fi.returnTwo = c.functions(j).has_returns_two() && c.functions(j).returns_two();
+
 			// Force the first function of non-library contracts to be
 			// PUBLIC so the test contract can always call at least one.
 			if (j == 0 && info.kind != ContractDef::LIBRARY)
@@ -259,6 +262,19 @@ std::string ProtoConverter::visit(Program const& _p)
 			);
 			if (ei.numParams == 0)
 				ei.numParams = 1;
+			// Populate indexed flags (max 3 indexed per event)
+			unsigned indexedCount = 0;
+			for (unsigned k = 0; k < ei.numParams; k++)
+			{
+				bool isIndexed = false;
+				if (k < static_cast<unsigned>(c.events(j).indexed_params_size()) &&
+					c.events(j).indexed_params(k) && indexedCount < 3)
+				{
+					isIndexed = true;
+					indexedCount++;
+				}
+				ei.indexedParams.push_back(isIndexed);
+			}
 			info.events.push_back(ei);
 		}
 
@@ -368,10 +384,72 @@ std::string ProtoConverter::visit(Program const& _p)
 		}
 	}
 
+	// Pre-process free functions
+	unsigned numFreeFuncs = std::min(
+		static_cast<unsigned>(_p.free_functions_size()),
+		s_maxFreeFunctions
+	);
+	m_freeFunctions.clear();
+	for (unsigned i = 0; i < numFreeFuncs; i++)
+	{
+		FreeFuncInfo ffi;
+		ffi.name = "ff" + std::to_string(i);
+		ffi.numParams = std::min(
+			static_cast<unsigned>(_p.free_functions(i).num_params()),
+			s_maxParams
+		);
+		m_freeFunctions.push_back(ffi);
+	}
+
 	// Generate source
 	std::ostringstream o;
 	o << "// SPDX-License-Identifier: GPL-3.0\n";
 	o << "pragma solidity >=0.0;\n\n";
+
+	// Generate free functions (file-level, implicitly internal, pure)
+	for (unsigned i = 0; i < numFreeFuncs; i++)
+	{
+		auto const& ffi = m_freeFunctions[i];
+		o << "function " << ffi.name << "(";
+		for (unsigned p = 0; p < ffi.numParams; p++)
+		{
+			if (p > 0) o << ", ";
+			o << "uint256 p" << p;
+		}
+		o << ") pure returns (uint256) {\n";
+
+		// Set up state for free function body: pure, no state access
+		m_canReadState = false;
+		m_currentMutability = PURE;
+		m_inConstructor = false;
+		m_canReturn = true;
+		m_currentReturnsTwo = false;
+		m_currentFuncIdx = i;
+		// Mark as not inside any contract
+		m_currentContract = static_cast<unsigned>(m_contracts.size());
+		// Clear contract-level state
+		m_currentUintStateVars.clear();
+		m_currentStructStateVars.clear();
+		m_currentIndexableVars.clear();
+		m_currentDynArrayVars.clear();
+		m_currentEvents.clear();
+		m_currentErrors.clear();
+		m_currentStructDefs.clear();
+		m_currentEnumDefs.clear();
+
+		pushScope();
+		m_localVarCount = 0;
+		m_varCounter = 0;
+		for (unsigned p = 0; p < ffi.numParams; p++)
+			addVar("p" + std::to_string(p));
+		m_indentLevel = 1;
+		m_stmtDepth = 0;
+		o << visitBlock(_p.free_functions(i).body());
+		popScope();
+
+		o << "\treturn 0;\n";
+		o << "}\n\n";
+	}
 
 	// Generate contracts
 	for (unsigned i = 0; i < numContracts; i++)
@@ -497,6 +575,8 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		{
 			if (j > 0) o << ", ";
 			o << "uint256";
+			if (j < ev.indexedParams.size() && ev.indexedParams[j])
+				o << " indexed";
 		}
 		o << ");\n";
 	}
@@ -549,6 +629,7 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		m_canReadState = true;
 		m_inConstructor = true;
 		m_canReturn = false;
+		m_currentReturnsTwo = false;
 		m_currentMutability = payable ? PAYABLE : NONPAYABLE;
 		m_currentFuncIdx = 0;
 		collectInheritedInfo(info);
@@ -637,8 +718,16 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 			else if (fi.mut == VIEW) o << " view";
 			if (!isLibrary && fi.vis != PRIVATE)
 				o << " virtual";
-			o << " returns (uint256) {\n";
-			o << "\t\treturn " << defaultUintLiteral() << ";\n";
+			if (fi.returnTwo)
+			{
+				o << " returns (uint256, uint256) {\n";
+				o << "\t\treturn (" << defaultUintLiteral() << ", " << defaultUintLiteral() << ");\n";
+			}
+			else
+			{
+				o << " returns (uint256) {\n";
+				o << "\t\treturn " << defaultUintLiteral() << ";\n";
+			}
 			o << "\t}\n\n";
 		}
 	}
@@ -710,6 +799,7 @@ std::string ProtoConverter::visitFunction(
 	// Track current mutability for expression generation
 	m_currentMutability = actualMut;
 	m_canReturn = true;
+	m_currentReturnsTwo = fi.returnTwo;
 
 	// Set up state access
 	m_canReadState = (actualMut == VIEW || actualMut == NONPAYABLE || actualMut == PAYABLE);
@@ -760,7 +850,10 @@ std::string ProtoConverter::visitFunction(
 		o << " " << _cinfo.modifiers[modIdx].name << "()";
 	}
 
-	o << " returns (uint256) {\n";
+	if (fi.returnTwo)
+		o << " returns (uint256, uint256) {\n";
+	else
+		o << " returns (uint256) {\n";
 	// Convert non-uint256 parameters to uint256 shadow variables so the
 	// rest of the body can uniformly use uint256 expressions.
 	for (unsigned i = 0; i < fi.numParams; i++)
@@ -775,7 +868,10 @@ std::string ProtoConverter::visitFunction(
 	}
 	o << body;
 	// Always return something to ensure the function compiles
-	o << "\t\treturn 0;\n";
+	if (fi.returnTwo)
+		o << "\t\treturn (0, 0);\n";
+	else
+		o << "\t\treturn 0;\n";
 	o << "\t}\n";
 
 	return o.str();
@@ -906,6 +1002,19 @@ std::string ProtoConverter::visitStatement(Statement const& _s)
 		break;
 	case Statement::kTupleAssign:
 		result = visitTupleAssign(_s.tuple_assign());
+		break;
+	case Statement::kArrayPush:
+		// Array push requires non-pure, non-view context (state modification)
+		if (m_currentMutability != PURE && m_currentMutability != VIEW)
+			result = visitArrayPush(_s.array_push());
+		break;
+	case Statement::kArrayPop:
+		// Array pop requires non-pure, non-view context (state modification)
+		if (m_currentMutability != PURE && m_currentMutability != VIEW)
+			result = visitArrayPop(_s.array_pop());
+		break;
+	case Statement::kTupleDestruct:
+		result = visitTupleDestruct(_s.tuple_destruct());
 		break;
 	case Statement::kSelfdestructStmt:
 		// selfdestruct requires non-pure, non-view. Skip in constructors
@@ -1082,7 +1191,13 @@ std::string ProtoConverter::visitDoWhile(DoWhileStmt const& _s)
 std::string ProtoConverter::visitReturn(ReturnStmt const& _s)
 {
 	std::ostringstream o;
-	if (_s.has_val())
+	if (m_currentReturnsTwo)
+	{
+		std::string v1 = _s.has_val() ? visitUintExpr(_s.val()) : "0";
+		std::string v2 = std::to_string(randomNumber() % 100);
+		o << indent() << "return (" << v1 << ", " << v2 << ");\n";
+	}
+	else if (_s.has_val())
 		o << indent() << "return " << visitUintExpr(_s.val()) << ";\n";
 	else
 		o << indent() << "return 0;\n";
@@ -1143,6 +1258,21 @@ std::string ProtoConverter::visitRequire(RequireStmt const& _s)
 	std::string cond = visitBoolExpr(_s.cond());
 	if (_s.is_assert())
 		return indent() + "assert(" + cond + ");\n";
+	else if (_s.has_error_id() && !m_currentErrors.empty())
+	{
+		// require(cond, CustomError(args))
+		unsigned errIdx = _s.error_id() % m_currentErrors.size();
+		auto const& err = m_currentErrors[errIdx];
+		std::ostringstream o;
+		o << indent() << "require(" << cond << ", " << err.name << "(";
+		for (unsigned i = 0; i < err.numParams; i++)
+		{
+			if (i > 0) o << ", ";
+			o << "0";
+		}
+		o << "));\n";
+		return o.str();
+	}
 	else if (_s.has_with_message() && _s.with_message())
 		return indent() + "require(" + cond + ", \"req_" + std::to_string(randomNumber() % 100) + "\");\n";
 	else
@@ -1266,6 +1396,100 @@ std::string ProtoConverter::visitTupleAssign(TupleAssignStmt const& _s)
 		+ e1 + ", " + e2 + ");\n";
 }
 
+std::string ProtoConverter::visitArrayPush(ArrayPushStmt const& _s)
+{
+	if (m_currentDynArrayVars.empty())
+		return "";
+
+	unsigned varIdx = _s.var_idx() % m_currentDynArrayVars.size();
+	auto const& sv = m_currentDynArrayVars[varIdx];
+
+	std::ostringstream o;
+	if (_s.has_value())
+	{
+		std::string val = visitUintExpr(_s.value());
+		// Cast value to element type if needed
+		if (!sv.elementIsUint)
+			o << indent() << sv.name << ".push(" << sv.typeStr.substr(0, sv.typeStr.find('['))
+			  << "(" << val << "));\n";
+		else
+			o << indent() << sv.name << ".push(" << val << ");\n";
+	}
+	else
+		o << indent() << sv.name << ".push();\n";
+	return o.str();
+}
+
+std::string ProtoConverter::visitArrayPop(ArrayPopStmt const& _s)
+{
+	if (m_currentDynArrayVars.empty())
+		return "";
+
+	unsigned varIdx = _s.var_idx() % m_currentDynArrayVars.size();
+	auto const& sv = m_currentDynArrayVars[varIdx];
+
+	// Guard against popping from empty array
+	std::ostringstream o;
+	o << indent() << "if (" << sv.name << ".length > 0) " << sv.name << ".pop();\n";
+	return o.str();
+}
+
+std::string ProtoConverter::visitTupleDestruct(TupleDestructStmt const& _s)
+{
+	// Find a returns_two function with lower index in the current contract
+	if (m_currentContract >= m_contracts.size())
+		return "";
+	auto const& cinfo = m_contracts[m_currentContract];
+	unsigned callableCount = std::min(
+		m_currentFuncIdx,
+		static_cast<unsigned>(cinfo.functions.size())
+	);
+
+	// Collect returns_two functions
+	std::vector<unsigned> returnsTwoFuncs;
+	for (unsigned i = 0; i < callableCount; i++)
+	{
+		auto const& target = cinfo.functions[i];
+		if (!target.returnTwo || target.vis == EXTERNAL)
+			continue;
+		// Check mutability compatibility
+		bool canCall = true;
+		if (m_currentMutability == PURE && target.mut != PURE)
+			canCall = false;
+		if (m_currentMutability == VIEW && target.mut != PURE && target.mut != VIEW)
+			canCall = false;
+		if (canCall)
+			returnsTwoFuncs.push_back(i);
+	}
+
+	if (returnsTwoFuncs.empty() || m_localVarCount + 2 > s_maxLocalVars)
+		return "";
+
+	unsigned targetIdx = _s.func_id() % returnsTwoFuncs.size();
+	auto const& target = cinfo.functions[returnsTwoFuncs[targetIdx]];
+
+	std::string v1 = "v" + std::to_string(m_varCounter++);
+	std::string v2 = "v" + std::to_string(m_varCounter++);
+	m_localVarCount += 2;
+
+	std::ostringstream o;
+	o << indent() << "(uint256 " << v1 << ", uint256 " << v2 << ") = "
+	  << target.name << "(";
+	for (unsigned i = 0; i < target.numParams; i++)
+	{
+		if (i > 0) o << ", ";
+		if (i < static_cast<unsigned>(_s.args_size()))
+			o << visitUintExpr(_s.args(i));
+		else
+			o << "0";
+	}
+	o << ");\n";
+
+	addVar(v1);
+	addVar(v2);
+	return o.str();
+}
+
 // =====================================================================
 // Expression generation
 // =====================================================================
@@ -1284,7 +1508,28 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 	{
 		auto const& lit = _e.lit();
 		if (lit.has_int_lit())
-			result = std::to_string(lit.int_lit().val() % 1000);
+		{
+			auto const& intLit = lit.int_lit();
+			if (intLit.has_ether_unit())
+			{
+				// Use small values to avoid overflow with ether units
+				uint64_t v = intLit.val() % 5;
+				switch (intLit.ether_unit())
+				{
+				case IntegerLiteral::WEI:
+					result = std::to_string(intLit.val() % 1000) + " wei";
+					break;
+				case IntegerLiteral::GWEI:
+					result = std::to_string(v) + " gwei";
+					break;
+				case IntegerLiteral::ETHER:
+					result = std::to_string(v) + " ether";
+					break;
+				}
+			}
+			else
+				result = std::to_string(intLit.val() % 1000);
+		}
 		else if (lit.has_bool_lit())
 			result = lit.bool_lit().val() ? "1" : "0";
 		else if (lit.has_addr_lit())
@@ -1604,18 +1849,24 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 	case Expression::kFuncCall:
 	{
 		auto const& fc = _e.func_call();
-		auto const& cinfo = m_contracts[m_currentContract];
-		// Only call functions with lower index to avoid recursion
-		unsigned callableCount = std::min(
-			m_currentFuncIdx,
-			static_cast<unsigned>(cinfo.functions.size())
-		);
+		// Guard: skip contract function calls when not inside a contract
+		// (e.g., inside a free function body)
+		bool inContract = m_currentContract < m_contracts.size();
+		unsigned callableCount = 0;
+		if (inContract)
+		{
+			callableCount = std::min(
+				m_currentFuncIdx,
+				static_cast<unsigned>(m_contracts[m_currentContract].functions.size())
+			);
+		}
 		if (callableCount > 0)
 		{
 			unsigned targetIdx = fc.func_id() % callableCount;
-			auto const& target = cinfo.functions[targetIdx];
+			auto const& target = m_contracts[m_currentContract].functions[targetIdx];
 			// Skip external functions (need this. prefix which changes context)
-			if (target.vis != EXTERNAL)
+			// Skip returns_two functions (can't be used as uint256 expressions)
+			if (target.vis != EXTERNAL && !target.returnTwo)
 			{
 				// Check mutability compatibility:
 				// pure can only call pure
@@ -1664,7 +1915,26 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 				}
 			}
 		}
-		result = findVar(randomNumber());
+		// Try calling a free function (always pure, callable from any context)
+		if (!m_freeFunctions.empty())
+		{
+			unsigned ffIdx = fc.func_id() % m_freeFunctions.size();
+			auto const& ff = m_freeFunctions[ffIdx];
+			std::ostringstream call;
+			call << ff.name << "(";
+			for (unsigned i = 0; i < ff.numParams; i++)
+			{
+				if (i > 0) call << ", ";
+				if (i < static_cast<unsigned>(fc.args_size()))
+					call << visitUintExpr(fc.args(i));
+				else
+					call << "0";
+			}
+			call << ")";
+			result = call.str();
+		}
+		else
+			result = findVar(randomNumber());
 		break;
 	}
 	case Expression::kTypeConv:
@@ -1834,6 +2104,11 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 	case Expression::kSuperCall:
 	{
 		// super.funcName(args...) — call a base contract's function
+		if (m_currentContract >= m_contracts.size())
+		{
+			result = findVar(randomNumber());
+			break;
+		}
 		auto const& sc = _e.super_call();
 		auto const& cinfo = m_contracts[m_currentContract];
 
@@ -1961,6 +2236,18 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			result = "uint256(keccak256(bytes(string.concat(" + args.str() + "))))";
 		break;
 	}
+	case Expression::kArrayLength:
+	{
+		// arr.length — read the length of a dynamic storage array
+		if (!m_currentDynArrayVars.empty() && m_canReadState)
+		{
+			unsigned varIdx = _e.array_length().var_idx() % m_currentDynArrayVars.size();
+			result = m_currentDynArrayVars[varIdx].name + ".length";
+		}
+		else
+			result = defaultUintLiteral();
+		break;
+	}
 	case Expression::kSelector:
 	{
 		// this.funcName.selector — get 4-byte function selector
@@ -1971,6 +2258,11 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			break;
 		}
 		auto const& sel = _e.selector();
+		if (m_currentContract >= m_contracts.size())
+		{
+			result = defaultUintLiteral();
+			break;
+		}
 		auto const& cinfo = m_contracts[m_currentContract];
 		// Collect public/external functions
 		std::vector<unsigned> pubExtFuncs;
@@ -2179,8 +2471,17 @@ std::string ProtoConverter::generateTestContract()
 			o << "));\n";
 
 			// XOR successful return values into _r
-			o << "\t\t\tif (" << boolVar << " && " << dataVar << ".length == 32) "
-			  << "_r ^= abi.decode(" << dataVar << ", (uint256));\n";
+			if (fi.returnTwo)
+			{
+				o << "\t\t\tif (" << boolVar << " && " << dataVar << ".length == 64) {\n";
+				o << "\t\t\t\t(uint256 _a" << callIdx << ", uint256 _b" << callIdx
+				  << ") = abi.decode(" << dataVar << ", (uint256, uint256));\n";
+				o << "\t\t\t\t_r ^= _a" << callIdx << " ^ _b" << callIdx << ";\n";
+				o << "\t\t\t}\n";
+			}
+			else
+				o << "\t\t\tif (" << boolVar << " && " << dataVar << ".length == 32) "
+				  << "_r ^= abi.decode(" << dataVar << ", (uint256));\n";
 		}
 
 		// Close try block, empty catch (skip this contract on revert)
@@ -2363,6 +2664,7 @@ void ProtoConverter::collectInheritedInfo(ContractInfo const& _cinfo)
 	m_currentUintStateVars.clear();
 	m_currentStructStateVars.clear();
 	m_currentIndexableVars.clear();
+	m_currentDynArrayVars.clear();
 	m_currentEvents = _cinfo.events;
 	m_currentErrors = _cinfo.errors;
 	m_currentStructDefs = _cinfo.structDefs;
@@ -2380,6 +2682,8 @@ void ProtoConverter::collectInheritedInfo(ContractInfo const& _cinfo)
 				m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx);
 			if ((sv.isFixedArray || sv.isMapping) && sv.elementIsUint)
 				m_currentIndexableVars.push_back(sv);
+			if (sv.isArray && !sv.isFixedArray)
+				m_currentDynArrayVars.push_back(sv);
 		}
 	}
 
@@ -2421,6 +2725,8 @@ void ProtoConverter::collectInheritedInfo(ContractInfo const& _cinfo)
 					m_currentStructStateVars.emplace_back(sv.name, sv.structDefIdx + structOffset);
 				if ((sv.isFixedArray || sv.isMapping) && sv.elementIsUint)
 					m_currentIndexableVars.push_back(sv);
+				if (sv.isArray && !sv.isFixedArray)
+					m_currentDynArrayVars.push_back(sv);
 			}
 		}
 
@@ -2457,6 +2763,7 @@ std::string ProtoConverter::setupAndVisitBlock(
 	m_currentMutability = _mut;
 	m_inConstructor = false;
 	m_canReturn = false;
+	m_currentReturnsTwo = false;
 	m_currentFuncIdx = 0;
 	collectInheritedInfo(_cinfo);
 
