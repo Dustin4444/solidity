@@ -106,3 +106,69 @@ To be consistent and aid better evaluation of the utility of the fuzzing diction
   Protobuf, compiles with and without stack-reuse optimisation (i.e. `optimizeStackAllocation`),
   executes both via evmone, and asserts that the resulting EVM state is identical. The goal is to
   catch miscompilations introduced by the stack-reuse code-generation pass.
+
+## Debugging fuzzer crashes with sol\_debug\_runner
+
+`sol_debug_runner` is a standalone tool for debugging differential testing failures
+from `sol_proto2_ossfuzz`. It takes a `.sol` file and runs it through the same
+compile-deploy-execute pipeline as the fuzzer, across all 4 configurations:
+`{noOpt, opt} x {viaIR=true, viaIR=false}`. It prints bytecodes, EVM execution
+results, logs, and storage for each, then reports which differential comparisons
+pass or fail.
+
+### Building
+
+Build using the normal (non-ossfuzz) cmake build in `build-normal`:
+
+```bash
+cd build-normal
+cmake ..
+CCACHE_DISABLE=1 make -j8 sol_debug_runner
+```
+
+### Reproducing a fuzzer crash
+
+1. Dump the Solidity source from a crash input:
+
+   ```bash
+   PROTO_FUZZER_DUMP_PATH=bad-log.sol \
+     ./build/test/tools/ossfuzz/sol_proto2_ossfuzz crash-<hash>
+   ```
+
+2. Run the debug tool:
+
+   ```bash
+   mkdir -p /tmp/debug-output
+
+   LD_LIBRARY_PATH=/home/matesoos/development/evmone/build/lib:$LD_LIBRARY_PATH \
+     ./build-normal/test/tools/sol_debug_runner bad-log.sol \
+     --output-dir /tmp/debug-output
+   ```
+
+3. Check the terminal output. The tool prints per-configuration details (bytecode,
+   status, logs, storage) followed by a differential comparison section:
+
+   ```
+   ========== DIFFERENTIAL COMPARISONS ==========
+
+   --- Comparing noOpt_viaIR=true vs opt_viaIR=true ---
+     Status:  MATCH (SUCCESS vs SUCCESS)
+     Output:  MATCH
+     Logs:    DIFFER
+     Storage: MATCH
+   ```
+
+4. Inspect files in `--output-dir`:
+   - `<config>.bytecode.hex` — compiled bytecode in hex
+   - `<config>.log` — full execution details (status, output, logs, storage)
+
+### CLI options
+
+```
+./sol_debug_runner <file.sol> [--output-dir <dir>] [--via-ir true|false]
+```
+
+- `<file.sol>` — Solidity source file (positional, required)
+- `--output-dir <dir>` — write bytecode and log files here (optional)
+- `--via-ir true|false` — initial viaIR setting (default: `true`). The tool
+  always tests both values; this controls which is "primary".
