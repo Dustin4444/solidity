@@ -18,9 +18,11 @@
 
 #pragma once
 
+#include <libyul/backends/evm/ssa/DebugConfig.h>
 #include <libyul/backends/evm/ssa/PhiInverse.h>
 #include <libyul/backends/evm/ssa/Stack.h>
 
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -38,13 +40,34 @@ private:
 	std::vector<std::string> m_errors;
 };
 
+template<bool debugOutput>
 struct CountingInstructionsCallbacks
 {
 	std::size_t numOps = 0;
-	void swap(StackDepth) { ++numOps; }
-	void dup(StackDepth) { ++numOps; }
-	void push(StackSlot const&) { ++numOps; }
-	void pop() { ++numOps; }
+	void swap([[maybe_unused]] StackDepth _depth)
+	{
+		++numOps;
+		if constexpr (debugOutput)
+			std::cout << "SWAP" << _depth.value << " " << std::flush;
+	}
+	void dup([[maybe_unused]] StackDepth _depth)
+	{
+		++numOps;
+		if constexpr (debugOutput)
+			std::cout << "DUP" << _depth.value << " " << std::flush;
+	}
+	void push([[maybe_unused]] StackSlot const& _slot)
+	{
+		++numOps;
+		if constexpr (debugOutput)
+			std::cout << "PUSH(" << slotToString(_slot) << ") " << std::flush;
+	}
+	void pop()
+	{
+		++numOps;
+		if constexpr (debugOutput)
+			std::cout << "POP " << std::flush;
+	}
 };
 
 /// Transform stack data by replacing all its phi variables with their respective preimages.
