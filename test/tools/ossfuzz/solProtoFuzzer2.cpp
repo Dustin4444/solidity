@@ -100,7 +100,9 @@ static RunResult runOnce(
 	return RunResult{std::move(result), std::move(logs), std::move(storage)};
 }
 
-/// Compare two log records for equality.
+/// Compare two log records for equality (ignoring creator address,
+/// which differs across optimization levels because different bytecodes
+/// produce different CREATE/CREATE2 addresses).
 static bool logsEqual(
 	std::vector<evmc::MockedHost::log_record> const& _a,
 	std::vector<evmc::MockedHost::log_record> const& _b
@@ -109,7 +111,7 @@ static bool logsEqual(
 	if (_a.size() != _b.size())
 		return false;
 	for (size_t i = 0; i < _a.size(); i++)
-		if (!(_a[i] == _b[i]))
+		if (_a[i].data != _b[i].data || _a[i].topics != _b[i].topics)
 			return false;
 	return true;
 }

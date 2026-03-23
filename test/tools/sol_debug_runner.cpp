@@ -164,6 +164,8 @@ static RunResult runOnce(
 	return result;
 }
 
+/// Compare logs ignoring creator address (which differs across optimization
+/// levels because different bytecodes produce different CREATE/CREATE2 addresses).
 static bool logsEqual(
 	std::vector<evmc::MockedHost::log_record> const& _a,
 	std::vector<evmc::MockedHost::log_record> const& _b
@@ -172,7 +174,7 @@ static bool logsEqual(
 	if (_a.size() != _b.size())
 		return false;
 	for (size_t i = 0; i < _a.size(); i++)
-		if (!(_a[i] == _b[i]))
+		if (_a[i].data != _b[i].data || _a[i].topics != _b[i].topics)
 			return false;
 	return true;
 }
@@ -443,7 +445,10 @@ int main(int argc, char* argv[])
 	}
 
 	// Print logs for all configs
-	std::cout << "========== LOGS ==========" << std::endl << std::endl;
+	std::cout << "========== LOGS ==========" << std::endl;
+	std::cout << "NOTE: Creator addresses differ across configs because different bytecodes" << std::endl;
+	std::cout << "produce different CREATE/CREATE2 addresses. This is expected and not a bug." << std::endl;
+	std::cout << std::endl;
 	for (size_t i = 0; i < configs.size(); i++)
 	{
 		std::cout << "--- " << configs[i].label << " ---" << std::endl;
