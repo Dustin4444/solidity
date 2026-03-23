@@ -26,6 +26,7 @@
 #include <test/EVMHost.h>
 
 #include <libevmasm/Exceptions.h>
+#include <liblangutil/Exceptions.h>
 
 #include <boost/program_options.hpp>
 
@@ -56,6 +57,8 @@ static constexpr int64_t s_gasLimit = 1000000;
 struct RunResult
 {
 	bool compilationFailed = false;
+	bool internalError = false;  // Internal compiler error (assertion failure, etc.)
+	std::string internalErrorMsg;
 	bytes bytecode;
 	evmc_status_code statusCode = EVMC_INTERNAL_ERROR;
 	bytes output;
@@ -119,7 +122,8 @@ static RunResult runOnce(
 	StringMap const& _source,
 	OptimiserSettings _optimiserSettings,
 	bool _viaIR,
-	std::string const& _extraCalldataHex = {}
+	std::string const& _extraCalldataHex = {},
+	bool _quiet = false
 )
 {
 	RunResult result;
@@ -133,7 +137,7 @@ static RunResult runOnce(
 		contractName,
 		_optimiserSettings,
 		{},
-		/*debugFailure=*/true,
+		/*debugFailure=*/!_quiet,
 		_viaIR
 	);
 
@@ -372,7 +376,11 @@ int main(int argc, char* argv[])
 		std::cout << "Usage: sol_debug_runner <file.sol> [--output-dir <dir>] [--via-ir true|false] [--calldata <hex>] [--quiet]" << std::endl;
 		std::cout << desc << std::endl;
 		std::cout << std::endl;
-		std::cout << "Exit codes: 0 = all match, 1 = mismatch found, 2 = error/compilation failure" << std::endl;
+		std::cout << "Exit codes:" << std::endl;
+		std::cout << "  0 = all match (no bug)" << std::endl;
+		std::cout << "  1 = mismatch found (differential bug)" << std::endl;
+		std::cout << "  2 = normal compilation failure / file error" << std::endl;
+		std::cout << "  3 = internal compiler error (assertion failure, crash)" << std::endl;
 		return vm.count("help") ? 0 : 2;
 	}
 
@@ -434,7 +442,7 @@ int main(int argc, char* argv[])
 			std::cout << "Running: " << config.label << "..." << std::endl;
 		try
 		{
-			results.push_back(runOnce(evmVM, version, source, config.optimiser, config.viaIR, extraCalldataHex));
+			results.push_back(runOnce(evmVM, version, source, config.optimiser, config.viaIR, extraCalldataHex, quiet));
 		}
 		catch (evmasm::StackTooDeepException const&)
 		{
@@ -444,12 +452,34 @@ int main(int argc, char* argv[])
 			r.compilationFailed = true;
 			results.push_back(std::move(r));
 		}
+		catch (langutil::InternalCompilerError const& e)
+		{
+			if (!quiet)
+				std::cout << "  InternalCompilerError: " << e.what() << std::endl;
+			RunResult r;
+			r.compilationFailed = true;
+			r.internalError = true;
+			r.internalErrorMsg = e.what();
+			results.push_back(std::move(r));
+		}
+		catch (langutil::UnimplementedFeatureError const& e)
+		{
+			if (!quiet)
+				std::cout << "  UnimplementedFeatureError: " << e.what() << std::endl;
+			RunResult r;
+			r.compilationFailed = true;
+			r.internalError = true;
+			r.internalErrorMsg = e.what();
+			results.push_back(std::move(r));
+		}
 		catch (std::exception const& e)
 		{
 			if (!quiet)
 				std::cout << "  Exception: " << e.what() << std::endl;
 			RunResult r;
 			r.compilationFailed = true;
+			r.internalError = true;
+			r.internalErrorMsg = e.what();
 			results.push_back(std::move(r));
 		}
 	}
@@ -545,8 +575,33 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (quiet)
-		std::cout << (anyMismatch ? "MISMATCH" : "OK") << std::endl;
+	// Check if any config hit an internal compiler error
+	bool anyInternalError = false;
+	for (auto const& r : results)
+		if (r.internalError)
+			anyInternalError = true;
 
-	return anyMismatch ? EXIT_FAILURE : EXIT_SUCCESS;
+	// Exit codes: 0 = all match, 1 = mismatch, 2 = normal compilation failure, 3 = internal compiler error
+	int exitCode;
+	std::string summary;
+	if (anyInternalError)
+	{
+		exitCode = 3;
+		summary = "INTERNAL_ERROR";
+	}
+	else if (anyMismatch)
+	{
+		exitCode = 1;
+		summary = "MISMATCH";
+	}
+	else
+	{
+		exitCode = 0;
+		summary = "OK";
+	}
+
+	if (quiet)
+		std::cout << summary << std::endl;
+
+	return exitCode;
 }
