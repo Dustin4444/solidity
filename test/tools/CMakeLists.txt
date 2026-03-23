@@ -59,3 +59,10 @@ add_executable(isoltest
 )
 target_compile_definitions(isoltest PRIVATE ISOLTEST)
 target_link_libraries(isoltest PRIVATE evmc libsolc solidity yulInterpreter evmasm Boost::boost Boost::program_options Boost::unit_test_framework Threads::Threads)
+
+add_executable(sol_debug_runner
+	sol_debug_runner.cpp
+	../EVMHost.cpp
+	ossfuzz/SolidityEvmoneInterface.cpp
+)
+target_link_libraries(sol_debug_runner PRIVATE evmc solidity libsolc Boost::boost Boost::program_options)
