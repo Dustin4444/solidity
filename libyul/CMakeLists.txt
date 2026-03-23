@@ -74,24 +74,39 @@ add_library(yul
 	backends/evm/VariableReferenceCounter.h
 	backends/evm/VariableReferenceCounter.cpp
 	backends/evm/ssa/BridgeFinder.h
+	backends/evm/ssa/CodeTransform.cpp
+	backends/evm/ssa/CodeTransform.h
 	backends/evm/ssa/ControlFlow.cpp
 	backends/evm/ssa/ControlFlow.h
 	backends/evm/ssa/JunkAdmittingBlocksFinder.cpp
 	backends/evm/ssa/JunkAdmittingBlocksFinder.h
 	backends/evm/ssa/LivenessAnalysis.cpp
 	backends/evm/ssa/LivenessAnalysis.h
+	backends/evm/ssa/PhiInverse.cpp
+	backends/evm/ssa/PhiInverse.h
 	backends/evm/ssa/SSACFGLoopNestingForest.cpp
 	backends/evm/ssa/SSACFGLoopNestingForest.h
-	backends/evm/ssa/SSACFGTopologicalSort.cpp
-	backends/evm/ssa/SSACFGTopologicalSort.h
 	backends/evm/ssa/SSACFG.cpp
 	backends/evm/ssa/SSACFG.h
 	backends/evm/ssa/SSACFGBuilder.cpp
 	backends/evm/ssa/SSACFGBuilder.h
-	backends/evm/ssa/SSACFGJsonExporter.cpp
-	backends/evm/ssa/SSACFGJsonExporter.h
+	backends/evm/ssa/SSACFGDebugInfo.h
+	backends/evm/ssa/SSACFGTypes.h
 	backends/evm/ssa/Stack.cpp
 	backends/evm/ssa/Stack.h
+	backends/evm/ssa/StackLayout.h
+	backends/evm/ssa/StackLayoutGenerator.cpp
+	backends/evm/ssa/StackLayoutGenerator.h
+	backends/evm/ssa/StackShuffler.cpp
+	backends/evm/ssa/StackShuffler.h
+	backends/evm/ssa/StackUtils.cpp
+	backends/evm/ssa/StackUtils.h
+	backends/evm/ssa/io/DotExporterBase.cpp
+	backends/evm/ssa/io/DotExporterBase.h
+	backends/evm/ssa/io/JSONExporter.cpp
+	backends/evm/ssa/io/JSONExporter.h
+	backends/evm/ssa/traversal/ForwardTopologicalSort.cpp
+	backends/evm/ssa/traversal/ForwardTopologicalSort.h
 	optimiser/ASTCopier.cpp
 	optimiser/ASTCopier.h
 	optimiser/ASTWalker.cpp

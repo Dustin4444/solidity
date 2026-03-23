@@ -130,15 +130,38 @@ static_assert(std::is_trivial_v<StackSlot>, "Want to have no init/cpy overhead")
 
 using StackData = std::vector<StackSlot>;
 std::string slotToString(StackSlot const& _slot);
-std::string slotToString(StackSlot const& _slot, SSACFG const& _cfg);
-std::string stackToString(StackData const& _stackData, SSACFG const& _cfg);
 std::string stackToString(StackData const& _stackData);
+
+/// Array index into stack from the bottom (offset 0 = bottom).
+/// Natural for array-like access and iteration; used when treating the stack as a data structure.
+struct StackOffset
+{
+	explicit constexpr StackOffset(size_t _value) : value(_value) {}
+	size_t value;
+	auto operator<=>(StackOffset const&) const = default;
+};
+// comparison operations with size_t
+constexpr auto operator<=>(StackOffset const lhs, size_t const rhs) noexcept { return lhs.value <=> rhs; }
+constexpr auto operator<=>(size_t const lhs, StackOffset const rhs) noexcept { return lhs <=> rhs.value; }
+
+/// Distance from the stack top (depth 0 = top).
+/// Natural for stack operations (SWAP1 = swap with depth 1); used for operations that
+/// conceptually work "from the top".
+struct StackDepth
+{
+	explicit constexpr StackDepth(size_t _value) : value(_value) {}
+	size_t value;
+	auto operator<=>(StackDepth const&) const = default;
+};
+// comparison operations with size_t
+constexpr auto operator<=>(StackDepth const lhs, size_t const rhs) noexcept { return lhs.value <=> rhs; }
+constexpr auto operator<=>(size_t const lhs, StackDepth const rhs) noexcept { return lhs <=> rhs.value; }
 
 template<typename StackManipulationCallback>
 concept StackManipulationCallbackConcept = requires(
 	StackManipulationCallback& _callback,
 	StackSlot _slot,
-	size_t _depth
+	StackDepth _depth
 )
 {
 	{ _callback.swap(_depth) } -> std::same_as<void>;
@@ -149,8 +172,8 @@ concept StackManipulationCallbackConcept = requires(
 
 struct NoOpStackManipulationCallbacks
 {
-	static void swap(size_t) {}
-	static void dup(size_t) {}
+	static void swap(StackDepth) {}
+	static void dup(StackDepth) {}
 	static void push(StackSlot const&) {}
 	static void pop() {}
 };
@@ -167,31 +190,8 @@ public:
 
 	using Slot = StackSlot;
 	using Data = StackData;
-
-	/// Array index into stack from the bottom (offset 0 = bottom).
-	/// Natural for array-like access and iteration; used when treating the stack as a data structure.
-	struct Offset
-	{
-		explicit constexpr Offset(size_t _value) : value(_value) {}
-		size_t value;
-		auto operator<=>(Offset const&) const = default;
-	};
-	// comparison operations with size_t
-	friend constexpr auto operator<=>(Offset lhs, size_t rhs) noexcept { return lhs.value <=> rhs; }
-	friend constexpr auto operator<=>(size_t lhs, Offset rhs) noexcept { return lhs <=> rhs.value; }
-
-	/// Distance from the stack top (depth 0 = top).
-	/// Natural for stack operations (SWAP1 = swap with depth 1); used for operations that
-	/// conceptually work "from the top".
-	struct Depth
-	{
-		explicit constexpr Depth(size_t _value) : value(_value) {}
-		size_t value;
-		auto operator<=>(Depth const&) const = default;
-	};
-	// comparison operations with size_t
-	friend constexpr auto operator<=>(Depth lhs, size_t rhs) noexcept { return lhs.value <=> rhs; }
-	friend constexpr auto operator<=>(size_t lhs, Depth rhs) noexcept { return lhs <=> rhs.value; }
+	using Depth = StackDepth;
+	using Offset = StackOffset;
 
 	Stack(
 		Data& _data,
@@ -213,7 +213,7 @@ public:
 		yulAssert(swapReachable(_offset), "Stack too deep");
 		std::swap((*m_data)[_offset.value], m_data->back());
 		if constexpr (!std::is_same_v<Callbacks, NoOpStackManipulationCallbacks>)
-			m_callbacks.swap(offsetToDepth(_offset).value);
+			m_callbacks.swap(offsetToDepth(_offset));
 	}
 
 	/// if the stack state needs to be updated without notifying the callback, the template parameter can be set to false
@@ -230,6 +230,7 @@ public:
 	template<bool callback=true>
 	void push(Slot const& _slot)
 	{
+		yulAssert(!_slot.isFunctionReturnLabel(), "Cannot push function return label");
 		m_data->emplace_back(_slot);
 		if constexpr (callback && !std::is_same_v<Callbacks, NoOpStackManipulationCallbacks>)
 			m_callbacks.push(_slot);
@@ -238,10 +239,13 @@ public:
 	void dup(Depth const& _depth) { dup(depthToOffset(_depth)); }
 	void dup(Offset const& _offset)
 	{
-		yulAssert(dupReachable(_offset), "Stack too deep");
-		m_data->push_back((*m_data)[_offset.value]);
+		auto const depth = offsetToDepth(_offset);
+		yulAssert(dupReachable(depth), "Stack too deep");
+		auto const slot = (*m_data)[_offset.value];
+		yulAssert(!slot.isFunctionReturnLabel(), "Cannot dup function return label");
+		m_data->push_back(slot);
 		if constexpr (!std::is_same_v<Callbacks, NoOpStackManipulationCallbacks>)
-			m_callbacks.dup(offsetToDepth(_offset).value + 1);
+			m_callbacks.dup(StackDepth{depth.value + 1});
 	}
 
 	bool dupReachable(Offset const& _offset) const noexcept { return dupReachable(offsetToDepth(_offset)); }
@@ -249,7 +253,8 @@ public:
 	bool swapReachable(Offset const& _offset) const noexcept { return swapReachable(offsetToDepth(_offset)); }
 	bool swapReachable(Depth const& _depth) const noexcept { return _depth < size() && 1 <= _depth.value && _depth.value <= reachableStackDepth; }
 
-	void declareJunk(Depth const& _depth) { (*m_data)[depthToOffset(_depth).value] = Slot::makeJunk(); }
+	void declareJunk(Offset const& _offset) { (*m_data)[_offset.value] = Slot::makeJunk(); }
+	void declareJunk(Depth const& _depth) { declareJunk(depthToOffset(_depth)); }
 
 	Slot const& slot(Depth const& _depth) const { return (*m_data)[depthToOffset(_depth).value]; }
 	Slot const& slot(Offset const& _offset) const { return slot(offsetToDepth(_offset)); }

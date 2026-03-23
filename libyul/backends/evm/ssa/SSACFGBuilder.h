@@ -45,7 +45,8 @@ class SSACFGBuilder
 		AsmAnalysisInfo const& _analysisInfo,
 		ControlFlowSideEffectsCollector const& _sideEffects,
 		Dialect const& _dialect,
-		bool _keepLiteralAssignments
+		bool _keepLiteralAssignments,
+		bool _generateDebugInfo
 	);
 public:
 	SSACFGBuilder(SSACFGBuilder const&) = delete;
@@ -54,7 +55,8 @@ public:
 		AsmAnalysisInfo const& _analysisInfo,
 		Dialect const& _dialect,
 		Block const& _block,
-		bool _keepLiteralAssignments
+		bool _keepLiteralAssignments,
+		bool _generateDebugInfo = true
 	);
 
 	void operator()(ExpressionStatement const& _statement);
@@ -95,9 +97,14 @@ private:
 	ControlFlowSideEffectsCollector const& m_sideEffects;
 	Dialect const& m_dialect;
 	bool const m_keepLiteralAssignments;
+	bool const m_generateDebugInfo;
 	std::vector<std::tuple<Scope::Function const*, FunctionDefinition const*>> m_functionDefinitions;
 	SSACFG::BlockId m_currentBlock;
 	SSACFG::BasicBlock& currentBlock() { return m_graph.block(m_currentBlock); }
+	langutil::DebugData::ConstPtr currentBlockDebugData() const
+	{
+		return m_graph.debugInfo ? m_graph.debugInfo->blockDebugData(m_currentBlock) : nullptr;
+	}
 	Scope* m_scope = nullptr;
 	Scope::Function const& lookupFunction(YulName _name) const;
 	Scope::Variable const& lookupVariable(YulName _name) const;
@@ -145,13 +152,6 @@ private:
 	void jump(
 		langutil::DebugData::ConstPtr _debugData,
 		SSACFG::BlockId _target
-	);
-
-	void tableJump(
-		langutil::DebugData::ConstPtr _debugData,
-		SSACFG::ValueId _value,
-		std::map<u256, SSACFG::BlockId> _cases,
-		SSACFG::BlockId _defaultCase
 	);
 
 	FunctionDefinition const* findFunctionDefinition(Scope::Function const* _function) const;

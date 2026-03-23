@@ -1297,6 +1297,23 @@ std::string YulUtilFunctions::wrappingIntExpFunction(
 	});
 }
 
+std::string YulUtilFunctions::erc7201()
+{
+	std::string functionName = "erc7201";
+	return m_functionCollector.createFunction(functionName, [&]() {
+		Whiskers templ(R"(
+			function erc7201(namespaceIDDataPtr, namespaceIDLength) -> slot {
+				let innerKeccak := keccak256(namespaceIDDataPtr, namespaceIDLength)
+				mstore(0, sub(innerKeccak, 1))
+				// slot = keccak256(keccak256(id) - 1) & ~0xff
+				slot := and(keccak256(0, 32), not(0xff))
+			}
+		)");
+
+		return templ.render();
+	});
+}
+
 std::string YulUtilFunctions::arrayLengthFunction(ArrayType const& _type)
 {
 	std::string functionName = "array_length_" + _type.identifier();
@@ -4357,7 +4374,22 @@ std::string YulUtilFunctions::zeroValueFunction(Type const& _type, bool _splitFu
 
 std::string YulUtilFunctions::storageSetToZeroFunction(Type const& _type, VariableDeclaration::Location _location)
 {
-	std::string const functionName = "storage_set_to_zero_" + _type.identifier();
+	solAssert(
+		_location == VariableDeclaration::Location::Transient ||
+		_location == VariableDeclaration::Location::Unspecified,
+		"Invalid location for the storage_set_to_zero function"
+	);
+
+	if (dynamic_cast<ReferenceType const*>(&_type))
+		solAssert(
+			_location == VariableDeclaration::Location::Unspecified &&
+			_type.dataStoredIn(DataLocation::Storage)
+		);
+
+	std::string const functionName =
+		(_location == VariableDeclaration::Location::Transient ? "transient_"s : "") +
+		"storage_set_to_zero_" +
+		_type.identifier();
 
 	return m_functionCollector.createFunction(functionName, [&]() {
 		if (_type.isValueType())

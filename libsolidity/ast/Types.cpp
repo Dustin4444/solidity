@@ -3125,6 +3125,7 @@ std::string FunctionType::richIdentifier() const
 	case Kind::ABIDecode: id += "abidecode"; break;
 	case Kind::BlobHash: id += "blobhash"; break;
 	case Kind::MetaType: id += "metatype"; break;
+	case Kind::ERC7201: id += "erc7201"; break;
 	}
 	id += "_" + stateMutabilityToString(m_stateMutability);
 	id += identifierList(m_parameterTypes) + "returns" + identifierList(m_returnParameterTypes);
@@ -3474,7 +3475,7 @@ MemberList::MemberMap FunctionType::nativeMembers(ASTNode const* _scope) const
 		if (auto const* functionDefinition = dynamic_cast<FunctionDefinition const*>(m_declaration))
 		{
 			solAssert(functionDefinition->visibility() > Visibility::Internal, "");
-			auto const *contract = dynamic_cast<ContractDefinition const*>(m_declaration->scope());
+			auto const* contract = dynamic_cast<ContractDefinition const*>(m_declaration->scope());
 			solAssert(contract, "");
 			solAssert(contract->isLibrary(), "");
 			return {{"selector", TypeProvider::fixedBytes(4)}};
@@ -3715,7 +3716,8 @@ bool FunctionType::isPure() const
 		m_kind == Kind::Wrap ||
 		m_kind == Kind::Unwrap ||
 		m_kind == Kind::BytesConcat ||
-		m_kind == Kind::StringConcat;
+		m_kind == Kind::StringConcat ||
+		m_kind == Kind::ERC7201;
 }
 
 TypePointers FunctionType::parseElementaryTypeVector(strings const& _types)
