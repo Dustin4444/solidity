@@ -148,6 +148,11 @@ static RunResult runOnce(
 		auto compOutput = compiler.compileContract();
 		if (compOutput.has_value() && !compOutput->byteCode.empty())
 			result.bytecode = compOutput->byteCode;
+		else
+		{
+			result.compilationFailed = true;
+			return result;
+		}
 	}
 
 	EvmoneUtility evmoneUtil(
@@ -575,11 +580,16 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	// Check if any config hit an internal compiler error
+	// Check if any config hit an internal compiler error or all failed to compile
 	bool anyInternalError = false;
+	bool allCompilationFailed = true;
 	for (auto const& r : results)
+	{
 		if (r.internalError)
 			anyInternalError = true;
+		if (!r.compilationFailed)
+			allCompilationFailed = false;
+	}
 
 	// Exit codes: 0 = all match, 1 = mismatch, 2 = normal compilation failure, 3 = internal compiler error
 	int exitCode;
@@ -593,6 +603,11 @@ int main(int argc, char* argv[])
 	{
 		exitCode = 1;
 		summary = "MISMATCH";
+	}
+	else if (allCompilationFailed)
+	{
+		exitCode = 2;
+		summary = "COMPILATION_FAILED";
 	}
 	else
 	{
