@@ -338,3 +338,25 @@ occurrence count and how many files contain it. Example:
 Features showing `(none)` indicate the fuzzer corpus hasn't grown large enough
 to produce those protobuf field combinations yet — this is normal for a young
 corpus.
+
+# Coverage for isoltest/fuzzer
+
+## 1. Reset counters (clean slate)
+```
+lcov --zerocounters --directory build-normal
+```
+
+## 2. Run isoltest (or solc many times, or both — they all accumulate)
+```
+LD_LIBRARY_PATH=/home/matesoos/development/evmone/build/lib:$LD_LIBRARY_PATH \
+	./build-normal/test/tools/isoltest --accept-updates --no-smt
+```
+
+## 3. Capture & generate HTML
+```
+lcov --capture --directory build-normal --output-file coverage.info --ignore-errors inconsistent
+lcov --remove coverage.info '/usr/*' '*/test/*' '*/deps/*' --output-file coverage_filtered.info --ignore-errors inconsistent
+genhtml coverage_filtered.info --output-directory coverage_html --ignore-errors inconsistent
+```
+
+Then open coverage_html/index.html.

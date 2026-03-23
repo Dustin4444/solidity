@@ -51,7 +51,6 @@
 
 #include <range/v3/action/sort.hpp>
 #include <range/v3/range/conversion.hpp>
-#include <range/v3/view/concat.hpp>
 #include <range/v3/view/drop.hpp>
 #include <range/v3/view/map.hpp>
 #include <range/v3/view/set_algorithm.hpp>
@@ -146,9 +145,13 @@ public:
 			"Please update the code to use a different character and recompile yulopti."
 		);
 
-		std::vector<std::tuple<char, std::string>> sortedOptions =
-			ranges::views::concat(optimiserSteps, _extraOptions) |
-			ranges::to<std::vector<std::tuple<char, std::string>>>() |
+		std::vector<std::tuple<char, std::string>> sortedOptions;
+		sortedOptions.reserve(optimiserSteps.size() + _extraOptions.size());
+		for (auto const& [key, value]: optimiserSteps)
+			sortedOptions.emplace_back(key, value);
+		for (auto const& [key, value]: _extraOptions)
+			sortedOptions.emplace_back(key, value);
+		sortedOptions |=
 			ranges::actions::sort([](std::tuple<char, std::string> const& _a, std::tuple<char, std::string> const& _b) {
 				return (
 					!boost::algorithm::iequals(get<1>(_a), get<1>(_b)) ?
