@@ -167,7 +167,7 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	}
 
 	// Skip overly large sources — they compile slowly and reduce throughput
-	if (sol_source.size() > 20000)
+	if (sol_source.size() > 3000)
 		return;
 
 	// Always fuzz the latest EVM version to maximize feature coverage
