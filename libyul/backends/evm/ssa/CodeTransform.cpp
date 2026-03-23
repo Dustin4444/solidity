@@ -18,6 +18,7 @@
 
 #include <libyul/backends/evm/ssa/CodeTransform.h>
 
+#include <libyul/backends/evm/ssa/DebugConfig.h>
 #include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
 #include <libyul/backends/evm/ssa/StackShuffler.h>
 #include <libyul/backends/evm/ssa/StackUtils.h>
@@ -28,6 +29,8 @@
 
 #include <range/v3/view/take_last.hpp>
 #include <range/v3/view/zip.hpp>
+
+#include <iostream>
 
 using namespace solidity::yul;
 using namespace solidity::yul::ssa;
@@ -48,6 +51,16 @@ void CodeTransform::run
 	BuiltinContext& _builtinContext
 )
 {
+	if constexpr (debug::codeTransform.enabled)
+	{
+		std::cout << "\n\n\n";
+		std::cout << "--------------------\n";
+		std::cout << "Running SSA CFG code transform\n";
+		std::cout << "--------------------\n";
+	}
+	if constexpr (debug::codeTransform.dotOutput)
+		std::cout << _controlFlowLiveness.toDot() << '\n';
+
 	yulAssert(!_controlFlowLiveness.cfgLiveness.empty());
 	ControlFlow const& controlFlow = _controlFlowLiveness.controlFlow.get();
 	yulAssert(controlFlow.functionGraphs.size() == _controlFlowLiveness.cfgLiveness.size());
@@ -143,6 +156,9 @@ CodeTransform::CodeTransform(
 	}()),
 	m_stack(m_stackData, m_assemblyCallbacks)
 {
+	if constexpr (debug::codeTransform.enabled)
+		std::cout << "Code transform for " << (m_cfg.function ? m_cfg.function->name.str() : "main") << '\n';
+
 	if (_function)
 	{
 		auto const findIt = m_functionLabels.find(_function);
@@ -165,6 +181,8 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 	m_blockIsTransformed[_blockId.value] = true;
 
 	m_assembly.appendLabel(m_blockLabels[_blockId.value]);
+	if constexpr (debug::codeTransform.enabled)
+		std::cout << "\tGenerating for Block " << _blockId.value  << " with label " << m_blockLabels[_blockId.value] << '\n';
 
 	auto const& blockLayout = m_stackLayout[_blockId];
 	yulAssert(blockLayout);
@@ -178,6 +196,9 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 	{
 		auto const& operationInLayout = blockLayout->operationIn[operationIndex];
 
+		if constexpr (debug::codeTransform.enabled)
+			std::cout << "\t\t" << debug::operationName(m_cfg.operation(block.operations[operationIndex])) << ": " << stackToString(m_stack.data()) << " -> " << stackToString(operationInLayout) << '\n';
+
 		// perform the operation
 		(*this)(block.operations[operationIndex], operationInLayout);
 	}
@@ -185,7 +206,11 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 	// Shuffle to the block's exit layout before dispatching the exit.
 	// This ensures the condition is on top for ConditionalJump, phi pre-images are
 	// in the right positions for jumps, and return values are accessible for FunctionReturn.
+	if constexpr (debug::codeTransform.shuffler)
+		std::cout << "\t\t\tshuffling: ";
 	StackShuffler<AssemblyCallbacks>::shuffle(m_stack, blockLayout->stackOut);
+	if constexpr (debug::codeTransform.shuffler)
+		std::cout << '\n';
 
 	// handle the block exit
 	std::visit(util::GenericVisitor{ [this, &_blockId](auto const& exit) { (*this)(_blockId, exit); } }, block.exit);
@@ -209,7 +234,11 @@ void CodeTransform::operator()(SSACFG::OperationId _opId, StackData const& _oper
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 
 	// prepare stack for operation
+	if constexpr (debug::codeTransform.shuffler)
+		std::cout << "\t\t\tshuffling: ";
 	StackShuffler<AssemblyCallbacks>::shuffle(m_stack, _operationInputLayout);
+	if constexpr (debug::codeTransform.shuffler)
+		std::cout << '\n';
 
 	// check that the assembly stack height corresponds to the stack size after shuffling
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
@@ -250,6 +279,8 @@ void CodeTransform::operator()(SSACFG::OperationId _opId, StackData const& _oper
 	// generate code for the operation
 	std::visit(util::GenericVisitor{
 		[&](SSACFG::BuiltinCall const& _builtin) {
+			if constexpr (debug::codeTransform.enabled)
+				std::cout << "\t\t\tBuiltin call: " << _builtin.builtin.get().name << ": " << stackToString(m_stack.data());
 			m_assembly.setSourceLocation(opOriginLocation);
 			static_cast<BuiltinFunctionForEVM const&>(_builtin.builtin.get()).generateCode(
 				_builtin.call,
@@ -261,6 +292,15 @@ void CodeTransform::operator()(SSACFG::OperationId _opId, StackData const& _oper
 			auto const* returnLabel = util::valueOrNullptr(m_returnLabels, &_call.call.get());
 			// check that if we have a return label, the call can continue
 			yulAssert(!!returnLabel == _call.canContinue);
+			if constexpr (debug::codeTransform.enabled)
+			{
+				std::cout
+					<< "\t\t\tCall: " << _call.function.get().name.str()
+					<< " (label=" << m_functionLabels.at(&_call.function.get()) << ")"
+					<< ": " << stackToString(m_stack.data());
+				if (returnLabel)
+					std::cout << ", returnLabel: " << *returnLabel;
+			}
 			m_assembly.setSourceLocation(opOriginLocation);
 			m_assembly.appendJumpTo(
 				m_functionLabels.at(&_call.function.get()),
@@ -276,7 +316,10 @@ void CodeTransform::operator()(SSACFG::OperationId _opId, StackData const& _oper
 				m_stack.pop<false>();
 			}
 		},
-		[&](SSACFG::LiteralAssignment const&){}
+		[&](SSACFG::LiteralAssignment const&) {
+			if constexpr (debug::codeTransform.enabled)
+				std::cout << "\t\t\tLiteral assignment: " << stackToString(m_stack.data());
+		}
 	}, _operation.kind);
 	// simulate that the inputs are consumed
 	for (size_t i = 0; i < _operation.inputs.size(); ++i)
@@ -284,6 +327,9 @@ void CodeTransform::operator()(SSACFG::OperationId _opId, StackData const& _oper
 	// simulate that the outputs are produced
 	for (auto value: _operation.outputs)
 		m_stack.push<false>(StackSlot::makeValueID(value));
+
+	if constexpr (debug::codeTransform.enabled)
+		std::cout << " -> " << stackToString(m_stack.data()) << '\n';
 
 	// Assert that the operation produced its proclaimed output.
 	yulAssert(m_stack.size() == baseHeight + _operation.outputs.size());
@@ -319,6 +365,13 @@ void CodeTransform::operator()(SSACFG::BlockId const& _currentBlock, SSACFG::Bas
 		ScopedSaveAndRestore restoreStack(m_stackData, StackData(m_stackData));
 		yulAssert(m_stackLayout[_conditionalJump.zero]);
 
+		if constexpr (debug::codeTransform.enabled)
+			std::cout
+				<< "\t\tJUMPI creating stack for zero layout (to Block "
+				<< _conditionalJump.zero.value << ") "
+				<< stackToString(m_stack.data()) << " -> "
+				<< stackToString(m_stackLayout[_conditionalJump.zero]->stackIn) << '\n';
+
 		// transform stack to a state in which we can jump to the zero branch
 		prepareBlockExitStack(
 			m_stackLayout[_conditionalJump.zero]->stackIn,
@@ -343,6 +396,8 @@ void CodeTransform::operator()(SSACFG::BlockId const& _currentBlock, SSACFG::Bas
 void CodeTransform::operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::Jump const& _jump)
 {
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
+	if constexpr (debug::codeTransform.enabled)
+		std::cout << "\t\tJUMP creating target stack for jump " << _currentBlock.value << " -> " << _jump.target.value << '\n';
 	yulAssert(m_stackLayout[_jump.target]);
 	prepareBlockExitStack(m_stackLayout[_jump.target]->stackIn, PhiInverse(m_cfg, _currentBlock, _jump.target));
 	assertLayoutCompatibility(m_stack.data(), m_stackLayout[_jump.target]->stackIn);
@@ -395,7 +450,11 @@ void CodeTransform::prepareBlockExitStack(StackData const& _target, PhiInverse c
 	// pull back target to live in current variable space
 	auto const pulledBackTarget = stackPreImage(_target, _phiInverse);
 	// shuffle to target
+	if constexpr (debug::codeTransform.shuffler)
+		std::cout << "\t\t\tshuffling: ";
 	StackShuffler<AssemblyCallbacks>::shuffle(m_stack, pulledBackTarget);
+	if constexpr (debug::codeTransform.shuffler)
+		std::cout << '\n';
 	// check that shuffling was successful
 	assertLayoutCompatibility(m_stack.data(), pulledBackTarget);
 	// now we can simply set the target to the actual one which will take care of the application of phi functions

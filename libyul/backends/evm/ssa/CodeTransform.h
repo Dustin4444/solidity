@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <libyul/backends/evm/ssa/DebugConfig.h>
 #include <libyul/backends/evm/ssa/PhiInverse.h>
 #include <libyul/backends/evm/ssa/Stack.h>
 #include <libyul/backends/evm/ssa/StackLayout.h>
@@ -25,6 +26,8 @@
 #include <libyul/backends/evm/AbstractAssembly.h>
 
 #include <libevmasm/Instruction.h>
+
+#include <iostream>
 
 namespace solidity::yul
 {
@@ -37,16 +40,22 @@ struct AssemblyCallbacks
 {
 	void swap(StackDepth const _depth)
 	{
+		if constexpr (debug::codeTransform.shuffler)
+			std::cout << "SWAP" << _depth.value << " " << std::flush;
 		assembly->appendInstruction(evmasm::swapInstruction(static_cast<unsigned>(_depth.value)));
 	}
 
 	void pop()
 	{
+		if constexpr (debug::codeTransform.shuffler)
+			std::cout << "POP " << std::flush;
 		assembly->appendInstruction(evmasm::Instruction::POP);
 	}
 
 	void push(StackSlot const& _slot)
 	{
+		if constexpr (debug::codeTransform.shuffler)
+			std::cout << "PUSH(" << slotToString(_slot) << ") " << std::flush;
 		switch (_slot.kind())
 		{
 		case StackSlot::Kind::ValueID:
@@ -80,6 +89,8 @@ struct AssemblyCallbacks
 
 	void dup(StackDepth const _depth)
 	{
+		if constexpr (debug::codeTransform.shuffler)
+			std::cout << "DUP" << _depth.value << " " << std::flush;
 		assembly->appendInstruction(evmasm::dupInstruction(static_cast<unsigned>(_depth.value)));
 	}
 
