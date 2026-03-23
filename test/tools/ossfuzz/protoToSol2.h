@@ -274,6 +274,8 @@ private:
 	bool m_inLoop = false;
 	bool m_inConstructor = false;
 	bool m_inModifier = false;
+	bool m_inReceive = false;
+	bool m_inFreeFunction = false;
 	bool m_inUnchecked = false;
 	/// True only inside regular functions (which return uint256).
 	/// False in constructors, modifiers, receive, and fallback.

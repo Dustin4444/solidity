@@ -264,3 +264,77 @@ reproduce the crash directly:
      repro: ./build-normal/solc/solc bad-log.min.003.sol --optimize --via-ir
      repro: ./build-normal/solc/solc bad-log.min.003.sol --optimize
 ```
+
+## Checking generated Solidity with check\_sol\_proto\_files.py
+
+`check_sol_proto_files.py` compiles a directory of generated `.sol` files with
+`solc` and reports errors, warnings, and a tally of which language features
+appear. It is useful for verifying that the protobuf-to-Solidity converter
+(`protoToSol2`) produces valid code and for assessing corpus coverage.
+
+### Dumping `.sol` files from a corpus
+
+First, dump Solidity source from fuzzer corpus entries:
+
+```bash
+mkdir -p tmp
+find my_corpus_sol_proto2_ossfuzz/ -maxdepth 1 -type f -print0 \
+  | shuf -z -n 200 \
+  | while IFS= read -r -d '' file; do
+      PROTO_FUZZER_DUMP_PATH="tmp/$(basename "$file").sol" \
+        ./build/test/tools/ossfuzz/sol_proto2_ossfuzz "$file"
+    done
+```
+
+### Running the checker
+
+```bash
+python3 test/tools/ossfuzz/check_sol_proto_files.py tmp/ \
+  --solc ./build-normal/solc/solc
+```
+
+### CLI options
+
+- `<sol_dir>` — directory containing `.sol` files (positional, required)
+- `--solc <path>` — path to `solc` binary (default: `solc`)
+- `--no-compile` — skip compilation, only tally features
+- `--max-files <N>` — process at most N files (default: all)
+
+### Output
+
+The tool prints two sections:
+
+**Compilation results** — total errors, warnings, and breakdowns by type. Files
+with errors are listed with their first few error messages. Example:
+
+```
+============================================================
+COMPILATION RESULTS
+============================================================
+Files compiled:  50
+Files with errors: 0
+Total errors:    0
+Total warnings:  104
+
+Warning types:
+  This is a pre-release compiler version, ...: 50
+  Unused function parameter. ...: 22
+```
+
+**Feature tally** — counts of language features grouped by category (contract
+structure, functions, state variables, types, events/errors, control flow,
+expressions, builtins, and new features). For each feature it shows the total
+occurrence count and how many files contain it. Example:
+
+```
+  New Features (this PR):
+    ether_units                     (none)
+    indexed_params                  total=     1  files=    1/50
+    array_push                      (none)
+    returns_two                     total=     2  files=    2/50
+    free_functions                  total=    50  files=   34/50
+```
+
+Features showing `(none)` indicate the fuzzer corpus hasn't grown large enough
+to produce those protobuf field combinations yet — this is normal for a young
+corpus.

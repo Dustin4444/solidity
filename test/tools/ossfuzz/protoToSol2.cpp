@@ -422,6 +422,7 @@ std::string ProtoConverter::visit(Program const& _p)
 		m_canReadState = false;
 		m_currentMutability = PURE;
 		m_inConstructor = false;
+		m_inFreeFunction = true;
 		m_canReturn = true;
 		m_currentReturnsTwo = false;
 		m_currentFuncIdx = i;
@@ -449,6 +450,7 @@ std::string ProtoConverter::visit(Program const& _p)
 
 		o << "\treturn 0;\n";
 		o << "}\n\n";
+		m_inFreeFunction = false;
 	}
 
 	// Generate contracts
@@ -675,7 +677,9 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		if (baseHasReceive)
 			o << " override";
 		o << " {\n";
+		m_inReceive = true;
 		o << setupAndVisitBlock(_c.receive().body(), info, PAYABLE, 2);
+		m_inReceive = false;
 		o << "\t}\n\n";
 	}
 
@@ -1691,7 +1695,11 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			result = "uint256(uint32(msg.sig))";
 			break;
 		case MsgExpr::DATA:
-			result = "uint256(keccak256(msg.data))";
+			// msg.data is forbidden inside receive() functions
+			if (m_inReceive)
+				result = defaultUintLiteral();
+			else
+				result = "uint256(keccak256(msg.data))";
 			break;
 		}
 		break;
@@ -1776,18 +1784,24 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 	{
 		auto const& b = _e.builtin();
 		// Calldata builtins are safe in all mutability contexts (including pure)
-		if (b.kind() == BuiltinExpr::CALLDATALOAD)
+		// but NOT in free functions (the _cdl/_cds helpers are contract-private)
+		if (b.kind() == BuiltinExpr::CALLDATALOAD && !m_inFreeFunction)
 		{
 			std::string arg = b.has_arg() ? visitUintExpr(b.arg()) : "0";
 			result = "_cdl" + std::to_string(m_currentContract) + "(" + arg + ")";
 			m_usedCdl = true;
 			break;
 		}
-		if (b.kind() == BuiltinExpr::CALLDATASIZE)
+		if (b.kind() == BuiltinExpr::CALLDATASIZE && !m_inFreeFunction)
 		{
 			// Use assembly helper so it works in pure functions
 			result = "_cds" + std::to_string(m_currentContract) + "()";
 			m_usedCds = true;
+			break;
+		}
+		if ((b.kind() == BuiltinExpr::CALLDATALOAD || b.kind() == BuiltinExpr::CALLDATASIZE) && m_inFreeFunction)
+		{
+			result = defaultUintLiteral();
 			break;
 		}
 		// Other builtins are forbidden in pure functions
@@ -2045,11 +2059,12 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 	case Expression::kEcrecover:
 	{
 		// ecrecover(bytes32, uint8, bytes32, bytes32) -> address; pure, never reverts
+		// Wrap inner expressions with uint256() to avoid invalid bytes32(LITERAL) casts
 		auto const& ec = _e.ecrecover();
-		std::string hash = "bytes32(" + visitUintExpr(ec.hash()) + ")";
+		std::string hash = "bytes32(uint256(" + visitUintExpr(ec.hash()) + "))";
 		std::string v = "uint8(27 + (" + visitUintExpr(ec.v()) + ") % 2)";
-		std::string r = "bytes32(" + visitUintExpr(ec.r()) + ")";
-		std::string s = "bytes32(" + visitUintExpr(ec.s()) + ")";
+		std::string r = "bytes32(uint256(" + visitUintExpr(ec.r()) + "))";
+		std::string s = "bytes32(uint256(" + visitUintExpr(ec.s()) + "))";
 		result = "uint256(uint160(ecrecover(" + hash + ", " + v + ", " + r + ", " + s + ")))";
 		break;
 	}
@@ -2816,7 +2831,7 @@ std::string ProtoConverter::defaultBoolLiteral()
 		"block.prevrandao",
 	};
 	static constexpr const char* rhsExprs[] = {
-		"uint256(uint160(block.coinbase))",
+		"uint256(uint160(address(block.coinbase)))",
 		"block.chainid",
 		"block.basefee",
 		"block.blobbasefee",
