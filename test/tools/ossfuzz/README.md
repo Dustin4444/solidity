@@ -107,14 +107,14 @@ To be consistent and aid better evaluation of the utility of the fuzzing diction
   executes both via evmone, and asserts that the resulting EVM state is identical. The goal is to
   catch miscompilations introduced by the stack-reuse code-generation pass.
 
-## Debugging fuzzer crashes with sol\_debug\_runner
+## Debugging fuzzer issues with sol\_debug\_runner
 
 `sol_debug_runner` is a standalone tool for debugging differential testing failures
-from `sol_proto2_ossfuzz`. It takes a `.sol` file and runs it through the same
-compile-deploy-execute pipeline as the fuzzer, across all 4 configurations:
-`{noOpt, opt} x {viaIR=true, viaIR=false}`. It prints bytecodes, EVM execution
-results, logs, and storage for each, then reports which differential comparisons
-pass or fail.
+and internal compiler crashes from `sol_proto2_ossfuzz`. It takes a `.sol` file
+and runs it through the same compile-deploy-execute pipeline as the fuzzer, across
+all 4 configurations: `{noOpt, opt} x {viaIR=true, viaIR=false}`. It prints
+bytecodes, EVM execution results, logs, and storage for each, then reports which
+differential comparisons pass or fail.
 
 ### Building
 
@@ -165,10 +165,83 @@ CCACHE_DISABLE=1 make -j8 sol_debug_runner
 ### CLI options
 
 ```
-./sol_debug_runner <file.sol> [--output-dir <dir>] [--via-ir true|false]
+./sol_debug_runner <file.sol> [--output-dir <dir>] [--via-ir true|false] [--calldata <hex>] [--quiet]
 ```
 
 - `<file.sol>` — Solidity source file (positional, required)
 - `--output-dir <dir>` — write bytecode and log files here (optional)
 - `--via-ir true|false` — initial viaIR setting (default: `true`). The tool
   always tests both values; this controls which is "primary".
+- `--calldata <hex>` — extra calldata in hex (e.g. `a0ffba`), appended after
+  the `test()` method selector
+- `--quiet` — suppress all output except a one-line summary (`OK`, `MISMATCH`,
+  or `INTERNAL_ERROR`). Used by the delta debugger.
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | All match — no bug |
+| 1 | Differential mismatch found |
+| 2 | Normal compilation failure / file error |
+| 3 | Internal compiler error (assertion failure, crash) |
+
+## Minimizing issues with minimize\_sol\_issue.py
+
+`minimize_sol_issue.py` is a delta debugger that minimizes a `.sol` file (and
+optionally calldata) while preserving the issue. It uses the ddmin algorithm and
+calls `sol_debug_runner --quiet` as its oracle.
+
+It supports two modes:
+- **Differential mismatch** (default): minimizes while preserving exit code 1
+- **Compiler crash** (`--crash`): minimizes while preserving exit code 3
+
+### Usage
+
+Minimize a differential mismatch:
+
+```bash
+LD_LIBRARY_PATH=/home/matesoos/development/evmone/build/lib:$LD_LIBRARY_PATH \
+  python3 test/tools/minimize_sol_issue.py \
+    --runner ./build-normal/test/tools/sol_debug_runner \
+    --input bad-log.sol
+```
+
+Minimize an internal compiler crash:
+
+```bash
+LD_LIBRARY_PATH=/home/matesoos/development/evmone/build/lib:$LD_LIBRARY_PATH \
+  python3 test/tools/minimize_sol_issue.py \
+    --crash \
+    --runner ./build-normal/test/tools/sol_debug_runner \
+    --input crash.sol
+```
+
+With calldata:
+
+```bash
+LD_LIBRARY_PATH=/home/matesoos/development/evmone/build/lib:$LD_LIBRARY_PATH \
+  python3 test/tools/minimize_sol_issue.py \
+    --runner ./build-normal/test/tools/sol_debug_runner \
+    --input bad-log.sol \
+    --calldata a0ffba
+```
+
+### CLI options
+
+- `--runner <path>` — path to `sol_debug_runner` binary (required)
+- `--input <file.sol>` — Solidity file that triggers the issue (required)
+- `--crash` — minimize for internal compiler crash instead of differential mismatch
+- `--calldata <hex>` — extra calldata hex string
+- `--via-ir true|false` — initial viaIR setting (default: `true`)
+- `--output <file>` — output file (default: `<input>.min.sol`)
+- `--timeout <seconds>` — timeout per `sol_debug_runner` invocation (default: 30)
+
+### How it works
+
+1. **Verify** the original input reproduces the issue
+2. **Phase 1** — minimize calldata (if provided) using ddmin on byte pairs
+3. **Phase 2** — minimize Solidity source at line granularity using ddmin
+4. **Phase 3** — minimize Solidity source at character granularity using ddmin
+5. **Phase 4** — cleanup: remove blank lines, trim whitespace
+6. **Final verification** — confirm the minimized output still reproduces
