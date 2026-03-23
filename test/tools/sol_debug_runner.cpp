@@ -259,26 +259,30 @@ static bool compareRuns(
 	std::string const& _labelA,
 	RunResult const& _a,
 	std::string const& _labelB,
-	RunResult const& _b
+	RunResult const& _b,
+	bool _quiet = false
 )
 {
-	std::cout << "--- Comparing " << _labelA << " vs " << _labelB << " ---" << std::endl;
+	if (!_quiet)
+		std::cout << "--- Comparing " << _labelA << " vs " << _labelB << " ---" << std::endl;
 
 	if (_a.compilationFailed || _b.compilationFailed)
 	{
-		std::cout << "  SKIPPED (compilation failed: "
-			<< _labelA << "=" << (_a.compilationFailed ? "yes" : "no") << ", "
-			<< _labelB << "=" << (_b.compilationFailed ? "yes" : "no") << ")"
-			<< std::endl;
+		if (!_quiet)
+			std::cout << "  SKIPPED (compilation failed: "
+				<< _labelA << "=" << (_a.compilationFailed ? "yes" : "no") << ", "
+				<< _labelB << "=" << (_b.compilationFailed ? "yes" : "no") << ")"
+				<< std::endl;
 		return false;
 	}
 
 	if (_a.statusCode == EVMC_OUT_OF_GAS || _b.statusCode == EVMC_OUT_OF_GAS)
 	{
-		std::cout << "  SKIPPED (out-of-gas: "
-			<< _labelA << "=" << statusCodeToString(_a.statusCode) << ", "
-			<< _labelB << "=" << statusCodeToString(_b.statusCode) << ")"
-			<< std::endl;
+		if (!_quiet)
+			std::cout << "  SKIPPED (out-of-gas: "
+				<< _labelA << "=" << statusCodeToString(_a.statusCode) << ", "
+				<< _labelB << "=" << statusCodeToString(_b.statusCode) << ")"
+				<< std::endl;
 		return false;
 	}
 
@@ -292,9 +296,10 @@ static bool compareRuns(
 	// Status code
 	bool statusMatch = (_a.statusCode == _b.statusCode);
 	if (!statusMatch) mismatch = true;
-	std::cout << "  Status:  " << matchStr(statusMatch)
-		<< " (" << statusCodeToString(_a.statusCode) << " vs " << statusCodeToString(_b.statusCode) << ")"
-		<< std::endl;
+	if (!_quiet)
+		std::cout << "  Status:  " << matchStr(statusMatch)
+			<< " (" << statusCodeToString(_a.statusCode) << " vs " << statusCodeToString(_b.statusCode) << ")"
+			<< std::endl;
 
 	if (_a.statusCode == EVMC_SUCCESS && _b.statusCode == EVMC_SUCCESS)
 	{
@@ -302,19 +307,24 @@ static bool compareRuns(
 		bool outputMatch = (_a.output.size() == _b.output.size() &&
 			std::memcmp(_a.output.data(), _b.output.data(), _a.output.size()) == 0);
 		if (!outputMatch) mismatch = true;
-		std::cout << "  Output:  " << matchStr(outputMatch) << std::endl;
 
 		// Logs
 		bool logsMatch = logsEqual(_a.logs, _b.logs);
 		if (!logsMatch) mismatch = true;
-		std::cout << "  Logs:    " << matchStr(logsMatch) << std::endl;
 
 		// Storage
 		bool storageMatch = storageEqual(_a.storage, _b.storage);
 		if (!storageMatch) mismatch = true;
-		std::cout << "  Storage: " << matchStr(storageMatch) << std::endl;
+
+		if (!_quiet)
+		{
+			std::cout << "  Output:  " << matchStr(outputMatch) << std::endl;
+			std::cout << "  Logs:    " << matchStr(logsMatch) << std::endl;
+			std::cout << "  Storage: " << matchStr(storageMatch) << std::endl;
+		}
 	}
-	std::cout << std::endl;
+	if (!_quiet)
+		std::cout << std::endl;
 	return mismatch;
 }
 
@@ -339,6 +349,7 @@ int main(int argc, char* argv[])
 		("output-dir", po::value<std::string>()->default_value(""), "Directory to write output files (optional)")
 		("via-ir", po::value<bool>()->default_value(true), "Initial viaIR setting (default: true)")
 		("calldata", po::value<std::string>()->default_value(""), "Extra calldata in hex (e.g. \"a0ffba\"), appended after method selector")
+		("quiet,q", "Quiet mode: only print one-line summary, for use by delta debuggers")
 	;
 
 	po::positional_options_description positional;
@@ -353,43 +364,49 @@ int main(int argc, char* argv[])
 	catch (std::exception const& e)
 	{
 		std::cerr << "Error: " << e.what() << std::endl;
-		return 1;
+		return 2;
 	}
 
 	if (vm.count("help") || !vm.count("input-file"))
 	{
-		std::cout << "Usage: sol_debug_runner <file.sol> [--output-dir <dir>] [--via-ir true|false] [--calldata <hex>]" << std::endl;
+		std::cout << "Usage: sol_debug_runner <file.sol> [--output-dir <dir>] [--via-ir true|false] [--calldata <hex>] [--quiet]" << std::endl;
 		std::cout << desc << std::endl;
-		return vm.count("help") ? 0 : 1;
+		std::cout << std::endl;
+		std::cout << "Exit codes: 0 = all match, 1 = mismatch found, 2 = error/compilation failure" << std::endl;
+		return vm.count("help") ? 0 : 2;
 	}
 
 	std::string inputFile = vm["input-file"].as<std::string>();
 	std::string outputDir = vm["output-dir"].as<std::string>();
 	bool viaIR = vm["via-ir"].as<bool>();
 	std::string extraCalldataHex = vm["calldata"].as<std::string>();
+	bool quiet = vm.count("quiet") > 0;
 
 	// Read source file
 	std::ifstream ifs(inputFile);
 	if (!ifs.is_open())
 	{
 		std::cerr << "Error: Cannot open " << inputFile << std::endl;
-		return 1;
+		return 2;
 	}
 	std::string solSource{std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>()};
 
-	std::cout << "Source file: " << inputFile << " (" << solSource.size() << " bytes)" << std::endl;
-	std::cout << "viaIR: " << (viaIR ? "true" : "false") << std::endl;
-	std::cout << "Gas limit: " << s_gasLimit << std::endl;
-	if (!extraCalldataHex.empty())
-		std::cout << "Extra calldata: " << extraCalldataHex << std::endl;
-	std::cout << std::endl;
+	if (!quiet)
+	{
+		std::cout << "Source file: " << inputFile << " (" << solSource.size() << " bytes)" << std::endl;
+		std::cout << "viaIR: " << (viaIR ? "true" : "false") << std::endl;
+		std::cout << "Gas limit: " << s_gasLimit << std::endl;
+		if (!extraCalldataHex.empty())
+			std::cout << "Extra calldata: " << extraCalldataHex << std::endl;
+		std::cout << std::endl;
+	}
 
 	// Load evmone VM (relies on LD_LIBRARY_PATH to find the shared library)
 	evmc::VM& evmVM = EVMHost::getVM("libevmone.so");
 	if (!evmVM)
 	{
 		std::cerr << "Error: Could not load evmone VM. Set LD_LIBRARY_PATH to include evmone lib directory." << std::endl;
-		return 1;
+		return 2;
 	}
 
 	EVMVersion version = EVMVersion::current();
@@ -413,110 +430,123 @@ int main(int argc, char* argv[])
 	std::vector<RunResult> results;
 	for (auto const& config : configs)
 	{
-		std::cout << "Running: " << config.label << "..." << std::endl;
+		if (!quiet)
+			std::cout << "Running: " << config.label << "..." << std::endl;
 		try
 		{
 			results.push_back(runOnce(evmVM, version, source, config.optimiser, config.viaIR, extraCalldataHex));
 		}
 		catch (evmasm::StackTooDeepException const&)
 		{
-			std::cout << "  StackTooDeep exception" << std::endl;
+			if (!quiet)
+				std::cout << "  StackTooDeep exception" << std::endl;
 			RunResult r;
 			r.compilationFailed = true;
 			results.push_back(std::move(r));
 		}
 		catch (std::exception const& e)
 		{
-			std::cout << "  Exception: " << e.what() << std::endl;
+			if (!quiet)
+				std::cout << "  Exception: " << e.what() << std::endl;
 			RunResult r;
 			r.compilationFailed = true;
 			results.push_back(std::move(r));
 		}
 	}
 
-	std::cout << std::endl;
+	if (!quiet)
+	{
+		std::cout << std::endl;
 
-	// Print all results
-	for (size_t i = 0; i < configs.size(); i++)
-		printRunResult(configs[i].label, results[i], std::cout);
+		// Print all results
+		for (size_t i = 0; i < configs.size(); i++)
+			printRunResult(configs[i].label, results[i], std::cout);
+	}
 
 	// Run differential comparisons (same as fuzzer)
 	bool anyMismatch = false;
-	std::cout << YELLOW << "========== DIFFERENTIAL COMPARISONS ==========" << RESET << std::endl << std::endl;
+	if (!quiet)
+		std::cout << YELLOW << "========== DIFFERENTIAL COMPARISONS ==========" << RESET << std::endl << std::endl;
 
 	// Same viaIR: noOpt vs opt
-	anyMismatch |= compareRuns(configs[0].label, results[0], configs[1].label, results[1]);
+	anyMismatch |= compareRuns(configs[0].label, results[0], configs[1].label, results[1], quiet);
 	// Opposite viaIR: noOpt vs opt
-	anyMismatch |= compareRuns(configs[2].label, results[2], configs[3].label, results[3]);
+	anyMismatch |= compareRuns(configs[2].label, results[2], configs[3].label, results[3], quiet);
 	// Cross viaIR: noOpt(viaIR) vs noOpt(!viaIR)
-	anyMismatch |= compareRuns(configs[0].label, results[0], configs[2].label, results[2]);
+	anyMismatch |= compareRuns(configs[0].label, results[0], configs[2].label, results[2], quiet);
 	// Cross viaIR: opt(viaIR) vs opt(!viaIR)
-	anyMismatch |= compareRuns(configs[1].label, results[1], configs[3].label, results[3]);
+	anyMismatch |= compareRuns(configs[1].label, results[1], configs[3].label, results[3], quiet);
 
-	// Print outputs for all configs
-	std::cout << YELLOW << "========== OUTPUTS ==========" << RESET << std::endl << std::endl;
-	for (size_t i = 0; i < configs.size(); i++)
+	if (!quiet)
 	{
-		std::cout << "--- " << configs[i].label << " ---" << std::endl;
-		if (results[i].compilationFailed)
-			std::cout << "  COMPILATION FAILED" << std::endl;
-		else
-		{
-			std::cout << "  Status: " << statusCodeToString(results[i].statusCode) << std::endl;
-			std::cout << "  Output (" << results[i].output.size() << " bytes): "
-				<< toHexString(results[i].output) << std::endl;
-		}
-		std::cout << std::endl;
-	}
-
-	// Print logs for all configs
-	std::cout << YELLOW << "========== LOGS ==========" << RESET << std::endl;
-	std::cout << "NOTE: Creator addresses differ across configs because different bytecodes" << std::endl;
-	std::cout << "produce different CREATE/CREATE2 addresses. This is expected and not a bug." << std::endl;
-	std::cout << std::endl;
-	for (size_t i = 0; i < configs.size(); i++)
-	{
-		std::cout << "--- " << configs[i].label << " ---" << std::endl;
-		if (results[i].compilationFailed)
-			std::cout << "  COMPILATION FAILED" << std::endl;
-		else if (results[i].logs.empty())
-			std::cout << "  (no logs)" << std::endl;
-		else
-		{
-			for (size_t j = 0; j < results[i].logs.size(); j++)
-			{
-				auto const& log = results[i].logs[j];
-				std::cout << "  Log[" << j << "]:" << std::endl;
-				std::cout << "    Creator: " << toHexString(log.creator) << std::endl;
-				std::cout << "    Data (" << log.data.size() << " bytes): ";
-				std::ostringstream dataSS;
-				for (uint8_t b : log.data)
-					dataSS << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
-				std::cout << dataSS.str() << std::endl;
-				std::cout << "    Topics (" << log.topics.size() << "):" << std::endl;
-				for (size_t k = 0; k < log.topics.size(); k++)
-					std::cout << "      [" << k << "]: " << toHexString(log.topics[k]) << std::endl;
-			}
-		}
-		std::cout << std::endl;
-	}
-
-	// Write output files if requested
-	if (!outputDir.empty())
-	{
-		std::cout << "Writing output files to: " << outputDir << std::endl;
+		// Print outputs for all configs
+		std::cout << YELLOW << "========== OUTPUTS ==========" << RESET << std::endl << std::endl;
 		for (size_t i = 0; i < configs.size(); i++)
 		{
-			std::string prefix = outputDir + "/" + configs[i].label;
-			if (!results[i].compilationFailed)
+			std::cout << "--- " << configs[i].label << " ---" << std::endl;
+			if (results[i].compilationFailed)
+				std::cout << "  COMPILATION FAILED" << std::endl;
+			else
 			{
-				writeToFile(prefix + ".bytecode.hex", toHexString(results[i].bytecode));
-				std::ostringstream logStream;
-				printRunResult(configs[i].label, results[i], logStream);
-				writeToFile(prefix + ".log", logStream.str());
+				std::cout << "  Status: " << statusCodeToString(results[i].statusCode) << std::endl;
+				std::cout << "  Output (" << results[i].output.size() << " bytes): "
+					<< toHexString(results[i].output) << std::endl;
+			}
+			std::cout << std::endl;
+		}
+
+		// Print logs for all configs
+		std::cout << YELLOW << "========== LOGS ==========" << RESET << std::endl;
+		std::cout << "NOTE: Creator addresses differ across configs because different bytecodes" << std::endl;
+		std::cout << "produce different CREATE/CREATE2 addresses. This is expected and not a bug." << std::endl;
+		std::cout << std::endl;
+		for (size_t i = 0; i < configs.size(); i++)
+		{
+			std::cout << "--- " << configs[i].label << " ---" << std::endl;
+			if (results[i].compilationFailed)
+				std::cout << "  COMPILATION FAILED" << std::endl;
+			else if (results[i].logs.empty())
+				std::cout << "  (no logs)" << std::endl;
+			else
+			{
+				for (size_t j = 0; j < results[i].logs.size(); j++)
+				{
+					auto const& log = results[i].logs[j];
+					std::cout << "  Log[" << j << "]:" << std::endl;
+					std::cout << "    Creator: " << toHexString(log.creator) << std::endl;
+					std::cout << "    Data (" << log.data.size() << " bytes): ";
+					std::ostringstream dataSS;
+					for (uint8_t b : log.data)
+						dataSS << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
+					std::cout << dataSS.str() << std::endl;
+					std::cout << "    Topics (" << log.topics.size() << "):" << std::endl;
+					for (size_t k = 0; k < log.topics.size(); k++)
+						std::cout << "      [" << k << "]: " << toHexString(log.topics[k]) << std::endl;
+				}
+			}
+			std::cout << std::endl;
+		}
+
+		// Write output files if requested
+		if (!outputDir.empty())
+		{
+			std::cout << "Writing output files to: " << outputDir << std::endl;
+			for (size_t i = 0; i < configs.size(); i++)
+			{
+				std::string prefix = outputDir + "/" + configs[i].label;
+				if (!results[i].compilationFailed)
+				{
+					writeToFile(prefix + ".bytecode.hex", toHexString(results[i].bytecode));
+					std::ostringstream logStream;
+					printRunResult(configs[i].label, results[i], logStream);
+					writeToFile(prefix + ".log", logStream.str());
+				}
 			}
 		}
 	}
+
+	if (quiet)
+		std::cout << (anyMismatch ? "MISMATCH" : "OK") << std::endl;
 
 	return anyMismatch ? EXIT_FAILURE : EXIT_SUCCESS;
 }
