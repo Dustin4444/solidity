@@ -214,6 +214,8 @@ std::string ProtoConverter::visit(Program const& _p)
 				std::string keyType = elementaryTypeStr(map.key());
 				if (keyType == "string" || keyType == "bytes")
 					keyType = "uint256";
+				if (keyType == "address payable")
+					keyType = "address";
 				svi.mappingKeyTypeStr = keyType;
 			}
 			// Check if this is a struct type
@@ -791,6 +793,9 @@ std::string ProtoConverter::visitFunction(
 	// Libraries can't be payable
 	if (isLibrary && actualMut == PAYABLE)
 		actualMut = PURE;
+	// Internal/private functions cannot be payable in Solidity
+	if ((vis == "internal" || vis == "private") && actualMut == PAYABLE)
+		actualMut = NONPAYABLE;
 	// External/public functions that are payable need special care
 	switch (actualMut)
 	{
@@ -1999,8 +2004,22 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			result = "uint256(keccak256(abi.encode(" + args.str() + ")))";
 			break;
 		case AbiEncodeExpr::ENCODE_PACKED:
-			result = "uint256(keccak256(abi.encodePacked(" + args.str() + ")))";
+		{
+			// abi.encodePacked cannot pack bare literals — wrap each arg in uint256()
+			std::ostringstream wrappedArgs;
+			if (numArgs == 0)
+				wrappedArgs << "uint256(0)";
+			else
+			{
+				for (unsigned i = 0; i < numArgs; i++)
+				{
+					if (i > 0) wrappedArgs << ", ";
+					wrappedArgs << "uint256(" << visitUintExpr(ae.args(i)) << ")";
+				}
+			}
+			result = "uint256(keccak256(abi.encodePacked(" + wrappedArgs.str() + ")))";
 			break;
+		}
 		case AbiEncodeExpr::ENCODE_WITH_SELECTOR:
 			// Use a deterministic selector bytes4(0x12345678)
 			result = "uint256(keccak256(abi.encodeWithSelector(bytes4(0x12345678), " + args.str() + ")))";
@@ -2595,6 +2614,9 @@ std::string ProtoConverter::elementaryTypeStr(TypeName const& _t)
 		// Simplify: use uint256 for key if the type is dynamic
 		if (key == "string" || key == "bytes")
 			key = "uint256";
+		// Mapping keys cannot be "address payable", use "address" instead
+		if (key == "address payable")
+			key = "address";
 		return "mapping(" + key + " => " + val + ")";
 	}
 	default:
@@ -2832,7 +2854,6 @@ std::string ProtoConverter::defaultBoolLiteral()
 		"block.timestamp",
 		"block.number",
 		"uint256(uint160(tx.origin))",
-		"uint256(keccak256(msg.data))",
 		"block.prevrandao",
 	};
 	static constexpr const char* rhsExprs[] = {
@@ -2847,9 +2868,10 @@ std::string ProtoConverter::defaultBoolLiteral()
 		" != ", " == ", " < ", " > ", " <= ", " >= ",
 	};
 	unsigned r = randomNumber();
-	std::string lhs = lhsExprs[r % 6];
-	std::string rhs = rhsExprs[(r / 6) % 6];
-	std::string op = cmpOps[(r / 36) % 6];
+	unsigned numLhs = m_inReceive ? 4 : 5;
+	std::string lhs = lhsExprs[r % numLhs];
+	std::string rhs = rhsExprs[(r / numLhs) % 6];
+	std::string op = cmpOps[(r / (numLhs * 6)) % 6];
 	return lhs + op + rhs;
 }
 
