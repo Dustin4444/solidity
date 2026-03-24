@@ -661,39 +661,45 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		o << "\t}\n\n";
 	}
 
-	// Check if any base contract defines receive/fallback (for override keyword)
-	bool baseHasReceive = false;
-	bool baseHasFallback = false;
+	// Check how many base contracts define receive/fallback (for override keyword)
+	unsigned basesWithReceive = 0;
+	unsigned basesWithFallback = 0;
 	for (unsigned baseIdx : info.baseIndices)
 	{
 		if (m_contracts[baseIdx].hasReceive)
-			baseHasReceive = true;
+			basesWithReceive++;
 		if (m_contracts[baseIdx].hasFallback)
-			baseHasFallback = true;
+			basesWithFallback++;
 	}
 
-	// Receive function
-	if (!isLibrary && _c.has_receive())
+	// Receive function — must also generate override if multiple bases define receive
+	bool emitReceive = !isLibrary && (_c.has_receive() || basesWithReceive >= 2);
+	if (emitReceive)
 	{
 		o << "\treceive() external payable virtual";
-		if (baseHasReceive)
+		if (basesWithReceive > 0)
 			o << " override";
 		o << " {\n";
 		m_inReceive = true;
-		o << setupAndVisitBlock(_c.receive().body(), info, PAYABLE, 2);
+		if (_c.has_receive())
+			o << setupAndVisitBlock(_c.receive().body(), info, PAYABLE, 2);
 		m_inReceive = false;
 		o << "\t}\n\n";
+		m_contracts[_idx].hasReceive = true;
 	}
 
-	// Fallback function
-	if (!isLibrary && _c.has_fallback_func())
+	// Fallback function — must also generate override if multiple bases define fallback
+	bool emitFallback = !isLibrary && (_c.has_fallback_func() || basesWithFallback >= 2);
+	if (emitFallback)
 	{
 		o << "\tfallback() external payable virtual";
-		if (baseHasFallback)
+		if (basesWithFallback > 0)
 			o << " override";
 		o << " {\n";
-		o << setupAndVisitBlock(_c.fallback_func().body(), info, PAYABLE, 2);
+		if (_c.has_fallback_func())
+			o << setupAndVisitBlock(_c.fallback_func().body(), info, PAYABLE, 2);
 		o << "\t}\n\n";
+		m_contracts[_idx].hasFallback = true;
 	}
 
 	// Functions
@@ -2539,6 +2545,8 @@ std::string ProtoConverter::generateTestContract()
 		{
 			if (fi.numParams < 1)
 				continue; // Can't call via member syntax without a receiver param
+			if (fi.returnTwo)
+				continue; // Skip functions returning tuples — can't XOR with uint256
 			// receiver.funcName(remaining_args)
 			o << "\t\t_r ^= _cdl(" << (4 + paramOffset * 32) << ")."
 			  << fi.name << "(";
