@@ -245,25 +245,25 @@ private:
 	static std::string assignOpStr(AssignExpr::Op _op);
 
 	// ===== Limits =====
-	static constexpr unsigned s_maxExprDepth = 3;
-	static constexpr unsigned s_maxStmtDepth = 3;
-	static constexpr unsigned s_maxLocalVars = 6;
-	static constexpr unsigned s_maxContracts = 3;
-	static constexpr unsigned s_maxFunctions = 5;
-	static constexpr unsigned s_maxStmtsPerBlock = 5;
-	static constexpr unsigned s_maxParams = 3;
-	static constexpr unsigned s_maxStateVars = 5;
-	static constexpr unsigned s_maxEvents = 3;
-	static constexpr unsigned s_maxErrors = 3;
-	static constexpr unsigned s_maxEventParams = 3;
-	static constexpr unsigned s_maxErrorParams = 3;
-	static constexpr unsigned s_maxForIter = 5;
-	static constexpr unsigned s_maxFreeFunctions = 3;
-	static constexpr unsigned s_maxModifiers = 3;
-	static constexpr unsigned s_maxStructFields = 4;
-	static constexpr unsigned s_maxEnumMembers = 8;
-	static constexpr unsigned s_maxStructs = 3;
-	static constexpr unsigned s_maxEnums = 3;
+	static constexpr unsigned s_maxExprDepth = 2;
+	static constexpr unsigned s_maxStmtDepth = 2;
+	static constexpr unsigned s_maxLocalVars = 4;
+	static constexpr unsigned s_maxContracts = 2;
+	static constexpr unsigned s_maxFunctions = 3;
+	static constexpr unsigned s_maxStmtsPerBlock = 3;
+	static constexpr unsigned s_maxParams = 2;
+	static constexpr unsigned s_maxStateVars = 3;
+	static constexpr unsigned s_maxEvents = 2;
+	static constexpr unsigned s_maxErrors = 2;
+	static constexpr unsigned s_maxEventParams = 2;
+	static constexpr unsigned s_maxErrorParams = 2;
+	static constexpr unsigned s_maxForIter = 3;
+	static constexpr unsigned s_maxFreeFunctions = 2;
+	static constexpr unsigned s_maxModifiers = 2;
+	static constexpr unsigned s_maxStructFields = 3;
+	static constexpr unsigned s_maxEnumMembers = 5;
+	static constexpr unsigned s_maxStructs = 2;
+	static constexpr unsigned s_maxEnums = 2;
 
 	// ===== State =====
 	unsigned m_exprDepth = 0;
