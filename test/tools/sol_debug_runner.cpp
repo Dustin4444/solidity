@@ -195,6 +195,10 @@ static bool logsEqual(
 	return true;
 }
 
+/// Compare storage maps for equality (comparing current values only).
+/// Ignores account addresses because different bytecodes (optimized vs
+/// non-optimized) produce different CREATE/CREATE2 addresses. Instead,
+/// compares accounts positionally (by sorted address order).
 static bool storageEqual(
 	std::map<evmc::address, StorageMap> const& _a,
 	std::map<evmc::address, StorageMap> const& _b
@@ -202,12 +206,12 @@ static bool storageEqual(
 {
 	if (_a.size() != _b.size())
 		return false;
-	for (auto const& [addr, storageA] : _a)
+	auto itA = _a.begin();
+	auto itB = _b.begin();
+	for (; itA != _a.end(); ++itA, ++itB)
 	{
-		auto it = _b.find(addr);
-		if (it == _b.end())
-			return false;
-		auto const& storageB = it->second;
+		auto const& storageA = itA->second;
+		auto const& storageB = itB->second;
 		if (storageA.size() != storageB.size())
 			return false;
 		for (auto const& [key, valA] : storageA)
@@ -557,6 +561,30 @@ int main(int argc, char* argv[])
 					std::cout << "    Topics (" << log.topics.size() << "):" << std::endl;
 					for (size_t k = 0; k < log.topics.size(); k++)
 						std::cout << "      [" << k << "]: " << toHexString(log.topics[k]) << std::endl;
+				}
+			}
+			std::cout << std::endl;
+		}
+
+		// Print storage for all configs
+		std::cout << YELLOW << "========== STORAGE ==========" << RESET << std::endl;
+		std::cout << "NOTE: Account addresses differ across configs because different bytecodes" << std::endl;
+		std::cout << "produce different CREATE/CREATE2 addresses. This is expected and not a bug." << std::endl;
+		std::cout << std::endl;
+		for (size_t i = 0; i < configs.size(); i++)
+		{
+			std::cout << "--- " << configs[i].label << " ---" << std::endl;
+			if (results[i].compilationFailed)
+				std::cout << "  COMPILATION FAILED" << std::endl;
+			else if (results[i].storage.empty())
+				std::cout << "  (no storage)" << std::endl;
+			else
+			{
+				for (auto const& [addr, storageMap] : results[i].storage)
+				{
+					std::cout << "  Account " << toHexString(addr) << " (" << storageMap.size() << " slots):" << std::endl;
+					for (auto const& [key, val] : storageMap)
+						std::cout << "    " << toHexString(key) << " => " << toHexString(val.current) << std::endl;
 				}
 			}
 			std::cout << std::endl;

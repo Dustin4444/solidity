@@ -117,6 +117,9 @@ static bool logsEqual(
 }
 
 /// Compare storage maps for equality (comparing current values only).
+/// Ignores account addresses because different bytecodes (optimized vs
+/// non-optimized) produce different CREATE/CREATE2 addresses. Instead,
+/// compares accounts positionally (by sorted address order).
 static bool storageEqual(
 	std::map<evmc::address, StorageMap> const& _a,
 	std::map<evmc::address, StorageMap> const& _b
@@ -124,12 +127,12 @@ static bool storageEqual(
 {
 	if (_a.size() != _b.size())
 		return false;
-	for (auto const& [addr, storageA] : _a)
+	auto itA = _a.begin();
+	auto itB = _b.begin();
+	for (; itA != _a.end(); ++itA, ++itB)
 	{
-		auto it = _b.find(addr);
-		if (it == _b.end())
-			return false;
-		auto const& storageB = it->second;
+		auto const& storageA = itA->second;
+		auto const& storageB = itB->second;
 		if (storageA.size() != storageB.size())
 			return false;
 		for (auto const& [key, valA] : storageA)
