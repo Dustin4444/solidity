@@ -53,9 +53,14 @@ struct RunResult
 /// high enough to deploy and run simple contracts.
 static constexpr int64_t s_gasLimit = 1000000;
 
-/// When true, also run a third compilation with the opposite viaIR flag
-/// to catch IR codegen bugs. Disabled by default for speed.
-static constexpr bool s_compareViaIR = false;
+/// Fuzzer mode selection (controlled by compile definitions):
+/// - Default: unoptimized vs optimized (same viaIR flag)
+/// - FUZZER_MODE_VIAIR: optimized vs optimized-viaIR
+#ifdef FUZZER_MODE_VIAIR
+static constexpr bool s_modeViaIR = true;
+#else
+static constexpr bool s_modeViaIR = false;
+#endif
 
 /// Helper: compile, deploy, and execute a test contract.
 /// Returns RunResult with evmc::Result, logs, and storage.
@@ -193,88 +198,75 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 
 	try
 	{
-		// Run 1: without optimization
-		auto runNoOpt = runOnce(version, source, OptimiserSettings::minimal(), viaIR, extraCalldataHex);
-
-		// Skip second compilation if first failed (compilation error,
-		// deploy revert, etc.) — no point optimizing broken code.
-		if (runNoOpt.result.status_code != EVMC_SUCCESS)
-			return;
-
-		// Run 2: with optimization
-		auto runOpt = runOnce(version, source, OptimiserSettings::standard(), viaIR, extraCalldataHex);
-
-		// Skip differential checks if either run hit out-of-gas.
-		// With a tight gas limit, optimized code may use less gas and
-		// succeed where unoptimized doesn't (or vice versa). That's
-		// expected and not a bug.
-		bool gasRelated =
-			runNoOpt.result.status_code == EVMC_OUT_OF_GAS ||
-			runOpt.result.status_code == EVMC_OUT_OF_GAS;
-
-		if (!gasRelated)
+		if (s_modeViaIR)
 		{
-			// Status codes must match (same input, same gas, no gas queries).
-			solAssert(
-				runNoOpt.result.status_code == runOpt.result.status_code,
-				"Sol proto2 fuzzer: status code differs (noOpt=" +
-				std::to_string(runNoOpt.result.status_code) + " opt=" +
-				std::to_string(runOpt.result.status_code) + ")"
-			);
+			// Mode: optimized (legacy) vs optimized (viaIR)
+			auto runA = runOnce(version, source, OptimiserSettings::standard(), false, extraCalldataHex);
+			if (runA.result.status_code != EVMC_SUCCESS)
+				return;
 
-			// If both succeed, outputs, logs, and storage must also match.
-			if (runNoOpt.result.status_code == EVMC_SUCCESS && runOpt.result.status_code == EVMC_SUCCESS)
+			auto runB = runOnce(version, source, OptimiserSettings::standard(), true, extraCalldataHex);
+
+			bool gasRelated =
+				runA.result.status_code == EVMC_OUT_OF_GAS ||
+				runB.result.status_code == EVMC_OUT_OF_GAS;
+
+			if (!gasRelated && runB.result.status_code == EVMC_SUCCESS)
 			{
 				solAssert(
-					runNoOpt.result.output_size == runOpt.result.output_size &&
-					std::memcmp(runNoOpt.result.output_data, runOpt.result.output_data, runNoOpt.result.output_size) == 0,
-					"Sol proto2 fuzzer: optimized vs non-optimized output differs"
+					runA.result.output_size == runB.result.output_size &&
+					std::memcmp(runA.result.output_data, runB.result.output_data, runA.result.output_size) == 0,
+					"Sol proto2 fuzzer (viaIR mode): optimized legacy vs optimized viaIR output differs"
 				);
 				solAssert(
-					logsEqual(runNoOpt.logs, runOpt.logs),
-					"Sol proto2 fuzzer: optimized vs non-optimized logs differ"
+					logsEqual(runA.logs, runB.logs),
+					"Sol proto2 fuzzer (viaIR mode): optimized legacy vs optimized viaIR logs differ"
 				);
 				solAssert(
-					storageEqual(runNoOpt.storage, runOpt.storage),
-					"Sol proto2 fuzzer: optimized vs non-optimized storage differs"
+					storageEqual(runA.storage, runB.storage),
+					"Sol proto2 fuzzer (viaIR mode): optimized legacy vs optimized viaIR storage differs"
 				);
 			}
 		}
-
-		// Run 3: same optimization but with opposite viaIR flag.
-		// Comparing viaIR vs legacy catches IR codegen bugs.
-		// Only attempt if first run succeeded (source is valid).
-		if (s_compareViaIR && runNoOpt.result.status_code == EVMC_SUCCESS)
+		else
 		{
-			try
+			// Mode: unoptimized vs optimized (same viaIR flag)
+			auto runNoOpt = runOnce(version, source, OptimiserSettings::minimal(), viaIR, extraCalldataHex);
+
+			if (runNoOpt.result.status_code != EVMC_SUCCESS)
+				return;
+
+			auto runOpt = runOnce(version, source, OptimiserSettings::standard(), viaIR, extraCalldataHex);
+
+			bool gasRelated =
+				runNoOpt.result.status_code == EVMC_OUT_OF_GAS ||
+				runOpt.result.status_code == EVMC_OUT_OF_GAS;
+
+			if (!gasRelated)
 			{
-				auto runAlt = runOnce(version, source, OptimiserSettings::minimal(), !viaIR, extraCalldataHex);
-				// Skip if either hit out-of-gas (different codegen paths
-				// have different gas costs).
-				if (runAlt.result.status_code != EVMC_OUT_OF_GAS &&
-					runAlt.result.status_code == EVMC_SUCCESS)
+				solAssert(
+					runNoOpt.result.status_code == runOpt.result.status_code,
+					"Sol proto2 fuzzer: status code differs (noOpt=" +
+					std::to_string(runNoOpt.result.status_code) + " opt=" +
+					std::to_string(runOpt.result.status_code) + ")"
+				);
+
+				if (runNoOpt.result.status_code == EVMC_SUCCESS && runOpt.result.status_code == EVMC_SUCCESS)
 				{
 					solAssert(
-						runNoOpt.result.output_size == runAlt.result.output_size &&
-						std::memcmp(runNoOpt.result.output_data, runAlt.result.output_data, runNoOpt.result.output_size) == 0,
-						"Sol proto2 fuzzer: viaIR=" + std::string(viaIR ? "true" : "false") +
-						" vs viaIR=" + std::string(!viaIR ? "true" : "false") + " output differs"
+						runNoOpt.result.output_size == runOpt.result.output_size &&
+						std::memcmp(runNoOpt.result.output_data, runOpt.result.output_data, runNoOpt.result.output_size) == 0,
+						"Sol proto2 fuzzer: optimized vs non-optimized output differs"
 					);
 					solAssert(
-						logsEqual(runNoOpt.logs, runAlt.logs),
-						"Sol proto2 fuzzer: viaIR=" + std::string(viaIR ? "true" : "false") +
-						" vs viaIR=" + std::string(!viaIR ? "true" : "false") + " logs differ"
+						logsEqual(runNoOpt.logs, runOpt.logs),
+						"Sol proto2 fuzzer: optimized vs non-optimized logs differ"
 					);
 					solAssert(
-						storageEqual(runNoOpt.storage, runAlt.storage),
-						"Sol proto2 fuzzer: viaIR=" + std::string(viaIR ? "true" : "false") +
-						" vs viaIR=" + std::string(!viaIR ? "true" : "false") + " storage differs"
+						storageEqual(runNoOpt.storage, runOpt.storage),
+						"Sol proto2 fuzzer: optimized vs non-optimized storage differs"
 					);
 				}
-			}
-			catch (evmasm::StackTooDeepException const&)
-			{
-				// Legacy codegen may hit stack-too-deep for inputs that work with viaIR
 			}
 		}
 	}
