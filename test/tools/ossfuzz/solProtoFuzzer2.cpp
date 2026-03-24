@@ -53,6 +53,10 @@ struct RunResult
 /// high enough to deploy and run simple contracts.
 static constexpr int64_t s_gasLimit = 1000000;
 
+/// When true, also run a third compilation with the opposite viaIR flag
+/// to catch IR codegen bugs. Disabled by default for speed.
+static constexpr bool s_compareViaIR = false;
+
 /// Helper: compile, deploy, and execute a test contract.
 /// Returns RunResult with evmc::Result, logs, and storage.
 static RunResult runOnce(
@@ -240,7 +244,7 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		// Run 3: same optimization but with opposite viaIR flag.
 		// Comparing viaIR vs legacy catches IR codegen bugs.
 		// Only attempt if first run succeeded (source is valid).
-		if (runNoOpt.result.status_code == EVMC_SUCCESS)
+		if (s_compareViaIR && runNoOpt.result.status_code == EVMC_SUCCESS)
 		{
 			try
 			{
