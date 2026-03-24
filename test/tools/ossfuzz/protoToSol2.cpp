@@ -1832,7 +1832,10 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			break;
 		}
 		case BuiltinExpr::THIS_BALANCE:
-			result = "address(this).balance";
+			// Avoid address(this).balance — the contract address differs across
+			// optimization configs (different bytecode → different CREATE address),
+			// causing false positives in differential comparisons.
+			result = "uint256(0)";
 			break;
 		case BuiltinExpr::CALLDATALOAD:
 		case BuiltinExpr::CALLDATASIZE:
@@ -2838,7 +2841,7 @@ std::string ProtoConverter::defaultBoolLiteral()
 		"block.basefee",
 		"block.blobbasefee",
 		"uint256(blockhash(0))",
-		"address(this).balance",
+		"uint256(0)",
 	};
 	static constexpr const char* cmpOps[] = {
 		" != ", " == ", " < ", " > ", " <= ", " >= ",

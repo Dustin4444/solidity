@@ -749,7 +749,10 @@ void ProtoConverter::visit(NullaryOp const& _x)
 			m_output << dictionaryToken();
 		break;
 	case NullaryOp::ADDRESS:
-		m_output << "address()";
+		// Avoid address() — the contract address differs across optimization
+		// configs (different bytecode → different CREATE address), causing
+		// false positives in differential comparisons.
+		m_output << "0";
 		break;
 	case NullaryOp::ORIGIN:
 		m_output << "origin()";
@@ -782,12 +785,10 @@ void ProtoConverter::visit(NullaryOp const& _x)
 		m_output << "gaslimit()";
 		break;
 	case NullaryOp::SELFBALANCE:
-		// Replace calls to selfbalance() on unsupported EVMs with a dictionary
-		// token.
-		if (m_evmVersion.hasSelfBalance())
-			m_output << "selfbalance()";
-		else
-			m_output << dictionaryToken();
+		// Avoid selfbalance() — it depends on the contract's own address,
+		// which differs across optimization configs, causing false positives
+		// in differential comparisons.
+		m_output << "0";
 		break;
 	case NullaryOp::CHAINID:
 		// Replace calls to chainid() on unsupported EVMs with a dictionary
