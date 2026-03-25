@@ -76,7 +76,10 @@ std::string Whiskers::render() const
 
 void Whiskers::checkTemplateValid() const
 {
-	std::regex validTemplate("<[#?!\\/]\\+{0,1}[a-zA-Z0-9_$-]+(?:[^a-zA-Z0-9_$>-]|$)");
+	static std::regex const validTemplate(
+		"<[#?!\\/]\\+{0,1}[a-zA-Z0-9_$-]+(?:[^a-zA-Z0-9_$>-]|$)",
+		std::regex::optimize
+	);
 	std::smatch match;
 	assertThrow(
 		!regex_search(m_template, match, validTemplate),
@@ -87,7 +90,7 @@ void Whiskers::checkTemplateValid() const
 
 void Whiskers::checkParameterValid(std::string const& _parameter) const
 {
-	static std::regex validParam("^" + paramRegex() + "$");
+	static std::regex const validParam("^" + paramRegex() + "$", std::regex::optimize);
 	assertThrow(
 		regex_match(_parameter, validParam),
 		WhiskersError,
@@ -160,10 +163,11 @@ std::string Whiskers::replace(
 	std::map<std::string, std::vector<StringMap>> const& _listParameters
 )
 {
-	static std::regex listOrTag(
+	static std::regex const listOrTag(
 		"<(" + paramRegex() + ")>|"
 		"<#(" + paramRegex() + ")>((?:.|\\r|\\n)*?)</\\2>|"
-		"<\\?(\\+?" + paramRegex() + ")>((?:.|\\r|\\n)*?)(<!\\4>((?:.|\\r|\\n)*?))?</\\4>"
+		"<\\?(\\+?" + paramRegex() + ")>((?:.|\\r|\\n)*?)(<!\\4>((?:.|\\r|\\n)*?))?</\\4>",
+		std::regex::optimize
 	);
 	return regex_replace(_template, listOrTag, [&](std::match_results<std::string::const_iterator> _match) -> std::string
 	{
