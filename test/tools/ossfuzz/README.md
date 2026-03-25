@@ -265,6 +265,41 @@ reproduce the crash directly:
      repro: ./build-normal/solc/solc bad-log.min.003.sol --optimize
 ```
 
+## Quick corpus check with check\_diversity\_and\_errors.sh
+
+`check_diversity_and_errors.sh` is a convenience wrapper that dumps `.sol` files
+from a fuzzer corpus and pipes them through `check_sol_proto_files.py` in one
+step. It picks N random corpus entries, runs the fuzzer binary to dump their
+Solidity source, compiles them with `solc`, and reports errors + feature
+diversity.
+
+### Usage
+
+```bash
+# Default fuzzer (sol_proto2_ossfuzz), 300 files:
+./check_diversity_and_errors.sh my_corpus_sol_proto2_ossfuzz 300
+
+# Explicit fuzzer binary:
+./check_diversity_and_errors.sh my_corpus_sol_proto2_ossfuzz 300 \
+  ./build/test/tools/ossfuzz/sol_proto2_ossfuzz
+
+# viaIR variant:
+./check_diversity_and_errors.sh my_corpus_sol_proto2_ossfuzz_viair 300 \
+  ./build/test/tools/ossfuzz/sol_proto2_ossfuzz_viair
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `<corpus_dir>` | Directory containing fuzzer corpus files (required) |
+| `<num_files>` | Number of random corpus entries to sample (required) |
+| `[fuzzer_binary]` | Path to the fuzzer binary (default: `./build/test/tools/ossfuzz/sol_proto2_ossfuzz`) |
+
+The script expects `./build-normal/solc/solc` for compilation checks and
+`./test/tools/ossfuzz/check_sol_proto_files.py` for the analysis. Dumped files
+go into a temporary directory that is cleaned up automatically.
+
 ## Checking generated Solidity with check\_sol\_proto\_files.py
 
 `check_sol_proto_files.py` compiles a directory of generated `.sol` files with

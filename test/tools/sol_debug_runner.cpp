@@ -195,20 +195,44 @@ static bool logsEqual(
 	return true;
 }
 
+/// Filter out storage entries where current value is zero.
+/// In the EVM, an unwritten slot reads as zero, so a slot explicitly
+/// set to zero is semantically identical to one that was never written.
+static std::map<evmc::address, StorageMap> filterZeroStorage(
+	std::map<evmc::address, StorageMap> const& _storage
+)
+{
+	static constexpr evmc::bytes32 zero{};
+	std::map<evmc::address, StorageMap> filtered;
+	for (auto const& [addr, storageMap] : _storage)
+	{
+		StorageMap nonZero;
+		for (auto const& [key, val] : storageMap)
+			if (val.current != zero)
+				nonZero[key] = val;
+		if (!nonZero.empty())
+			filtered[addr] = std::move(nonZero);
+	}
+	return filtered;
+}
+
 /// Compare storage maps for equality (comparing current values only).
 /// Ignores account addresses because different bytecodes (optimized vs
 /// non-optimized) produce different CREATE/CREATE2 addresses. Instead,
 /// compares accounts positionally (by sorted address order).
+/// Slots with value zero are filtered out (equivalent to unwritten).
 static bool storageEqual(
 	std::map<evmc::address, StorageMap> const& _a,
 	std::map<evmc::address, StorageMap> const& _b
 )
 {
-	if (_a.size() != _b.size())
+	auto filtA = filterZeroStorage(_a);
+	auto filtB = filterZeroStorage(_b);
+	if (filtA.size() != filtB.size())
 		return false;
-	auto itA = _a.begin();
-	auto itB = _b.begin();
-	for (; itA != _a.end(); ++itA, ++itB)
+	auto itA = filtA.begin();
+	auto itB = filtB.begin();
+	for (; itA != filtA.end(); ++itA, ++itB)
 	{
 		auto const& storageA = itA->second;
 		auto const& storageB = itB->second;
@@ -257,8 +281,9 @@ static void printRunResult(std::string const& _label, RunResult const& _run, std
 			_out << "        [" << j << "]: " << toHexString(log.topics[j]) << std::endl;
 	}
 
-	_out << "  Storage (" << _run.storage.size() << " accounts):" << std::endl;
-	for (auto const& [addr, storageMap] : _run.storage)
+	auto filteredStorage = filterZeroStorage(_run.storage);
+	_out << "  Storage (" << filteredStorage.size() << " accounts):" << std::endl;
+	for (auto const& [addr, storageMap] : filteredStorage)
 	{
 		_out << "    Account " << toHexString(addr) << " (" << storageMap.size() << " slots):" << std::endl;
 		for (auto const& [key, val] : storageMap)
@@ -566,25 +591,30 @@ int main(int argc, char* argv[])
 			std::cout << std::endl;
 		}
 
-		// Print storage for all configs
+		// Print storage for all configs (filtering out zero-valued slots)
 		std::cout << YELLOW << "========== STORAGE ==========" << RESET << std::endl;
 		std::cout << "NOTE: Account addresses differ across configs because different bytecodes" << std::endl;
 		std::cout << "produce different CREATE/CREATE2 addresses. This is expected and not a bug." << std::endl;
+		std::cout << "NOTE: Slots with value zero are hidden (equivalent to unwritten in the EVM)." << std::endl;
 		std::cout << std::endl;
 		for (size_t i = 0; i < configs.size(); i++)
 		{
 			std::cout << "--- " << configs[i].label << " ---" << std::endl;
 			if (results[i].compilationFailed)
 				std::cout << "  COMPILATION FAILED" << std::endl;
-			else if (results[i].storage.empty())
-				std::cout << "  (no storage)" << std::endl;
 			else
 			{
-				for (auto const& [addr, storageMap] : results[i].storage)
+				auto filtered = filterZeroStorage(results[i].storage);
+				if (filtered.empty())
+					std::cout << "  (no storage)" << std::endl;
+				else
 				{
-					std::cout << "  Account " << toHexString(addr) << " (" << storageMap.size() << " slots):" << std::endl;
-					for (auto const& [key, val] : storageMap)
-						std::cout << "    " << toHexString(key) << " => " << toHexString(val.current) << std::endl;
+					for (auto const& [addr, storageMap] : filtered)
+					{
+						std::cout << "  Account " << toHexString(addr) << " (" << storageMap.size() << " slots):" << std::endl;
+						for (auto const& [key, val] : storageMap)
+							std::cout << "    " << toHexString(key) << " => " << toHexString(val.current) << std::endl;
+					}
 				}
 			}
 			std::cout << std::endl;

@@ -125,20 +125,44 @@ static bool logsEqual(
 	return true;
 }
 
+/// Filter out storage entries where current value is zero.
+/// In the EVM, an unwritten slot reads as zero, so a slot explicitly
+/// set to zero is semantically identical to one that was never written.
+static std::map<evmc::address, StorageMap> filterZeroStorage(
+	std::map<evmc::address, StorageMap> const& _storage
+)
+{
+	static constexpr evmc::bytes32 zero{};
+	std::map<evmc::address, StorageMap> filtered;
+	for (auto const& [addr, storageMap] : _storage)
+	{
+		StorageMap nonZero;
+		for (auto const& [key, val] : storageMap)
+			if (val.current != zero)
+				nonZero[key] = val;
+		if (!nonZero.empty())
+			filtered[addr] = std::move(nonZero);
+	}
+	return filtered;
+}
+
 /// Compare storage maps for equality (comparing current values only).
 /// Ignores account addresses because different bytecodes (optimized vs
 /// non-optimized) produce different CREATE/CREATE2 addresses. Instead,
 /// compares accounts positionally (by sorted address order).
+/// Slots with value zero are filtered out (equivalent to unwritten).
 static bool storageEqual(
 	std::map<evmc::address, StorageMap> const& _a,
 	std::map<evmc::address, StorageMap> const& _b
 )
 {
-	if (_a.size() != _b.size())
+	auto filtA = filterZeroStorage(_a);
+	auto filtB = filterZeroStorage(_b);
+	if (filtA.size() != filtB.size())
 		return false;
-	auto itA = _a.begin();
-	auto itB = _b.begin();
-	for (; itA != _a.end(); ++itA, ++itB)
+	auto itA = filtA.begin();
+	auto itB = filtB.begin();
+	for (; itA != filtA.end(); ++itA, ++itB)
 	{
 		auto const& storageA = itA->second;
 		auto const& storageB = itB->second;

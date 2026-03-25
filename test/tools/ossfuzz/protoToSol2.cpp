@@ -64,7 +64,8 @@ std::string ProtoConverter::visit(Program const& _p)
 		{
 			FuncInfo fi;
 			fi.name = "f" + std::to_string(i) + "_0";
-			fi.numParams = 0;
+			fi.numParams = 1;
+			fi.paramTypes.push_back(PARAM_UINT256);
 			fi.vis = PUBLIC;
 			fi.mut = PURE;
 			info.functions.push_back(fi);
@@ -73,10 +74,10 @@ std::string ProtoConverter::visit(Program const& _p)
 		{
 			FuncInfo fi;
 			fi.name = "f" + std::to_string(i) + "_" + std::to_string(j);
-			fi.numParams = std::min(
+			fi.numParams = std::max(1u, std::min(
 				static_cast<unsigned>(c.functions(j).num_params()),
 				s_maxParams
-			);
+			));
 			fi.vis = c.functions(j).vis();
 			fi.mut = c.functions(j).mut();
 			// Populate per-parameter types from proto (default: PARAM_UINT256)
@@ -108,9 +109,9 @@ std::string ProtoConverter::visit(Program const& _p)
 				// If param counts match, force a different count
 				else
 				{
-					fi.numParams = (prev.numParams + 1) % (s_maxParams + 1);
+					fi.numParams = (prev.numParams % s_maxParams) + 1;
 					if (fi.numParams == prev.numParams)
-						fi.numParams = (prev.numParams + 2) % (s_maxParams + 1);
+						fi.numParams = (fi.numParams % s_maxParams) + 1;
 					fi.name = prev.name;
 					// Rebuild paramTypes for new numParams
 					fi.paramTypes.clear();
