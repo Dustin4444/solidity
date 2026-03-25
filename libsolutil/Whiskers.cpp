@@ -26,7 +26,7 @@
 
 #include <libsolutil/Assertions.h>
 
-#include <regex>
+#include <boost/regex.hpp>
 
 using namespace solidity::util;
 
@@ -76,13 +76,13 @@ std::string Whiskers::render() const
 
 void Whiskers::checkTemplateValid() const
 {
-	static std::regex const validTemplate(
+	static boost::regex const validTemplate(
 		"<[#?!\\/]\\+{0,1}[a-zA-Z0-9_$-]+(?:[^a-zA-Z0-9_$>-]|$)",
-		std::regex::optimize
+		boost::regex::optimize
 	);
-	std::smatch match;
+	boost::smatch match;
 	assertThrow(
-		!regex_search(m_template, match, validTemplate),
+		!boost::regex_search(m_template, match, validTemplate),
 		WhiskersError,
 		"Template contains an invalid/unclosed tag " + match.str()
 	);
@@ -90,9 +90,9 @@ void Whiskers::checkTemplateValid() const
 
 void Whiskers::checkParameterValid(std::string const& _parameter) const
 {
-	static std::regex const validParam("^" + paramRegex() + "$", std::regex::optimize);
+	static boost::regex const validParam("^" + paramRegex() + "$", boost::regex::optimize);
 	assertThrow(
-		regex_match(_parameter, validParam),
+		boost::regex_match(_parameter, validParam),
 		WhiskersError,
 		"Parameter" + _parameter + " contains invalid characters."
 	);
@@ -135,13 +135,13 @@ namespace
 template<class ReplaceCallback>
 std::string regex_replace(
 	std::string const& _source,
-	std::regex const& _pattern,
+	boost::regex const& _pattern,
 	ReplaceCallback _replace,
-	std::regex_constants::match_flag_type _flags = std::regex_constants::match_default
+	boost::regex_constants::match_flag_type _flags = boost::regex_constants::match_default
 )
 {
-	std::sregex_iterator curMatch(_source.begin(), _source.end(), _pattern, _flags);
-	std::sregex_iterator matchEnd;
+	boost::sregex_iterator curMatch(_source.begin(), _source.end(), _pattern, _flags);
+	boost::sregex_iterator matchEnd;
 	std::string::const_iterator lastMatchedPos(_source.cbegin());
 	std::string result;
 	while (curMatch != matchEnd)
@@ -163,13 +163,13 @@ std::string Whiskers::replace(
 	std::map<std::string, std::vector<StringMap>> const& _listParameters
 )
 {
-	static std::regex const listOrTag(
+	static boost::regex const listOrTag(
 		"<(" + paramRegex() + ")>|"
 		"<#(" + paramRegex() + ")>((?:.|\\r|\\n)*?)</\\2>|"
 		"<\\?(\\+?" + paramRegex() + ")>((?:.|\\r|\\n)*?)(<!\\4>((?:.|\\r|\\n)*?))?</\\4>",
-		std::regex::optimize
+		boost::regex::optimize
 	);
-	return regex_replace(_template, listOrTag, [&](std::match_results<std::string::const_iterator> _match) -> std::string
+	return regex_replace(_template, listOrTag, [&](boost::match_results<std::string::const_iterator> _match) -> std::string
 	{
 		std::string tagName(_match[1]);
 		std::string listName(_match[2]);
