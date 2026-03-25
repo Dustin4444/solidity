@@ -55,7 +55,7 @@ static constexpr int64_t s_gasLimit = 1000000;
 
 /// Fuzzer mode selection (controlled by compile definitions):
 /// - Default: unoptimized vs optimized (same viaIR flag)
-/// - FUZZER_MODE_VIAIR: optimized vs optimized-viaIR
+/// - FUZZER_MODE_VIAIR: unoptimized (legacy) vs optimized (viaIR)
 #ifdef FUZZER_MODE_VIAIR
 static constexpr bool s_modeViaIR = true;
 #else
@@ -224,8 +224,8 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	{
 		if (s_modeViaIR)
 		{
-			// Mode: optimized (legacy) vs optimized (viaIR)
-			auto runA = runOnce(version, source, OptimiserSettings::standard(), false, extraCalldataHex);
+			// Mode: unoptimized (legacy) vs optimized (viaIR)
+			auto runA = runOnce(version, source, OptimiserSettings::minimal(), false, extraCalldataHex);
 			if (runA.result.status_code != EVMC_SUCCESS)
 				return;
 
@@ -240,15 +240,15 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 				solAssert(
 					runA.result.output_size == runB.result.output_size &&
 					std::memcmp(runA.result.output_data, runB.result.output_data, runA.result.output_size) == 0,
-					"Sol proto2 fuzzer (viaIR mode): optimized legacy vs optimized viaIR output differs"
+					"Sol proto2 fuzzer (viaIR mode): unoptimized legacy vs optimized viaIR output differs"
 				);
 				solAssert(
 					logsEqual(runA.logs, runB.logs),
-					"Sol proto2 fuzzer (viaIR mode): optimized legacy vs optimized viaIR logs differ"
+					"Sol proto2 fuzzer (viaIR mode): unoptimized legacy vs optimized viaIR logs differ"
 				);
 				solAssert(
 					storageEqual(runA.storage, runB.storage),
-					"Sol proto2 fuzzer (viaIR mode): optimized legacy vs optimized viaIR storage differs"
+					"Sol proto2 fuzzer (viaIR mode): unoptimized legacy vs optimized viaIR storage differs"
 				);
 			}
 		}
