@@ -78,7 +78,6 @@ add_library(yul
 	backends/evm/ssa/CodeTransform.h
 	backends/evm/ssa/ControlFlow.cpp
 	backends/evm/ssa/ControlFlow.h
-	backends/evm/ssa/DebugConfig.h
 	backends/evm/ssa/JunkAdmittingBlocksFinder.cpp
 	backends/evm/ssa/JunkAdmittingBlocksFinder.h
 	backends/evm/ssa/LivenessAnalysis.cpp
