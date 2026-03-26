@@ -108,10 +108,10 @@ dictionary, we stick to the following rules-of-thumb:
   vs optimized SSA CFG codegen — tests the newer SSA-based code generation
   backend against the legacy stack-based one. Always uses the latest EVM
   version.
-- `stack_reuse_codegen_ossfuzz` (from `StackReuseCodegenFuzzer.cpp`).
-  Generates random Yul via Protobuf, compiles with and without stack-reuse
-  optimisation (i.e. `optimizeStackAllocation`), executes both via evmone,
-  and asserts that the resulting EVM state is identical. The goal is to catch
+- `yul_proto_ossfuzz_evmone_check_stack_alloc` (from
+  `yulProtoFuzzerEvmone.cpp`, compiled with
+  `FUZZER_MODE_CHECK_STACK_ALLOC`). Compares optimized Yul with
+  `optimizeStackAllocation` off vs on (both legacy codegen). Catches
   miscompilations introduced by the stack-reuse code-generation pass.
 
 ## Yul Interpreter

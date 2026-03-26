@@ -64,10 +64,18 @@ static evmc::VM evmone = evmc::VM{evmc_create_evmone()};
 /// Fuzzer mode selection (controlled by compile definitions):
 /// - Default: unoptimized vs optimized (both legacy codegen)
 /// - FUZZER_MODE_SSACFG: unoptimized (legacy) vs optimized (SSA CFG codegen)
+/// - FUZZER_MODE_CHECK_STACK_ALLOC: optimized with optimizeStackAllocation off
+///   vs optimized with optimizeStackAllocation on (both legacy codegen)
 #ifdef FUZZER_MODE_SSACFG
 static constexpr bool s_modeSSACFG = true;
 #else
 static constexpr bool s_modeSSACFG = false;
+#endif
+
+#ifdef FUZZER_MODE_CHECK_STACK_ALLOC
+static constexpr bool s_modeCheckStackAlloc = true;
+#else
+static constexpr bool s_modeCheckStackAlloc = false;
 #endif
 
 /// Gas limit for EVM execution — bounds runtime and memory usage
@@ -261,35 +269,54 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 
 	YulStringRepository::reset();
 
-	// --- Run A: unoptimized (legacy codegen) ---
-	OptimiserSettings settingsNoOpt = OptimiserSettings::full();
-	settingsNoOpt.runYulOptimiser = false;
-	settingsNoOpt.optimizeStackAllocation = false;
+	// --- Run A ---
+	OptimiserSettings settingsA = OptimiserSettings::full();
+	if (s_modeCheckStackAlloc)
+	{
+		// Check stack alloc mode: Run A is optimized but with stack allocation off.
+		settingsA.runYulOptimiser = true;
+		settingsA.optimizeStackAllocation = false;
+	}
+	else
+	{
+		// Default / SSACFG mode: Run A is unoptimized.
+		settingsA.runYulOptimiser = false;
+		settingsA.optimizeStackAllocation = false;
+	}
 
-	auto runA = runYulOnce(version, yul_source, settingsNoOpt, calldata, /*viaSSACFG=*/false);
+	// Use custom optimizer sequence if provided in proto (for both modes that optimize)
+	if (settingsA.runYulOptimiser && _input.optimiser_seq_size() > 0)
+	{
+		settingsA.yulOptimiserSteps = buildOptimizerSequence(_input.optimiser_seq());
+		settingsA.yulOptimiserCleanupSteps = _input.optimiser_cleanup_seq_size() > 0
+			? buildOptimizerSequence(_input.optimiser_cleanup_seq())
+			: std::string(OptimiserSettings::DefaultYulOptimiserCleanupSteps);
+	}
+
+	auto runA = runYulOnce(version, yul_source, settingsA, calldata, /*viaSSACFG=*/false);
 
 	// Bail on deployment failure or serious call errors
 	if (runA.result.status_code != EVMC_SUCCESS &&
 		runA.result.status_code != EVMC_REVERT)
 		return;
 
-	// --- Run B: optimized ---
-	OptimiserSettings settingsOpt = OptimiserSettings::full();
-	settingsOpt.runYulOptimiser = true;
-	settingsOpt.optimizeStackAllocation = true;
+	// --- Run B: optimized (with stack allocation on) ---
+	OptimiserSettings settingsB = OptimiserSettings::full();
+	settingsB.runYulOptimiser = true;
+	settingsB.optimizeStackAllocation = true;
 
 	// Use custom optimizer sequence if provided in proto
 	if (_input.optimiser_seq_size() > 0)
 	{
-		settingsOpt.yulOptimiserSteps = buildOptimizerSequence(_input.optimiser_seq());
-		settingsOpt.yulOptimiserCleanupSteps = _input.optimiser_cleanup_seq_size() > 0
+		settingsB.yulOptimiserSteps = buildOptimizerSequence(_input.optimiser_seq());
+		settingsB.yulOptimiserCleanupSteps = _input.optimiser_cleanup_seq_size() > 0
 			? buildOptimizerSequence(_input.optimiser_cleanup_seq())
 			: std::string(OptimiserSettings::DefaultYulOptimiserCleanupSteps);
 	}
 
 	// In SSACFG mode: run B uses the SSA CFG codegen backend.
-	// In default mode: run B uses legacy codegen (same as run A).
-	auto runB = runYulOnce(version, yul_source, settingsOpt, calldata, /*viaSSACFG=*/s_modeSSACFG);
+	// In default / check-stack-alloc mode: run B uses legacy codegen.
+	auto runB = runYulOnce(version, yul_source, settingsB, calldata, /*viaSSACFG=*/s_modeSSACFG);
 
 	// Skip comparison if either run hit gas-related or serious errors
 	bool gasRelated =
@@ -302,7 +329,9 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		YulEvmoneUtility::seriousCallError(runB.result.status_code))
 		return;
 
-	std::string const modeLabel = s_modeSSACFG
+	std::string const modeLabel = s_modeCheckStackAlloc
+		? "Yul evmone fuzzer (check stack alloc): optimized without vs with stack allocation"
+		: s_modeSSACFG
 		? "Yul evmone fuzzer (SSACFG mode): unoptimized legacy vs optimized SSACFG"
 		: "Yul evmone fuzzer: optimized vs non-optimized";
 
