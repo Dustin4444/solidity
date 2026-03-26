@@ -18,9 +18,14 @@
 /**
  * Yul proto fuzzer with evmone-based differential testing.
  *
- * Generates Yul code from protobuf, compiles it twice (unoptimized and optimized),
- * deploys both versions on evmone, executes with the same calldata, and compares
- * output, logs, and storage — similar to sol_proto2_ossfuzz but for Yul.
+ * Generates Yul code from protobuf, compiles it twice, deploys both versions
+ * on evmone, executes with the same calldata, and compares output, logs, and
+ * storage — similar to sol_proto2_ossfuzz but for Yul.
+ *
+ * Two modes (controlled by compile definition):
+ * - Default (yul_proto_ossfuzz_evmone): unoptimized vs optimized, both legacy codegen
+ * - FUZZER_MODE_SSACFG (yul_proto_ossfuzz_evmone_ssacfg): unoptimized legacy vs
+ *   optimized SSA CFG codegen
  */
 
 #include <test/tools/ossfuzz/yulProto.pb.h>
@@ -55,6 +60,15 @@ using namespace solidity::langutil;
 using namespace solidity::frontend;
 
 static evmc::VM evmone = evmc::VM{evmc_create_evmone()};
+
+/// Fuzzer mode selection (controlled by compile definitions):
+/// - Default: unoptimized vs optimized (both legacy codegen)
+/// - FUZZER_MODE_SSACFG: unoptimized (legacy) vs optimized (SSA CFG codegen)
+#ifdef FUZZER_MODE_SSACFG
+static constexpr bool s_modeSSACFG = true;
+#else
+static constexpr bool s_modeSSACFG = false;
+#endif
 
 /// Result of a single compile-deploy-execute run on evmone.
 struct RunResult
@@ -163,7 +177,8 @@ RunResult runYulOnce(
 	EVMVersion _version,
 	std::string const& _yulSource,
 	OptimiserSettings _settings,
-	bytes const& _calldata
+	bytes const& _calldata,
+	bool _viaSSACFG = false
 )
 {
 	EVMHost hostContext(_version, evmone);
@@ -172,7 +187,7 @@ RunResult runYulOnce(
 	bytes byteCode;
 	try
 	{
-		YulAssembler assembler{_version, std::nullopt, _settings, _yulSource};
+		YulAssembler assembler{_version, std::nullopt, _settings, _yulSource, _viaSSACFG};
 		byteCode = assembler.assemble();
 	}
 	catch (solidity::yul::StackTooDeepError const&)
@@ -219,7 +234,8 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		filterOptimizationNoise
 	);
 	std::string yul_source = converter.programToString(_input);
-	EVMVersion version = converter.version();
+	// Always use the latest EVM version for maximum feature coverage.
+	EVMVersion version = EVMVersion::current();
 	auto calldata = converter.calldata();
 
 	if (const char* dump_path = getenv("PROTO_FUZZER_DUMP_PATH"))
@@ -230,19 +246,19 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 
 	YulStringRepository::reset();
 
-	// --- Run 1: unoptimized ---
+	// --- Run A: unoptimized (legacy codegen) ---
 	OptimiserSettings settingsNoOpt = OptimiserSettings::full();
 	settingsNoOpt.runYulOptimiser = false;
 	settingsNoOpt.optimizeStackAllocation = false;
 
-	auto runNoOpt = runYulOnce(version, yul_source, settingsNoOpt, calldata);
+	auto runA = runYulOnce(version, yul_source, settingsNoOpt, calldata, /*viaSSACFG=*/false);
 
 	// Bail on deployment failure or serious call errors
-	if (runNoOpt.result.status_code != EVMC_SUCCESS &&
-		runNoOpt.result.status_code != EVMC_REVERT)
+	if (runA.result.status_code != EVMC_SUCCESS &&
+		runA.result.status_code != EVMC_REVERT)
 		return;
 
-	// --- Run 2: optimized ---
+	// --- Run B: optimized ---
 	OptimiserSettings settingsOpt = OptimiserSettings::full();
 	settingsOpt.runYulOptimiser = true;
 	settingsOpt.optimizeStackAllocation = true;
@@ -256,43 +272,48 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 			: std::string(OptimiserSettings::DefaultYulOptimiserCleanupSteps);
 	}
 
-	auto runOpt = runYulOnce(version, yul_source, settingsOpt, calldata);
+	// In SSACFG mode: run B uses the SSA CFG codegen backend.
+	// In default mode: run B uses legacy codegen (same as run A).
+	auto runB = runYulOnce(version, yul_source, settingsOpt, calldata, /*viaSSACFG=*/s_modeSSACFG);
 
 	// Skip comparison if either run hit gas-related or serious errors
 	bool gasRelated =
-		runNoOpt.result.status_code == EVMC_OUT_OF_GAS ||
-		runOpt.result.status_code == EVMC_OUT_OF_GAS;
+		runA.result.status_code == EVMC_OUT_OF_GAS ||
+		runB.result.status_code == EVMC_OUT_OF_GAS;
 	if (gasRelated)
 		return;
 
-	// If unoptimized run hit a serious error, skip
-	if (YulEvmoneUtility::seriousCallError(runNoOpt.result.status_code) ||
-		YulEvmoneUtility::seriousCallError(runOpt.result.status_code))
+	if (YulEvmoneUtility::seriousCallError(runA.result.status_code) ||
+		YulEvmoneUtility::seriousCallError(runB.result.status_code))
 		return;
+
+	std::string const modeLabel = s_modeSSACFG
+		? "Yul evmone fuzzer (SSACFG mode): unoptimized legacy vs optimized SSACFG"
+		: "Yul evmone fuzzer: optimized vs non-optimized";
 
 	// Compare status codes
 	solAssert(
-		runNoOpt.result.status_code == runOpt.result.status_code,
-		"Yul evmone fuzzer: status code differs (noOpt=" +
-		std::to_string(runNoOpt.result.status_code) + " opt=" +
-		std::to_string(runOpt.result.status_code) + ")"
+		runA.result.status_code == runB.result.status_code,
+		modeLabel + " status code differs (A=" +
+		std::to_string(runA.result.status_code) + " B=" +
+		std::to_string(runB.result.status_code) + ")"
 	);
 
 	// Compare output, logs, and storage when both succeeded
-	if (runNoOpt.result.status_code == EVMC_SUCCESS && runOpt.result.status_code == EVMC_SUCCESS)
+	if (runA.result.status_code == EVMC_SUCCESS && runB.result.status_code == EVMC_SUCCESS)
 	{
 		solAssert(
-			runNoOpt.result.output_size == runOpt.result.output_size &&
-			std::memcmp(runNoOpt.result.output_data, runOpt.result.output_data, runNoOpt.result.output_size) == 0,
-			"Yul evmone fuzzer: optimized vs non-optimized output differs"
+			runA.result.output_size == runB.result.output_size &&
+			std::memcmp(runA.result.output_data, runB.result.output_data, runA.result.output_size) == 0,
+			modeLabel + " output differs"
 		);
 		solAssert(
-			logsEqual(runNoOpt.logs, runOpt.logs),
-			"Yul evmone fuzzer: optimized vs non-optimized logs differ"
+			logsEqual(runA.logs, runB.logs),
+			modeLabel + " logs differ"
 		);
 		solAssert(
-			storageEqual(runNoOpt.storage, runOpt.storage),
-			"Yul evmone fuzzer: optimized vs non-optimized storage differs"
+			storageEqual(runA.storage, runB.storage),
+			modeLabel + " storage differs"
 		);
 	}
 }

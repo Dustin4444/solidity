@@ -111,7 +111,12 @@ To be consistent and aid better evaluation of the utility of the fuzzing diction
   on evmone with protobuf-generated calldata, and compares output data, logs, and storage —
   the Yul equivalent of `sol_proto2_ossfuzz`. Unlike `stack_reuse_codegen_ossfuzz`, this fuzzer
   keeps stateful instructions (sstore/tstore/log) enabled so it can compare storage and logs,
-  and it supports custom optimizer sequences from the protobuf input.
+  and it supports custom optimizer sequences from the protobuf input. Always uses the latest
+  EVM version.
+- `yulProtoFuzzerEvmone.cpp`: exe is `yul_proto_ossfuzz_evmone_ssacfg`. Same source as above,
+  compiled with `FUZZER_MODE_SSACFG`. Compares unoptimized legacy codegen vs optimized SSA CFG
+  codegen — tests the newer SSA-based code generation backend against the legacy stack-based
+  one. Always uses the latest EVM version.
 
 ## Debugging fuzzer issues with `sol_debug_runner`
 
@@ -274,9 +279,11 @@ reproduce the crash directly:
 ## Debugging Yul fuzzer issues with `yul_debug_runner`
 
 `yul_debug_runner` is the Yul equivalent of `sol_debug_runner`. It reproduces
-the `yul_proto_ossfuzz_evmone` fuzzer's compile-deploy-execute flow on a `.yul`
-file. It runs two configurations (unoptimized vs optimized), deploys both on
-evmone, and compares output, logs, and storage.
+the `yul_proto_ossfuzz_evmone` and `yul_proto_ossfuzz_evmone_ssacfg` fuzzers'
+compile-deploy-execute flow on a `.yul` file. It runs three configurations
+(unoptimized, optimized legacy, optimized SSACFG), deploys all on evmone, and
+compares output, logs, and storage across all pairs. Always uses the latest EVM
+version.
 
 ### Building
 
@@ -308,9 +315,21 @@ CCACHE_DISABLE=1 make -j8 yul_debug_runner
    status, logs, storage) followed by a differential comparison section:
 
    ```
-   ========== DIFFERENTIAL COMPARISON ==========
+   ========== DIFFERENTIAL COMPARISONS ==========
 
-   --- Comparing unoptimized vs optimized ---
+   --- Comparing unoptimized vs optimized_legacy ---
+     Status:  MATCH (SUCCESS vs SUCCESS)
+     Output:  MATCH
+     Logs:    DIFFER
+     Storage: MATCH
+
+   --- Comparing unoptimized vs optimized_ssacfg ---
+     Status:  MATCH (SUCCESS vs SUCCESS)
+     Output:  MATCH
+     Logs:    MATCH
+     Storage: MATCH
+
+   --- Comparing optimized_legacy vs optimized_ssacfg ---
      Status:  MATCH (SUCCESS vs SUCCESS)
      Output:  MATCH
      Logs:    DIFFER
@@ -328,13 +347,12 @@ CCACHE_DISABLE=1 make -j8 yul_debug_runner
 ### CLI options
 
 ```
-./yul_debug_runner <file.yul> [--output-dir <dir>] [--calldata <hex>] [--evm-version <ver>] [--quiet]
+./yul_debug_runner <file.yul> [--output-dir <dir>] [--calldata <hex>] [--quiet]
 ```
 
 - `<file.yul>` — Yul source file (positional, required)
 - `--output-dir <dir>` — write bytecode and log files here (optional)
 - `--calldata <hex>` — calldata in hex (e.g. `a0ffba`), passed to the deployed contract
-- `--evm-version <ver>` — EVM version (e.g. `cancun`, `prague`). Default: latest
 - `--quiet` — suppress all output except a one-line summary (`OK`, `MISMATCH`,
   or `INTERNAL_ERROR`). Used by delta debuggers.
 

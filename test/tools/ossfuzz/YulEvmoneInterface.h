@@ -34,7 +34,8 @@ public:
 		langutil::EVMVersion _evmVersion,
 		std::optional<uint8_t> _eofVersion,
 		solidity::frontend::OptimiserSettings _optSettings,
-		std::string const& _yulSource
+		std::string const& _yulSource,
+		bool _viaSSACFG = false
 	):
 		m_stack(
 			_evmVersion,
@@ -43,7 +44,8 @@ public:
 			langutil::DebugInfoSelection::All()
 		),
 		m_yulProgram(_yulSource),
-		m_optimiseYul(_optSettings.runYulOptimiser)
+		m_optimiseYul(_optSettings.runYulOptimiser),
+		m_viaSSACFG(_viaSSACFG)
 	{}
 	solidity::bytes assemble();
 	std::shared_ptr<yul::Object> object();
@@ -51,6 +53,7 @@ private:
 	solidity::yul::YulStack m_stack;
 	std::string m_yulProgram;
 	bool m_optimiseYul;
+	bool m_viaSSACFG;
 };
 
 struct YulEvmoneUtility

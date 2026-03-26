@@ -17,9 +17,9 @@
 // SPDX-License-Identifier: GPL-3.0
 /**
  * Standalone debug tool that reproduces the yul_proto_ossfuzz_evmone fuzzer's
- * compile-deploy-execute flow on a .yul file. Runs two configurations
- * (unoptimized vs optimized) and dumps bytecodes, logs, storage, and output
- * for debugging differential testing failures.
+ * compile-deploy-execute flow on a .yul file. Runs three configurations
+ * (unoptimized, optimized legacy, optimized SSACFG) and dumps bytecodes, logs,
+ * storage, and output for debugging differential testing failures.
  */
 
 #include <test/tools/ossfuzz/YulEvmoneInterface.h>
@@ -121,7 +121,8 @@ static RunResult runYulOnce(
 	EVMVersion _version,
 	std::string const& _yulSource,
 	OptimiserSettings _settings,
-	bytes const& _calldata
+	bytes const& _calldata,
+	bool _viaSSACFG = false
 )
 {
 	RunResult result;
@@ -130,7 +131,7 @@ static RunResult runYulOnce(
 
 	try
 	{
-		YulAssembler assembler{_version, std::nullopt, _settings, _yulSource};
+		YulAssembler assembler{_version, std::nullopt, _settings, _yulSource, _viaSSACFG};
 		result.bytecode = assembler.assemble();
 	}
 	catch (solidity::yul::StackTooDeepError const&)
@@ -366,7 +367,6 @@ int main(int argc, char* argv[])
 		("input-file", po::value<std::string>(), "Yul source file")
 		("output-dir", po::value<std::string>()->default_value(""), "Directory to write output files (optional)")
 		("calldata", po::value<std::string>()->default_value(""), "Calldata in hex (e.g. \"a0ffba\"), passed to deployed contract")
-		("evm-version", po::value<std::string>()->default_value(""), "EVM version (e.g. \"cancun\", \"prague\"). Default: latest")
 		("quiet,q", "Quiet mode: only print one-line summary, for use by delta debuggers")
 	;
 
@@ -387,7 +387,7 @@ int main(int argc, char* argv[])
 
 	if (vm.count("help") || !vm.count("input-file"))
 	{
-		std::cout << "Usage: yul_debug_runner <file.yul> [--output-dir <dir>] [--calldata <hex>] [--evm-version <ver>] [--quiet]" << std::endl;
+		std::cout << "Usage: yul_debug_runner <file.yul> [--output-dir <dir>] [--calldata <hex>] [--quiet]" << std::endl;
 		std::cout << desc << std::endl;
 		std::cout << std::endl;
 		std::cout << "Exit codes:" << std::endl;
@@ -401,7 +401,6 @@ int main(int argc, char* argv[])
 	std::string inputFile = vm["input-file"].as<std::string>();
 	std::string outputDir = vm["output-dir"].as<std::string>();
 	std::string calldataHex = vm["calldata"].as<std::string>();
-	std::string evmVersionStr = vm["evm-version"].as<std::string>();
 	bool quiet = vm.count("quiet") > 0;
 
 	// Read source file
@@ -425,23 +424,13 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	// Parse EVM version
+	// Always use the latest EVM version (matching the fuzzer).
 	EVMVersion version = EVMVersion::current();
-	if (!evmVersionStr.empty())
-	{
-		auto parsed = EVMVersion::fromString(evmVersionStr);
-		if (!parsed)
-		{
-			std::cerr << "Error: Unknown EVM version: " << evmVersionStr << std::endl;
-			return 2;
-		}
-		version = *parsed;
-	}
 
 	if (!quiet)
 	{
 		std::cout << "Source file: " << inputFile << " (" << yulSource.size() << " bytes)" << std::endl;
-		std::cout << "EVM version: " << version.name() << std::endl;
+		std::cout << "EVM version: " << version.name() << " (latest, hardcoded)" << std::endl;
 		if (!calldataHex.empty())
 			std::cout << "Calldata: " << calldataHex << std::endl;
 		std::cout << std::endl;
@@ -455,11 +444,12 @@ int main(int argc, char* argv[])
 		return 2;
 	}
 
-	// Run 2 configurations: unoptimized and optimized
+	// Run 3 configurations: unoptimized, optimized (legacy), optimized (SSACFG)
 	struct Config
 	{
 		std::string label;
 		OptimiserSettings settings;
+		bool viaSSACFG;
 	};
 
 	OptimiserSettings settingsNoOpt = OptimiserSettings::full();
@@ -471,8 +461,9 @@ int main(int argc, char* argv[])
 	settingsOpt.optimizeStackAllocation = true;
 
 	std::vector<Config> configs = {
-		{"unoptimized", settingsNoOpt},
-		{"optimized", settingsOpt},
+		{"unoptimized", settingsNoOpt, false},
+		{"optimized_legacy", settingsOpt, false},
+		{"optimized_ssacfg", settingsOpt, true},
 	};
 
 	std::vector<RunResult> results;
@@ -482,7 +473,7 @@ int main(int argc, char* argv[])
 			std::cout << "Running: " << config.label << "..." << std::endl;
 		try
 		{
-			results.push_back(runYulOnce(evmVM, version, yulSource, config.settings, calldata));
+			results.push_back(runYulOnce(evmVM, version, yulSource, config.settings, calldata, config.viaSSACFG));
 		}
 		catch (solidity::yul::StackTooDeepError const&)
 		{
@@ -514,12 +505,17 @@ int main(int argc, char* argv[])
 			printRunResult(configs[i].label, results[i], std::cout);
 	}
 
-	// Run differential comparison
+	// Run differential comparisons
 	bool anyMismatch = false;
 	if (!quiet)
-		std::cout << YELLOW << "========== DIFFERENTIAL COMPARISON ==========" << RESET << std::endl << std::endl;
+		std::cout << YELLOW << "========== DIFFERENTIAL COMPARISONS ==========" << RESET << std::endl << std::endl;
 
+	// unoptimized vs optimized (legacy) — same as yul_proto_ossfuzz_evmone
 	anyMismatch |= compareRuns(configs[0].label, results[0], configs[1].label, results[1], quiet);
+	// unoptimized vs optimized (SSACFG) — same as yul_proto_ossfuzz_evmone_ssacfg
+	anyMismatch |= compareRuns(configs[0].label, results[0], configs[2].label, results[2], quiet);
+	// optimized legacy vs optimized SSACFG — cross-backend
+	anyMismatch |= compareRuns(configs[1].label, results[1], configs[2].label, results[2], quiet);
 
 	if (!quiet)
 	{
