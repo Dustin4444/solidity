@@ -91,7 +91,7 @@ dictionary, we stick to the following rules-of-thumb:
 
 ## Executables generated
 
-## Using EVMOne
+### Using EVMOne
 - `sol_proto_ossfuzz_evmone` (from `solProtoFuzzer2.cpp`). Generates random
   Solidity via Protobuf using `protoToSol2`, compiles with all 4
   configurations (`{noOpt, opt} x {viaIR=false, viaIR=true}`), deploys on
@@ -119,7 +119,7 @@ dictionary, we stick to the following rules-of-thumb:
   revert, test() function must return 0, i.e. all constants must be returned
   correctly.
 
-## Using Yul Interpreter
+### Using Yul Interpreter
 - `yul_diff_ssa_cfg_ossfuzz` (from `yulProto_diff_ossfuzz.cpp`). Generates
   random YUL via Protobuf, compiles with and without optimisation, compares
   via YUL interpreter.
@@ -127,7 +127,7 @@ dictionary, we stick to the following rules-of-thumb:
   random characters as strict assembly code, compiles with and without
   optimisation, compares via YUL interpreter.
 
-## Looks for Internal Crash
+### Looks for Internal Crash
 - `yul_proto_ossfuzz` (from `yulProtoFuzzer.cpp`). Generates random YUL via
   Protobuf, runs different optimizer steps, and hopes it crashes.
 - `strictasm_opt_ossfuzz` (from `strictasm_opt_ossfuzz.cpp`). Interprets
@@ -309,11 +309,12 @@ reproduce the crash directly:
 ## Debugging Yul fuzzer issues with `yul_debug_runner`
 
 `yul_debug_runner` is the Yul equivalent of `sol_debug_runner`. It reproduces
-the `yul_proto_ossfuzz_evmone` and `yul_proto_ossfuzz_evmone_ssacfg` fuzzers'
-compile-deploy-execute flow on a `.yul` file. It runs three configurations
-(unoptimized, optimized legacy, optimized SSACFG), deploys all on evmone, and
-compares output, logs, and storage across all pairs. Always uses the latest
-EVM version.
+the `yul_proto_ossfuzz_evmone`, `yul_proto_ossfuzz_evmone_ssacfg`, and
+`yul_proto_ossfuzz_evmone_check_stack_alloc` fuzzers' compile-deploy-execute
+flow on a `.yul` file. It runs four configurations (unoptimized, optimized
+legacy, optimized SSACFG, optimized legacy without stack allocation), deploys
+all on evmone, and compares output, logs, and storage across pairs. Always
+uses the latest EVM version.
 
 ### Building
 
@@ -364,6 +365,12 @@ CCACHE_DISABLE=1 make -j8 yul_debug_runner
      Status:  MATCH (SUCCESS vs SUCCESS)
      Output:  MATCH
      Logs:    DIFFER
+     Storage: MATCH
+
+   --- Comparing optimized_legacy_no_stack_alloc vs optimized_legacy ---
+     Status:  MATCH (SUCCESS vs SUCCESS)
+     Output:  MATCH
+     Logs:    MATCH
      Storage: MATCH
    ```
 

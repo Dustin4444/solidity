@@ -456,7 +456,8 @@ int main(int argc, char* argv[])
 		return 2;
 	}
 
-	// Run 3 configurations: unoptimized, optimized (legacy), optimized (SSACFG)
+	// Run 4 configurations: unoptimized, optimized (legacy), optimized (SSACFG),
+	// optimized (legacy, no stack alloc)
 	struct Config
 	{
 		std::string label;
@@ -472,10 +473,15 @@ int main(int argc, char* argv[])
 	settingsOpt.runYulOptimiser = true;
 	settingsOpt.optimizeStackAllocation = true;
 
+	OptimiserSettings settingsOptNoStackAlloc = OptimiserSettings::full();
+	settingsOptNoStackAlloc.runYulOptimiser = true;
+	settingsOptNoStackAlloc.optimizeStackAllocation = false;
+
 	std::vector<Config> configs = {
 		{"unoptimized", settingsNoOpt, false},
 		{"optimized_legacy", settingsOpt, false},
 		{"optimized_ssacfg", settingsOpt, true},
+		{"optimized_legacy_no_stack_alloc", settingsOptNoStackAlloc, false},
 	};
 
 	std::vector<RunResult> results;
@@ -528,6 +534,8 @@ int main(int argc, char* argv[])
 	anyMismatch |= compareRuns(configs[0].label, results[0], configs[2].label, results[2], quiet);
 	// optimized legacy vs optimized SSACFG — cross-backend
 	anyMismatch |= compareRuns(configs[1].label, results[1], configs[2].label, results[2], quiet);
+	// optimized (no stack alloc) vs optimized (stack alloc) — same as _check_stack_alloc fuzzer
+	anyMismatch |= compareRuns(configs[3].label, results[3], configs[1].label, results[1], quiet);
 
 	if (!quiet)
 	{
