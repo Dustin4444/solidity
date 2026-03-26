@@ -91,14 +91,19 @@ dictionary, we stick to the following rules-of-thumb:
 
 ## Executables generated
 
+Firstly, whenever relevant we ONLY use latest EVM version.
+
 ### Using EVMOne
 - `sol_proto_ossfuzz_evmone` (from `solProtoFuzzer2.cpp`). Generates random
-  Solidity via Protobuf using `protoToSol2`, compiles with all 4
-  configurations (`{noOpt, opt} x {viaIR=false, viaIR=true}`), deploys on
-  evmone, and compares output, logs, and storage across all pairs.
+  Solidity via Protobuf schema `sol2Proto.proto` using `protoToSol2`, compiles
+  with 2 configurations — unoptimized vs optimized — both using the same
+  `viaIR` flag (chosen by the protobuf input). Deploys on evmone and compares
+  output, logs, and storage.
 - `sol_proto_ossfuzz_evmone_viair` (from `solProtoFuzzer2.cpp`, compiled with
-  `FUZZER_MODE_VIAIR`). Same as above but only tests viaIR configurations,
-  skipping the legacy codegen path.
+  `FUZZER_MODE_VIAIR`). Generates random Solidity via Protobuf schema
+  `sol2Proto.proto` using `protoToSol2`, compiles unoptimized with legacy
+  codegen (viaIR=false) vs optimized with IR codegen (viaIR=true). Compares
+  output, logs, and storage.
 - `yul_proto_ossfuzz_evmone` (from `yulProtoFuzzerEvmone.cpp`). Generates
   random Yul via Protobuf, compiles twice (unoptimized and with the full Yul
   optimizer), deploys both versions on evmone with protobuf-generated
@@ -106,18 +111,18 @@ dictionary, we stick to the following rules-of-thumb:
 - `yul_proto_ossfuzz_evmone_ssacfg` (from `yulProtoFuzzerEvmone.cpp`,
   compiled with `FUZZER_MODE_SSACFG`). Compares unoptimized legacy codegen
   vs optimized SSA CFG codegen — tests the newer SSA-based code generation
-  backend against the legacy stack-based one. Always uses the latest EVM
-  version.
+  backend against the legacy stack-based one.
 - `yul_proto_ossfuzz_evmone_check_stack_alloc` (from
-  `yulProtoFuzzerEvmone.cpp`, compiled with
-  `FUZZER_MODE_CHECK_STACK_ALLOC`). Compares optimized Yul with
-  `optimizeStackAllocation` off vs on (both legacy codegen). Catches
-  miscompilations introduced by the stack-reuse code-generation pass.
+  `yulProtoFuzzerEvmone.cpp`, compiled with `FUZZER_MODE_CHECK_STACK_ALLOC`).
+  Compares optimized Yul with `optimizeStackAllocation` off vs on (both legacy
+  codegen). Catches miscompilations introduced by the stack-reuse
+  code-generation pass.
 - `sol_proto_ossfuzz` (from `solProtoFuzzer.cpp`). Generates random Solidity
-  via Protobuf. Generating pre-determined code that returns
-  known constants. Runs via evmone (in-memory), asserts that it does not
-  revert, test() function must return 0, i.e. all constants must be returned
-  correctly.
+  via the Protobuf schema `solProto.proto`, producing code with
+  functions that return known constants. Compiles with minimal optimizer
+  settings, deploys on evmone, asserts `test()` does not revert and returns
+  0 (i.e. all constants are returned correctly). Not differential — single
+  configuration only.
 
 ### Using Yul Interpreter
 - `yul_diff_ssa_cfg_ossfuzz` (from `yulProto_diff_ossfuzz.cpp`). Generates
@@ -144,7 +149,7 @@ dictionary, we stick to the following rules-of-thumb:
 - `solc_mutator_ossfuzz` (from `solc_ossfuzz.cpp`). Same as previous, but with
   a custom mutator included.
 
-## Debugging fuzzer issues with `sol_debug_runner`
+## Debugging solidity issues with `sol_debug_runner`
 
 `sol_debug_runner` is a standalone tool for debugging differential testing
 failures and internal compiler crashes from `sol_proto_ossfuzz_evmone`. It
@@ -306,7 +311,7 @@ reproduce the crash directly:
      repro: ./build-normal/solc/solc bad-log.min.003.sol --optimize
 ```
 
-## Debugging Yul fuzzer issues with `yul_debug_runner`
+## Debugging Yul issues with `yul_debug_runner`
 
 `yul_debug_runner` is the Yul equivalent of `sol_debug_runner`. It reproduces
 the `yul_proto_ossfuzz_evmone`, `yul_proto_ossfuzz_evmone_ssacfg`, and
