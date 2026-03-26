@@ -109,7 +109,7 @@ To be consistent and aid better evaluation of the utility of the fuzzing diction
 - `yulProtoFuzzerEvmone.cpp`: exe is `yul_proto_ossfuzz_evmone`. Generates random Yul via
   Protobuf, compiles twice (unoptimized and with the full Yul optimizer), deploys both versions
   on evmone with protobuf-generated calldata, and compares output data, logs, and storage —
-  the Yul equivalent of `sol_proto2_ossfuzz`. Unlike `stack_reuse_codegen_ossfuzz`, this fuzzer
+  the Yul equivalent of `sol_proto_ossfuzz_evmone`. Unlike `stack_reuse_codegen_ossfuzz`, this fuzzer
   keeps stateful instructions (sstore/tstore/log) enabled so it can compare storage and logs,
   and it supports custom optimizer sequences from the protobuf input. Always uses the latest
   EVM version.
@@ -121,7 +121,7 @@ To be consistent and aid better evaluation of the utility of the fuzzing diction
 ## Debugging fuzzer issues with `sol_debug_runner`
 
 `sol_debug_runner` is a standalone tool for debugging differential testing failures
-and internal compiler crashes from `sol_proto2_ossfuzz`. It takes a `.sol` file
+and internal compiler crashes from `sol_proto_ossfuzz_evmone`. It takes a `.sol` file
 and runs it through the same compile-deploy-execute pipeline as the fuzzer, across
 all 4 configurations: `{noOpt, opt} x {viaIR=true, viaIR=false}`. It prints
 bytecodes, EVM execution results, logs, and storage for each, then reports which
@@ -143,7 +143,7 @@ CCACHE_DISABLE=1 make -j8 sol_debug_runner
 
    ```bash
    PROTO_FUZZER_DUMP_PATH=bad-log.sol \
-     ./build/test/tools/ossfuzz/sol_proto2_ossfuzz crash-<hash>
+     ./build/test/tools/ossfuzz/sol_proto_ossfuzz_evmone crash-<hash>
    ```
 
 2. Run the debug tool:
@@ -376,16 +376,16 @@ diversity.
 ### Usage
 
 ```bash
-# Default fuzzer (sol_proto2_ossfuzz), 300 files:
-./check_diversity_and_errors.sh my_corpus_sol_proto2_ossfuzz 300
+# Default fuzzer (sol_proto_ossfuzz_evmone), 300 files:
+./check_diversity_and_errors.sh my_corpus_sol_proto_ossfuzz_evmone 300
 
 # Explicit fuzzer binary:
-./check_diversity_and_errors.sh my_corpus_sol_proto2_ossfuzz 300 \
-  ./build/test/tools/ossfuzz/sol_proto2_ossfuzz
+./check_diversity_and_errors.sh my_corpus_sol_proto_ossfuzz_evmone 300 \
+  ./build/test/tools/ossfuzz/sol_proto_ossfuzz_evmone
 
 # viaIR variant:
-./check_diversity_and_errors.sh my_corpus_sol_proto2_ossfuzz_viair 300 \
-  ./build/test/tools/ossfuzz/sol_proto2_ossfuzz_viair
+./check_diversity_and_errors.sh my_corpus_sol_proto_ossfuzz_evmone_viair 300 \
+  ./build/test/tools/ossfuzz/sol_proto_ossfuzz_evmone_viair
 ```
 
 ### Arguments
@@ -394,7 +394,7 @@ diversity.
 |----------|-------------|
 | `<corpus_dir>` | Directory containing fuzzer corpus files (required) |
 | `<num_files>` | Number of random corpus entries to sample (required) |
-| `[fuzzer_binary]` | Path to the fuzzer binary (default: `./build/test/tools/ossfuzz/sol_proto2_ossfuzz`) |
+| `[fuzzer_binary]` | Path to the fuzzer binary (default: `./build/test/tools/ossfuzz/sol_proto_ossfuzz_evmone`) |
 
 The script expects `./build-normal/solc/solc` for compilation checks and
 `./test/tools/ossfuzz/check_sol_proto_files.py` for the analysis. Dumped files
@@ -413,11 +413,11 @@ First, dump Solidity source from fuzzer corpus entries:
 
 ```bash
 mkdir -p tmp
-find my_corpus_sol_proto2_ossfuzz/ -maxdepth 1 -type f -print0 \
+find my_corpus_sol_proto_ossfuzz_evmone/ -maxdepth 1 -type f -print0 \
   | shuf -z -n 200 \
   | while IFS= read -r -d '' file; do
       PROTO_FUZZER_DUMP_PATH="tmp/$(basename "$file").sol" \
-        ./build/test/tools/ossfuzz/sol_proto2_ossfuzz "$file"
+        ./build/test/tools/ossfuzz/sol_proto_ossfuzz_evmone "$file"
     done
 ```
 

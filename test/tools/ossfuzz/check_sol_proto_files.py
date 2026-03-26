@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Check generated Solidity files from sol_proto2_ossfuzz for compilation
+Check generated Solidity files from sol_proto_ossfuzz_evmone for compilation
 errors/warnings and tally language feature usage.
 
 Usage:
