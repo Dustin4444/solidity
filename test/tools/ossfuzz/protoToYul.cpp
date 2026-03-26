@@ -847,6 +847,14 @@ void ProtoConverter::visit(CopyFunc const& _x)
 		m_output << "calldatacopy";
 		break;
 	case CopyFunc::CODE:
+		// codecopy copies the contract's own bytecode into memory.
+		// Bytecode differs between optimization levels, so codecopy is
+		// inherently optimization-dependent (same as codesize).
+		if (m_filterOptimizationNoise)
+		{
+			m_output << "calldatacopy";
+			break;
+		}
 		m_output << "codecopy";
 		break;
 	case CopyFunc::RETURNDATA:
