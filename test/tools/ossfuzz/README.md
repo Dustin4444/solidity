@@ -33,10 +33,10 @@ $ docker run --rm -v `pwd`:/src/solidity \
 For the following reasons:
 
 - Fuzzing binaries **must** link against libc++ and not libstdc++
-  - This is [because][2] (1) MemorySanitizer (which flags uses of
-    uninitialized memory) depends on libc++; and (2) because libc++ is
-    instrumented (to check for memory and type errors) and libstdc++ not,
-    the former may find more bugs.
+  This is [because][2] (1) MemorySanitizer (which flags uses of
+  uninitialized memory) depends on libc++; and (2) because libc++ is
+  instrumented (to check for memory and type errors) and libstdc++ not,
+  the former may find more bugs.
 
 - Linking against libc++ requires us to compile everything solidity depends
   on from source (and link these against libc++ as well)
@@ -229,6 +229,7 @@ CCACHE_DISABLE=1 make -j8 sol_debug_runner
 | 1 | Differential mismatch found |
 | 2 | Normal compilation failure / file error |
 | 3 | Internal compiler error (assertion failure, crash) |
+
 
 ## Minimizing issues with minimize_sol_issue.py
 
@@ -519,7 +520,7 @@ Features showing `(none)` indicate the fuzzer corpus hasn't grown large
 enough to produce those protobuf field combinations yet — this is normal for
 a young corpus.
 
-# Coverage for isoltest/fuzzer
+# Coverage report generation for isoltest/fuzzer
 
 ## 1. Reset counters (clean slate)
 ```
