@@ -91,7 +91,7 @@ dictionary, we stick to the following rules-of-thumb:
 
 ## Executables generated
 
-## EVMOne
+## Using EVMOne
 - `sol_proto_ossfuzz_evmone` (from `solProtoFuzzer2.cpp`). Generates random
   Solidity via Protobuf using `protoToSol2`, compiles with all 4
   configurations (`{noOpt, opt} x {viaIR=false, viaIR=true}`), deploys on
@@ -113,8 +113,13 @@ dictionary, we stick to the following rules-of-thumb:
   `FUZZER_MODE_CHECK_STACK_ALLOC`). Compares optimized Yul with
   `optimizeStackAllocation` off vs on (both legacy codegen). Catches
   miscompilations introduced by the stack-reuse code-generation pass.
+- `sol_proto_ossfuzz` (from `solProtoFuzzer.cpp`). Generates random Solidity
+  via Protobuf. Generating pre-determined code that returns
+  known constants. Runs via evmone (in-memory), asserts that it does not
+  revert, test() function must return 0, i.e. all constants must be returned
+  correctly.
 
-## Yul Interpreter
+## Using Yul Interpreter
 - `yul_diff_ssa_cfg_ossfuzz` (from `yulProto_diff_ossfuzz.cpp`). Generates
   random YUL via Protobuf, compiles with and without optimisation, compares
   via YUL interpreter.
@@ -125,11 +130,6 @@ dictionary, we stick to the following rules-of-thumb:
 ## Looks for Internal Crash
 - `yul_proto_ossfuzz` (from `yulProtoFuzzer.cpp`). Generates random YUL via
   Protobuf, runs different optimizer steps, and hopes it crashes.
-- `sol_proto_ossfuzz` (from `solProtoFuzzer.cpp`). Generates random Solidity
-  via Protobuf. This is actually generating pre-determined code that returns
-  known constants. Runs via evmone (in-memory), asserts that it does not
-  revert, test() function must return 0, i.e. all constants must be returned
-  correctly.
 - `strictasm_opt_ossfuzz` (from `strictasm_opt_ossfuzz.cpp`). Interprets
   random characters as strict assembly code, runs the optimizer, and hopes
   it crashes.
@@ -140,8 +140,8 @@ dictionary, we stick to the following rules-of-thumb:
   characters as some kind of constants, runs the constant optimizer, and
   hopes it crashes.
 - `solc_ossfuzz` (from `solc_ossfuzz.cpp`). Interprets random characters as
-  Solidity test case, compiles and hopes it crashes.
-- `solc_mutator_ossfuzz` (from `solc_ossfuzz.cpp`). Same as above, but with
+  Solidity code, compiles and hopes it crashes.
+- `solc_mutator_ossfuzz` (from `solc_ossfuzz.cpp`). Same as previous, but with
   a custom mutator included.
 
 ## Debugging fuzzer issues with `sol_debug_runner`
