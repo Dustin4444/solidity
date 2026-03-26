@@ -23,8 +23,6 @@
 #include <libyul/backends/evm/ssa/StackShuffler.h>
 #include <libyul/backends/evm/ssa/StackUtils.h>
 
-#include <libsolutil/Visitor.h>
-
 #include <range/v3/algorithm/count.hpp>
 #include <range/v3/algorithm/replace.hpp>
 #include <range/v3/view/transform.hpp>
@@ -37,6 +35,28 @@ using namespace solidity::yul::ssa;
 
 namespace
 {
+
+solidity::Logger const& log()
+{
+	static solidity::Logger const& instance = solidity::Registry::instance().get("yul.ssa.stacklayout");
+	return instance;
+}
+
+solidity::Logger const& logShuffler()
+{
+	static solidity::Logger const& instance = solidity::Registry::instance().get("yul.ssa.stacklayout.shuffler");
+	return instance;
+}
+
+std::string operationName(SSACFG::Operation const& _operation)
+{
+	return std::visit(solidity::util::GenericVisitor{
+		[](SSACFG::Call const& _call) { return _call.function.get().name.str(); },
+		[](SSACFG::BuiltinCall const& _call) { return _call.builtin.get().name; },
+		[](SSACFG::LiteralAssignment const&) -> std::string { return "assign"; }
+	}, _operation.kind);
+}
+
 void handlePhiFunctions(StackData& _stackData, PhiInverse const& _phiInverse, LivenessAnalysis::LivenessData const& _liveness)
 {
 	// add any phi function values here that are not already contained in the stack
@@ -65,7 +85,7 @@ void handlePhiFunctions(StackData& _stackData, PhiInverse const& _phiInverse, Li
 	}
 }
 
-using StackType = Stack<>;
+using StackType = Stack<CountingInstructionsCallbacks>;
 
 void declareJunk(StackType& _stack, LivenessAnalysis::LivenessData const& _live)
 {
@@ -85,6 +105,7 @@ SSACFGStackLayout StackLayoutGenerator::generate(
 	ControlFlow::FunctionGraphID const _graphID
 )
 {
+	log().debug("Stack layout for {}\n", _liveness.cfg().function ? _liveness.cfg().function->name.str() : "main graph");
 	return StackLayoutGenerator(_liveness, _callSites, _graphID).m_resultLayout;
 }
 
@@ -222,8 +243,11 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 	SSACFG::BasicBlock const& block = m_cfg.block(_blockId);
 
 	StackData currentStackData = blockLayout.stackIn;
-	StackType stack(currentStackData, {});
+	Logger const* shufflerLogger = logShuffler().should_log(LogLevel::debug) ? &logShuffler() : nullptr;
+	StackType stack(currentStackData, {.logger = shufflerLogger});
 	bool const junkCanBeAdded = m_junkAdmittingBlocksFinder->allowsAdditionOfJunk(_blockId);
+
+	SOL_LOG(log(), debug, "\tBlock {} (junk={}, stackIn={})\n", _blockId, junkCanBeAdded, stackToString(currentStackData));
 
 	auto const& operationsLiveOut = m_liveness.operationsLiveOut(_blockId);
 	blockLayout.operationIn.reserve(block.operations.size());
@@ -253,6 +277,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 			)
 				stack.declareJunk(depth);
 
+		SOL_LOG(log(), debug, "\t\t{}: {} -> {}\n", operationName(operation), stackToString(currentStackData), stackToString(requiredStackTop));
 		std::size_t const targetSize = findOptimalTargetSize(
 			stack.data(),
 			requiredStackTop,
@@ -260,6 +285,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 			junkCanBeAdded,
 			m_hasFunctionReturnLabel
 		);
+		logShuffler().debug("\t\t\tshuffling:   ");
 		{
 			auto const shuffleResult = StackShuffler<StackType::Callbacks>::shuffle(
 				stack,
@@ -267,6 +293,8 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				opLiveOutWithoutOutputs,
 				targetSize
 			);
+			logShuffler().debug("\n");
+			SOL_LOG(log(), debug, "\t\t\tshuffled to: {}\n", stackToString(stack.data()));
 			yulAssert(shuffleResult.status == StackShufflerResult::Status::Admissible);
 		}
 
@@ -275,6 +303,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 			stack.pop<false>();
 		for (auto const& val: operation.outputs)
 			stack.push<false>(Slot::makeValueID(val));
+		SOL_LOG(log(), debug, "\t\t\tresult:      {}\n", stackToString(currentStackData));
 	}
 
 	std::visit(
@@ -339,4 +368,5 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 		},
 		block.exit
 	);
+	SOL_LOG(log(), debug, "\t\tstack out = {}\n", stackToString(currentStackData));
 }

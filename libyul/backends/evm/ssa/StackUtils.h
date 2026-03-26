@@ -21,6 +21,8 @@
 #include <libyul/backends/evm/ssa/PhiInverse.h>
 #include <libyul/backends/evm/ssa/Stack.h>
 
+#include <libsolutil/logging.h>
+
 #include <string>
 #include <vector>
 
