@@ -194,6 +194,16 @@ RunResult runYulOnce(
 	{
 		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, {}, {}};
 	}
+	catch (solidity::yul::YulException const&)
+	{
+		// Parse/analysis/codegen failure — skip this input.
+		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, {}, {}};
+	}
+	catch (solidity::yul::YulAssertion const&)
+	{
+		// Parse/analysis assertion failure — skip this input.
+		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, {}, {}};
+	}
 
 	evmc::Result deployResult = YulEvmoneUtility::deployCode(byteCode, hostContext);
 	if (deployResult.status_code != EVMC_SUCCESS)

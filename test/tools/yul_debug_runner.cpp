@@ -140,6 +140,18 @@ static RunResult runYulOnce(
 		result.internalErrorMsg = "StackTooDeepError";
 		return result;
 	}
+	catch (solidity::yul::YulException const&)
+	{
+		result.compilationFailed = true;
+		result.internalErrorMsg = "YulException (parse/analysis/codegen failure)";
+		return result;
+	}
+	catch (solidity::yul::YulAssertion const&)
+	{
+		result.compilationFailed = true;
+		result.internalErrorMsg = "YulAssertion (parse/analysis failure)";
+		return result;
+	}
 
 	evmc::Result deployResult = YulEvmoneUtility::deployCode(result.bytecode, hostContext);
 	if (deployResult.status_code != EVMC_SUCCESS)
