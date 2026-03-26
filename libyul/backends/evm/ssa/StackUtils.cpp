@@ -67,8 +67,8 @@ std::size_t solidity::yul::ssa::findOptimalTargetSize
 	auto const evaluateCost = [&](std::size_t const _targetSize) -> std::size_t
 	{
 		data = _stackData;
-		Stack<CountingInstructionsCallbacks<false>> countOpsStack(data, {});
-		StackShuffler<CountingInstructionsCallbacks<false>>::shuffle(countOpsStack, _targetArgs, _targetLiveOut, _targetSize);
+		Stack<CountingInstructionsCallbacks> countOpsStack(data, {});
+		StackShuffler<CountingInstructionsCallbacks>::shuffle(countOpsStack, _targetArgs, _targetLiveOut, _targetSize);
 		yulAssert(countOpsStack.size() == _targetSize);
 		return countOpsStack.callbacks().numOps;
 	};

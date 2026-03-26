@@ -18,11 +18,13 @@
 
 #include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
 
-#include <libyul/backends/evm/ssa/DebugConfig.h>
 #include <libyul/backends/evm/ssa/JunkAdmittingBlocksFinder.h>
 #include <libyul/backends/evm/ssa/PhiInverse.h>
 #include <libyul/backends/evm/ssa/StackShuffler.h>
 #include <libyul/backends/evm/ssa/StackUtils.h>
+
+#include <libsolutil/Visitor.h>
+#include <libsolutil/logging.h>
 
 #include <range/v3/algorithm/count.hpp>
 #include <range/v3/algorithm/min_element.hpp>
@@ -31,13 +33,34 @@
 #include <range/v3/to_container.hpp>
 
 #include <boost/container/flat_map.hpp>
-#include <iostream>
 #include <queue>
 
 using namespace solidity::yul::ssa;
 
 namespace
 {
+
+solidity::Logger const& log()
+{
+	static solidity::Logger const& instance = solidity::Registry::instance().get("yul.ssa.stacklayout");
+	return instance;
+}
+
+solidity::Logger const& logShuffler()
+{
+	static solidity::Logger const& instance = solidity::Registry::instance().get("yul.ssa.stacklayout.shuffler");
+	return instance;
+}
+
+std::string operationName(SSACFG::Operation const& _operation)
+{
+	return std::visit(solidity::util::GenericVisitor{
+		[](SSACFG::Call const& _call) { return _call.function.get().name.str(); },
+		[](SSACFG::BuiltinCall const& _call) { return _call.builtin.get().name; },
+		[](SSACFG::LiteralAssignment const&) -> std::string { return "assign"; }
+	}, _operation.kind);
+}
+
 void handlePhiFunctions(StackData& _stackData, PhiInverse const& _phiInverse, LivenessAnalysis::LivenessData const& _liveness)
 {
 	// add any phi function values here that are not already contained in the stack
@@ -66,7 +89,7 @@ void handlePhiFunctions(StackData& _stackData, PhiInverse const& _phiInverse, Li
 	}
 }
 
-using StackType = Stack<CountingInstructionsCallbacks<debug::stackLayoutGeneration.shuffler>>;
+using StackType = Stack<CountingInstructionsCallbacks>;
 
 void declareJunk(StackType& _stack, LivenessAnalysis::LivenessData const& _live)
 {
@@ -86,8 +109,7 @@ SSACFGStackLayout StackLayoutGenerator::generate(
 	ControlFlow::FunctionGraphID const _graphID
 )
 {
-	if constexpr (debug::stackLayoutGeneration.enabled)
-		std::cout << "Stack layout for " << (_liveness.cfg().function ? _liveness.cfg().function->name.str() : "main graph") << '\n';
+	log().debug("Stack layout for {}\n", _liveness.cfg().function ? _liveness.cfg().function->name.str() : "main graph");
 	return StackLayoutGenerator(_liveness, _callSites, _graphID).m_resultLayout;
 }
 
@@ -233,11 +255,11 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 	SSACFG::BasicBlock const& block = m_cfg.block(_blockId);
 
 	StackData currentStackData = blockLayout.stackIn;
-	StackType stack(currentStackData, {});
+	Logger const* shufflerLogger = logShuffler().should_log(LogLevel::debug) ? &logShuffler() : nullptr;
+	StackType stack(currentStackData, {.logger = shufflerLogger});
 	bool const junkCanBeAdded = m_junkAdmittingBlocksFinder->allowsAdditionOfJunk(_blockId);
 
-	if constexpr (debug::stackLayoutGeneration.enabled)
-		std::cout << fmt::format("\tBlock {} (junk={}, stackIn={})\n", _blockId, junkCanBeAdded, stackToString(currentStackData));
+	SOL_LOG(log(), debug, "\tBlock {} (junk={}, stackIn={})\n", _blockId, junkCanBeAdded, stackToString(currentStackData));
 
 	auto const& operationsLiveOut = m_liveness.operationsLiveOut(_blockId);
 	blockLayout.operationIn.reserve(block.operations.size());
@@ -267,22 +289,18 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 			)
 				stack.declareJunk(depth);
 
-		if constexpr (debug::stackLayoutGeneration.enabled)
-			std::cout << "\t\t" << debug::operationName(operation) << ": " << stackToString(currentStackData) << " -> " << stackToString(requiredStackTop) << '\n';
+		SOL_LOG(log(), debug, "\t\t{}: {} -> {}\n", operationName(operation), stackToString(currentStackData), stackToString(requiredStackTop));
 
 		std::size_t const targetSize = findOptimalTargetSize(stack.data(), requiredStackTop, opLiveOutWithoutOutputs, junkCanBeAdded, m_hasFunctionReturnLabel);
-		if constexpr (debug::stackLayoutGeneration.shuffler)
-			std::cout << "\t\t\tshuffling:   ";
+		logShuffler().debug("\t\t\tshuffling:   ");
 		StackShuffler<StackType::Callbacks>::shuffle(
 			stack,
 			requiredStackTop,
 			opLiveOutWithoutOutputs,
 			targetSize
 		);
-		if constexpr (debug::stackLayoutGeneration.shuffler)
-			std::cout << '\n';
-		if constexpr (debug::stackLayoutGeneration.enabled)
-			std::cout << "\t\t\tshuffled to: " << stackToString(stack.data()) << '\n';
+		logShuffler().debug("\n");
+		SOL_LOG(log(), debug, "\t\t\tshuffled to: {}\n", stackToString(stack.data()));
 
 		blockLayout.operationIn.push_back(currentStackData);
 		for (std::size_t i = 0; i < requiredStackTop.size(); ++i)
@@ -290,8 +308,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 		for (auto const& val: operation.outputs)
 			stack.push<false>(Slot::makeValueID(val));
 
-		if constexpr (debug::stackLayoutGeneration.enabled)
-			std::cout << "\t\t\tresult:      " << stackToString(currentStackData) << '\n';
+		SOL_LOG(log(), debug, "\t\t\tresult:      {}\n", stackToString(currentStackData));
 	}
 
 	if (auto const* cjump = std::get_if<SSACFG::BasicBlock::ConditionalJump>(&block.exit))
@@ -350,6 +367,5 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 
 	blockLayout.stackOut = currentStackData;
 
-	if constexpr (debug::stackLayoutGeneration.enabled)
-		std::cout << fmt::format("\t\tstack out = {}\n", stackToString(currentStackData));
+	SOL_LOG(log(), debug, "\t\tstack out = {}\n", stackToString(currentStackData));
 }

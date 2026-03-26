@@ -18,11 +18,11 @@
 
 #pragma once
 
-#include <libyul/backends/evm/ssa/DebugConfig.h>
 #include <libyul/backends/evm/ssa/PhiInverse.h>
 #include <libyul/backends/evm/ssa/Stack.h>
 
-#include <iostream>
+#include <libsolutil/logging.h>
+
 #include <string>
 #include <vector>
 
@@ -40,33 +40,34 @@ private:
 	std::vector<std::string> m_errors;
 };
 
-template<bool debugOutput>
 struct CountingInstructionsCallbacks
 {
 	std::size_t numOps = 0;
-	void swap([[maybe_unused]] StackDepth _depth)
+	Logger const* logger = nullptr;
+
+	void swap(StackDepth _depth)
 	{
 		++numOps;
-		if constexpr (debugOutput)
-			std::cout << "SWAP" << _depth.value << " " << std::flush;
+		if (logger)
+			logger->debug("SWAP{} ", _depth.value);
 	}
-	void dup([[maybe_unused]] StackDepth _depth)
+	void dup(StackDepth _depth)
 	{
 		++numOps;
-		if constexpr (debugOutput)
-			std::cout << "DUP" << _depth.value << " " << std::flush;
+		if (logger)
+			logger->debug("DUP{} ", _depth.value);
 	}
-	void push([[maybe_unused]] StackSlot const& _slot)
+	void push(StackSlot const& _slot)
 	{
 		++numOps;
-		if constexpr (debugOutput)
-			std::cout << "PUSH(" << slotToString(_slot) << ") " << std::flush;
+		if (logger)
+			logger->debug("PUSH({}) ", slotToString(_slot));
 	}
 	void pop()
 	{
 		++numOps;
-		if constexpr (debugOutput)
-			std::cout << "POP " << std::flush;
+		if (logger)
+			logger->debug("POP ");
 	}
 };
 
