@@ -70,6 +70,10 @@ static constexpr bool s_modeSSACFG = true;
 static constexpr bool s_modeSSACFG = false;
 #endif
 
+/// Gas limit for EVM execution — bounds runtime and memory usage
+/// (prevents LOG/CALL spam from causing OOM or timeouts).
+static constexpr int64_t s_gasLimit = 400000;
+
 /// Result of a single compile-deploy-execute run on evmone.
 struct RunResult
 {
@@ -205,11 +209,12 @@ RunResult runYulOnce(
 		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, {}, {}};
 	}
 
-	evmc::Result deployResult = YulEvmoneUtility::deployCode(byteCode, hostContext);
+	evmc::Result deployResult = YulEvmoneUtility::deployCode(byteCode, hostContext, s_gasLimit);
 	if (deployResult.status_code != EVMC_SUCCESS)
 		return RunResult{std::move(deployResult), {}, {}};
 
 	auto callMsg = YulEvmoneUtility::callMessage(deployResult.create_address, _calldata);
+	callMsg.gas = s_gasLimit;
 	evmc::Result callResult = hostContext.call(callMsg);
 
 	// Capture logs

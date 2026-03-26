@@ -43,12 +43,11 @@ std::shared_ptr<yul::Object> YulAssembler::object()
 	return m_stack.parserResult();
 }
 
-evmc::Result YulEvmoneUtility::deployCode(bytes const& _input, EVMHost& _host)
+evmc::Result YulEvmoneUtility::deployCode(bytes const& _input, EVMHost& _host, int64_t _gas)
 {
 	// Zero initialize all message fields
 	evmc_message msg = {};
-	// Gas available (value of type int64_t) is set to its maximum value
-	msg.gas = std::numeric_limits<int64_t>::max();
+	msg.gas = _gas;
 	solAssert(
 		_input.size() <= 0xffff,
 		"Deployed byte code is larger than the permissible 65535 bytes."

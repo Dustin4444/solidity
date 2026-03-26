@@ -718,7 +718,8 @@ void ProtoConverter::visit(NullaryOp const& _x)
 		m_filterOptimizationNoise &&
 		(
 			op == NullaryOp::GAS ||
-			op == NullaryOp::MSIZE
+			op == NullaryOp::MSIZE ||
+			op == NullaryOp::CODESIZE
 		)
 	)
 	{

@@ -59,7 +59,7 @@ private:
 struct YulEvmoneUtility
 {
 	/// @returns the result of deploying bytecode @param _input on @param _host.
-	static evmc::Result deployCode(solidity::bytes const& _input, EVMHost& _host);
+	static evmc::Result deployCode(solidity::bytes const& _input, EVMHost& _host, int64_t _gas = std::numeric_limits<int64_t>::max());
 	/// @returns call message to be sent to @param _address.
 	static evmc_message callMessage(evmc_address _address);
 	/// @returns call message to be sent to @param _address with @param _calldata.
