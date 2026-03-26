@@ -1,21 +1,14 @@
 #pragma once
 
+#include <libsolutil/Exceptions.h>
+
 #include <fmt/format.h>
 
-#include <atomic>
 #include <cstdio>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
-
-#if defined(_MSC_VER)
-#define SOL_NOINLINE __declspec(noinline)
-#elif defined(__GNUC__) || defined(__clang__)
-#define SOL_NOINLINE __attribute__((noinline))
-#else
-#define SOL_NOINLINE
-#endif
 
 namespace solidity
 {
