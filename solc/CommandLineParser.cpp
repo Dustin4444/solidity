@@ -94,6 +94,7 @@ static std::string const g_strYulOptimizations = "yul-optimizations";
 static std::string const g_strOutputDir = "output-dir";
 static std::string const g_strOverwrite = "overwrite";
 static std::string const g_strRevertStrings = "revert-strings";
+static std::string const g_strLogLevel = "log-level";
 static std::string const g_strStopAfter = "stop-after";
 
 /// Possible arguments to for --revert-strings
@@ -755,6 +756,11 @@ General Information)").c_str(),
 		(
 			g_strErrorIds.c_str(),
 			"Output error codes."
+		)
+		(
+			g_strLogLevel.c_str(),
+			po::value<std::string>()->value_name("level"),
+			"Set global log level (trace, debug, info, warn, error, off)."
 		)
 	;
 	desc.add(outputFormatting);

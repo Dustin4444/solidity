@@ -31,6 +31,7 @@
 #include <liblangutil/EVMVersion.h>
 
 #include <libsolutil/JSON.h>
+#include <libsolutil/logging.h>
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem/path.hpp>
@@ -274,6 +275,8 @@ struct CommandLineOptions
 	} modelChecker;
 
 	bool experimental = false;
+
+	std::optional<LogLevel> logLevel;
 };
 
 /// Parses the command-line arguments and produces a filled-out CommandLineOptions structure.
