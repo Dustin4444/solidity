@@ -55,6 +55,7 @@
 #include <libsolutil/CommonData.h>
 #include <libsolutil/CommonIO.h>
 #include <libsolutil/JSON.h>
+#include <libsolutil/logging.h>
 
 #include <algorithm>
 #include <fstream>
@@ -812,6 +813,9 @@ bool CommandLineInterface::parseArguments(int _argc, char const* const* _argv)
 		throw;
 	}
 	m_options = parser.options();
+
+	if (m_options.logLevel)
+		Registry::instance().set_level("", *m_options.logLevel);
 
 	return true;
 }
