@@ -85,6 +85,18 @@ evmc_message YulEvmoneUtility::callMessage(evmc_address _address)
 	return call;
 }
 
+evmc_message YulEvmoneUtility::callMessage(evmc_address _address, bytes const& _calldata)
+{
+	evmc_message call = {};
+	call.gas = std::numeric_limits<int64_t>::max();
+	call.recipient = _address;
+	call.code_address = _address;
+	call.kind = EVMC_CALL;
+	call.input_data = _calldata.data();
+	call.input_size = _calldata.size();
+	return call;
+}
+
 bool YulEvmoneUtility::seriousCallError(evmc_status_code _code)
 {
 	if (_code == EVMC_OUT_OF_GAS)

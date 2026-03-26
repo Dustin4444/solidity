@@ -106,8 +106,14 @@ To be consistent and aid better evaluation of the utility of the fuzzing diction
   Protobuf, compiles with and without stack-reuse optimisation (i.e. `optimizeStackAllocation`),
   executes both via evmone, and asserts that the resulting EVM state is identical. The goal is to
   catch miscompilations introduced by the stack-reuse code-generation pass.
+- `yulProtoFuzzerEvmone.cpp`: exe is `yul_proto_ossfuzz_evmone`. Generates random Yul via
+  Protobuf, compiles twice (unoptimized and with the full Yul optimizer), deploys both versions
+  on evmone with protobuf-generated calldata, and compares output data, logs, and storage —
+  the Yul equivalent of `sol_proto2_ossfuzz`. Unlike `stack_reuse_codegen_ossfuzz`, this fuzzer
+  keeps stateful instructions (sstore/tstore/log) enabled so it can compare storage and logs,
+  and it supports custom optimizer sequences from the protobuf input.
 
-## Debugging fuzzer issues with sol\_debug\_runner
+## Debugging fuzzer issues with `sol_debug_runner`
 
 `sol_debug_runner` is a standalone tool for debugging differential testing failures
 and internal compiler crashes from `sol_proto2_ossfuzz`. It takes a `.sol` file
@@ -264,6 +270,82 @@ reproduce the crash directly:
      repro: ./build-normal/solc/solc bad-log.min.003.sol --optimize --via-ir
      repro: ./build-normal/solc/solc bad-log.min.003.sol --optimize
 ```
+
+## Debugging Yul fuzzer issues with `yul_debug_runner`
+
+`yul_debug_runner` is the Yul equivalent of `sol_debug_runner`. It reproduces
+the `yul_proto_ossfuzz_evmone` fuzzer's compile-deploy-execute flow on a `.yul`
+file. It runs two configurations (unoptimized vs optimized), deploys both on
+evmone, and compares output, logs, and storage.
+
+### Building
+
+Build using the normal (non-ossfuzz) cmake build in `build-normal`:
+
+```bash
+cd build-normal
+cmake ..
+CCACHE_DISABLE=1 make -j8 yul_debug_runner
+```
+
+### Reproducing a fuzzer crash
+
+1. Dump the Yul source from a crash input:
+
+   ```bash
+   PROTO_FUZZER_DUMP_PATH=bad.yul \
+     ./build/test/tools/ossfuzz/yul_proto_ossfuzz_evmone crash-<hash>
+   ```
+
+2. Run the debug tool:
+
+   ```bash
+   LD_LIBRARY_PATH=/home/matesoos/development/evmone/build/lib:$LD_LIBRARY_PATH \
+     ./build-normal/test/tools/yul_debug_runner bad.yul
+   ```
+
+3. Check the terminal output. The tool prints per-configuration details (bytecode,
+   status, logs, storage) followed by a differential comparison section:
+
+   ```
+   ========== DIFFERENTIAL COMPARISON ==========
+
+   --- Comparing unoptimized vs optimized ---
+     Status:  MATCH (SUCCESS vs SUCCESS)
+     Output:  MATCH
+     Logs:    DIFFER
+     Storage: MATCH
+   ```
+
+4. Optionally write output files:
+
+   ```bash
+   LD_LIBRARY_PATH=/home/matesoos/development/evmone/build/lib:$LD_LIBRARY_PATH \
+     ./build-normal/test/tools/yul_debug_runner bad.yul \
+     --output-dir /tmp/debug-output
+   ```
+
+### CLI options
+
+```
+./yul_debug_runner <file.yul> [--output-dir <dir>] [--calldata <hex>] [--evm-version <ver>] [--quiet]
+```
+
+- `<file.yul>` — Yul source file (positional, required)
+- `--output-dir <dir>` — write bytecode and log files here (optional)
+- `--calldata <hex>` — calldata in hex (e.g. `a0ffba`), passed to the deployed contract
+- `--evm-version <ver>` — EVM version (e.g. `cancun`, `prague`). Default: latest
+- `--quiet` — suppress all output except a one-line summary (`OK`, `MISMATCH`,
+  or `INTERNAL_ERROR`). Used by delta debuggers.
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | All match — no bug |
+| 1 | Differential mismatch found |
+| 2 | Normal compilation failure / file error |
+| 3 | Internal compiler error (assertion failure, crash) |
 
 ## Quick corpus check with check\_diversity\_and\_errors.sh
 
