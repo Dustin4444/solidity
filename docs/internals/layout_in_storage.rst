@@ -1,4 +1,5 @@
 .. index:: storage, state variable, mapping, transient storage
+.. _storage-layout:
 
 **********************************************************
 Layout of State Variables in Storage and Transient Storage

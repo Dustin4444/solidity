@@ -202,11 +202,380 @@ The compiler API expects a JSON formatted input and outputs the compilation resu
 The standard error output is not used and the process will always terminate in a "success" state, even
 if there were errors. Errors are always reported as part of the JSON output.
 
-The following subsections describe the format through an example.
-Comments are of course not permitted and used here only for explanatory purposes.
+The following subsections describe the layout and explain each field and object of the format.
 
 Input Description
 -----------------
+
+The root JSON object contains three top level keys that define the compilation process.
+
++--------------+--------+----------+---------------------------------------------------------------------+
+| Field        | Type   | Required | Description                                                         |
++==============+========+==========+=====================================================================+
+| ``language`` | string | Yes      | Source code language. Supported values: ``"Solidity"``, ``"Yul"``,  |
+|              |        |          | ``"SolidityAST"`` (experimental), ``"EVMAssembly"`` (experimental). |
++--------------+--------+----------+---------------------------------------------------------------------+
+| ``sources``  | object | Yes      | Map of source file names to their content or URL references.        |
++--------------+--------+----------+---------------------------------------------------------------------+
+| ``settings`` | object | No       | Compiler configuration including optimizer, EVM version, output     |
+|              |        |          | selection, among others.                                            |
++--------------+--------+----------+---------------------------------------------------------------------+
+
+Sources
+-------
+
+The ``sources`` object is a map where each key is the global name of a source file.
+Imports can use other files via remappings (see below).
+Each value is a source descriptor object with the following fields.
+
+keccak256
+^^^^^^^^^
+
+Optional.
+Keccak-256 hash of the source file content.
+It is used to verify the retrieved content if imported via URLs.
+
+
+urls
+^^^^
+
+URL(s) to the source file.
+Required unless ``content`` is used
+URL(s) should be imported in this order and the result checked against the keccak256 hash (if available).
+If the hash doesn't match or none of the URL(s) result in success, an error should be raised.
+Using the commandline interface only filesystem paths are supported.
+With the JavaScript interface the URL will be passed to the user-supplied read callback,
+so any URL supported by the callback can be used.
+If files are used, their directories should be added to the command-line via `--allow-paths <path>`.
+
+ast
+^^^
+
+Required if language is set to "SolidityAST".
+If language is set to "SolidityAST", an AST needs to be supplied under the "ast" key and there can be only one source file present.
+The format is the same as used by the ``ast`` output.
+Note that importing ASTs is experimental and in particular that:
+- importing invalid ASTs can produce undefined results and
+- no proper error reporting is available on invalid ASTs.
+
+Furthermore, note that the AST import only consumes the fields of the AST as produced by the compiler in
+"stopAfter": "parsing" mode and then re-performs analysis, so any analysis-based annotations of the AST are ignored upon import.
+
+assemblyJson
+^^^^^^^^^^^^
+
+Required if language is set to "EVMAssembly".
+If language is set to "EVMAssembly", an EVM Assembly JSON object needs to be supplied under
+the "assemblyJson" key and there can be only one source file present.
+The format is the same as used by the ``evm.legacyAssembly`` output or ``--asm-json`` output on the command line.
+Note that importing EVM assembly is experimental.
+
+TODO:
+".data": { ... }, // optional
+"sourceList": [ ... ] // optional (if no ``source`` node was defined in any ``.code`` object)
+
+.. note::
+
+  For Solidity and Yul languages, each source must provide either ``urls`` or ``content``.
+  For SolidityAST, the ``ast`` field replaces both.
+  For EVMAssembly, the ``assemblyJson`` field is used instead.
+
+Settings
+--------
+
+The ``settings`` object defines general configuration of the compilation pipeline,
+such as the EVM version and enabling the IR pipeline, and also specific configuration for
+the optimizer, debug, metadata, libraries and output selection.
+Every field within ``settings`` is optional and in case they are omitted, the compiler uses default values.
+
+General Settings
+^^^^^^^^^^^^^^^^
+
++------------------+----------+-------------------------------------------------------------------------+
+| Field            | Type     | Description                                                             |
++==================+==========+=========================================================================+
+| ``stopAfter``    | string   | Stop compilation after the given stage. Currently only ``"parsing"``    |
+|                  |          | is valid.                                                               |
++------------------+----------+-------------------------------------------------------------------------+
+| ``remappings``   | string[] | List of remappings.                                                     |
++------------------+----------+-------------------------------------------------------------------------+
+| ``experimental`` | boolean  | Experimental mode toggle, false by default. Makes it possible to use    |
+|                  |          | experimental features (but does not enable any such feature by itself). |
+|                  |          | The use of this mode is recorded in contract metadata.                  |
++------------------+----------+-------------------------------------------------------------------------+
+| ``evmVersion``   | string   | Version of the EVM to compile for. Affects type checking and code       |
+|                  |          | generation. Can be ``homestead``, ``tangerineWhistle``,                 |
+|                  |          | ``spuriousDragon``, ``byzantium``, ``constantinople``,                  |
+|                  |          | ``petersburg``, ``istanbul``, ``berlin``, ``london``, ``paris``,        |
+|                  |          | ``shanghai``, ``cancun``, ``prague`` or ``osaka`` (default).            |
++------------------+----------+-------------------------------------------------------------------------+
+| ``eofVersion``   | integer  | Experimental. EVM Object Format version to compile for. Currently the   |
+|                  |          | only valid value is ``1``. If not specified, legacy non-EOF bytecode    |
+|                  |          | will be generated. Requires ``evmVersion`` >= ``osaka``.                |
++------------------+----------+-------------------------------------------------------------------------+
+| ``viaIR``        | boolean  | Change compilation pipeline to go through the Yul intermediate          |
+|                  |          | representation. False by default.                                       |
++------------------+----------+-------------------------------------------------------------------------+
+| ``viaSSACFG``    | boolean  | Experimental. Turn on SSA CFG-based code generation via the IR          |
+|                  |          | (implies ``viaIR: true``). False by default.                            |
++------------------+----------+-------------------------------------------------------------------------+
+
+Optimizer Settings
+^^^^^^^^^^^^^^^^^^
+
+The ``optimizer`` object controls how aggressively the compiler optimizes the generated bytecode.
+As mentioned before, all settings are optional and have default values.
+The optimizer can be turned on by a top level toggle field, ``optimizer.enabled``, which is false by default.
+
+.. note::
+    The state of the optimizer is fully determined by the 'details' dict and this setting
+    only affects its defaults - when enabled, all components default to being enabled.
+    The opposite is not true - there are several components that always default to being
+    enabled an can only be explicitly disabled via 'details'.
+
+.. warning::
+    Before version 0.8.6 omitting this setting was not equivalent to setting
+    it to false and would result in all components being disabled instead.
+
+.. warning::
+    Enabling optimizations for EVMAssembly input is allowed but not necessary under normal circumstances.
+    It forces the opcode-based optimizer to run again and can produce bytecode that is not reproducible from metadata.
+
+The integer field ``optimizer.runs`` indicates how many times the code is intended to run.
+This field is optional and defaults to a value of 200.
+Lower values will optimize more for initial deployment cost, higher values will optimize more for high-frequency usage.
+
+The ``optimizer.details`` object provides fine-grained control over individual optimizer components.
+The default values are determined by whether the optimizer is enabled or not.
+
+.. note::
+    The ``optimizer.enabled`` setting only affects the defaults of ``optimizer.details``
+    and has no effect when all values are provided explicitly.
+
+Each component can be enabled using the following boolean fields:
+
++--------------------------------------------+---------+---------------------------------------------------------------+
+| Field                                      | Default | Description                                                   |
++============================================+=========+===============================================================+
+| ``peephole``                               | True    | Peephole optimizer (opcode-based). Always run, even with      |
+|                                            |         | optimization disabled, except for EVMAssembly input or when   |
+|                                            |         | explicitly turned off.                                        |
++--------------------------------------------+---------+---------------------------------------------------------------+
+| ``inliner``                                | True    | Inliner (opcode-based).                                       |
++--------------------------------------------+---------+---------------------------------------------------------------+
+| ``jumpdestRemover``                        | True    | Unused ``JUMPDEST`` remover (opcode-based). Always runs, even |
+|                                            |         | with optimization disabled, except for EVMAssembly input or   |
+|                                            |         | when explicitly turned off.                                   |
++--------------------------------------------+---------+---------------------------------------------------------------+
+| ``orderLiterals``                          | True    | Literal reordering (codegen-based). Moves literals to the     |
+|                                            |         | right of commutative binary operators during code generation, |
+|                                            |         | helping exploit associativity.                                |
++--------------------------------------------+---------+---------------------------------------------------------------+
+| ``deduplicate``                            | True    | Block deduplicator (opcode-based). Unifies assembly code      |
+|                                            |         | blocks that share content.                                    |
++--------------------------------------------+---------+---------------------------------------------------------------+
+| ``cse``                                    | True    | Common subexpression elimination (opcode-based). This is the  |
+|                                            |         | most complicated step but can also provide the largest gain.  |
++--------------------------------------------+---------+---------------------------------------------------------------+
+| ``constantOptimizer``                      | True    | Constant optimizer (opcode-based). Tries to find better       |
+|                                            |         | representations of literal numbers and strings, that satisfy  |
+|                                            |         | the size/cost trade-off determined by the ``runs`` setting.   |
++--------------------------------------------+---------+---------------------------------------------------------------+
+| ``simpleCounterForLoopUncheckedIncrement`` | True    | Unchecked loop increment (codegen-based). Use unchecked       |
+|                                            |         | arithmetic when incrementing the counter of ``for`` loops     |
+|                                            |         | under certain circumstances. Always runs, even with           |
+|                                            |         | optimization disabled, unless explicitly turned off.          |
++--------------------------------------------+---------+---------------------------------------------------------------+
+| ``yul``                                    | True    | Yul optimizer. Used to optimize the IR produced by the Yul    |
+|                                            |         | IR-based pipeline as well as inline assembly and utility Yul  |
+|                                            |         | code generated by the compiler. Before Solidity 0.6.0 the     |
+|                                            |         | default was ``false``.                                        |
++--------------------------------------------+---------+---------------------------------------------------------------+
+
+There is also the ``optimizer.yulDetails`` subobject which contains fine tuning options for the Yul optimizer.
+The ``optimizer.yulDetails.stackAllocation`` setting aims to improve allocation of stack slots for variables and can free up stack slots early.
+The ``optimizer.yulDetails.optimizerSteps`` is the most important setting of the Yul optimizer, defining its optimization step sequence.
+The general form of the value is "<main sequence>:<cleanup sequence>".
+The setting is optional and when omitted, default values are used for both sequences.
+If the value does not contain the ``:`` delimiter, it is interpreted as the main sequence and the default is used for the cleanup sequence.
+To make one of the sequences empty, the delimiter must be present at the first or last position.
+In particular if the whole value consists only of the delimiter, both sequences are empty.
+Note that there are several hard-coded steps that always run, even when both sequences are empty.
+For more information see :ref:`Selecting Optimizations <selecting-optimizations>`.
+
+Debug Settings
+^^^^^^^^^^^^^^
+
+The ``debug`` object controls how revert and require reason strings and debug annotations are handled in the output.
+
+The ``debug.revertStrings`` field defines how to treat revert and require reason strings.
+Settings are:
+
+- "default": does not inject compiler-generated revert strings and keeps user-supplied ones.
+- "strip": removes all revert strings keeping side-effects
+- "debug": injects strings for compiler-generated internal reverts, implemented for ABI encoders V1 and V2 for now.
+- "verboseDebug": even appends further information to user-supplied revert strings (not yet implemented).
+
+The ``debug.debugInfo`` field defines how much extra debug information to include
+in comments in the producedEVM assembly and Yul code.
+Available components are:
+
+- ``location``: Annotations of the form ``@src <index>:<start>:<end>`` indicating the location of
+  the corresponding element in the original Solidity file, where:
+
+  - ``<index>`` is the file index matching the ``@use-src`` annotation,
+  - ``<start>`` is the index of the first byte at that location,
+  - ``<end>`` is the index of the first byte after that location.
+
+- ``snippet``: A single-line code snippet from the location indicated by ``@src``. The snippet is
+  quoted and follows the corresponding ``@src`` annotation.
+- ``ast-id``: Annotations of the form ``@ast-id <id>`` over elements that can be mapped back to
+  a definition in the original Solidity file. ``<id>`` is a node ID in the Solidity AST ('ast' output).
+- ``ethdebug``: Ethdebug annotations (experimental).
+- ``*``: Wildcard value that can be used to request all non-experimental components.
+
+Metadata Settings
+^^^^^^^^^^^^^^^^^
+The ``metadata`` object configures how contract metadata is embedded in the compiled bytecode.
+
++--------------------------------+---------+---------+------------------------------------------------------+
+| Field                          | Type    | Default | Description                                          |
++================================+=========+=========+======================================================+
+| ``appendCBOR``                 | boolean | True    | The CBOR metadata is appended at the end of the      |
+|                                |         |         | bytecode by default. Setting this to false omits the |
+|                                |         |         | metadata from the runtime and deploy time code.      |
++--------------------------------+---------+---------+------------------------------------------------------+
+| ``metadata.useLiteralContent`` | boolean | False   | Use only literal content and not URLs                |
++--------------------------------+---------+---------+------------------------------------------------------+
+| ``metadata.bytecodeHash``      | string  | "ipfs"  | Use the given hash method for the metadata hash that |
+|                                |         |         | is appended to the bytecode. The metadata hash can   |
+|                                |         |         | be removed from the bytecode via option "none". The  |
+|                                |         |         | other options are "ipfs" and "bzzr1".                |
++--------------------------------+---------+---------+------------------------------------------------------+
+
+Libraries
+^^^^^^^^^
+
+The ``libraries`` object provides addresses for linked library contracts.
+If not all libraries are given here, it can result in unlinked objects whose output data is different.
+
+The top level key is the name of the source file where the library is used.
+If remappings are used, this source file should match the global path after remappings were applied.
+If this key is an empty string, that refers to a global level.
+Each value is an object mapping library names to their deployed addresses.
+Example:
+
+.. code-block:: javascript
+
+      "myFile.sol": {
+        "MyLib": "0x123..."
+      }
+
+
+Output Selection
+^^^^^^^^^^^^^^^^
+
+The ``outputSelection`` object can be used to select desired outputs based on file and contract names.
+If this is omitted, then the compiler loads and does type checking, but will not generate any outputs apart from errors.
+The first level key is the file name and the second level key is the contract name.
+An empty contract name is used for outputs that are not tied to a contract but to the whole source file like the AST.
+A star as contract name refers to all contracts in the file.
+Similarly, a star as a file name matches all files.
+To select all outputs the compiler can possibly generate, with the exclusion of Yul intermediate
+representation outputs, use "outputSelection: { "*": { "*": [ "*" ], "": [ "*" ] } }"
+but note that this might slow down the compilation process needlessly.
+The available output types are as follows:
+
+- File level (needs empty string as contract name):
+
+  - ast - AST of all source files
+
+- Contract level (needs the contract name or "*"):
+
+  - abi - ABI
+  - devdoc - Developer documentation (natspec)
+  - userdoc - User documentation (natspec)
+  - metadata - Metadata
+  - ir - Yul intermediate representation of the code before optimization
+  - irAst - AST of Yul intermediate representation of the code before optimization (experimental)
+  - irOptimized - Intermediate representation after optimization
+  - irOptimizedAst - AST of intermediate representation after optimization (experimental)
+  - storageLayout - Slots, offsets and types of the contract's state variables in storage
+  - transientStorageLayout - Slots, offsets and types of the contract's state variables in transient storage
+  - evm.assembly - New assembly format
+  - evm.legacyAssembly - Old-style assembly format in JSON
+  - evm.bytecode.ethdebug - Debug information in ethdebug format (ethdebug/format/program schema). Can only be requested when compiling via IR. (experimental)
+  - evm.deployedBytecode.ethdebug - Like evm.bytecode.ethdebug, but for the runtime part of the contract (experimental)
+  - evm.bytecode.functionDebugData - Debugging information at function level
+  - evm.bytecode.object - Bytecode object
+  - evm.bytecode.opcodes - Opcodes list
+  - evm.bytecode.sourceMap - Source mapping (useful for debugging)
+  - evm.bytecode.linkReferences - Link references (if unlinked object)
+  - evm.bytecode.generatedSources - Sources generated by the compiler
+  - evm.deployedBytecode* - Deployed bytecode (has all the options that evm.bytecode has)
+  - evm.deployedBytecode.immutableReferences - Map from AST ids to bytecode ranges that reference immutables
+  - evm.methodIdentifiers - The list of function hashes
+  - evm.gasEstimates - Function gas estimates
+  - yulCFGJson - Control Flow Graph (CFG) of the Single Static Assignment (SSA) form of the contract (experimental)
+
+Note that Using ``evm``, ``evm.bytecode``, etc. will select every target part of that output.
+Additionally, ``*`` can be used as a wildcard to request everything.
+
+Model Checker Settings
+^^^^^^^^^^^^^^^^^^^^^^
+
+The `modelChecker` object configures the built-in SMTChecker for formal verification of contracts.
+The model checker settings are experimental and subject to change.
+
++----------------------------------+-----------+-------------------------------------------------------------------------+
+| Field                            | Type      | Description                                                             |
++==================================+===========+=========================================================================+
+| ``contracts``                    | object    | Map of source files to arrays of contract names that should be          |
+|                                  |           | analyzed as deployed contracts.                                         |
++----------------------------------+-----------+-------------------------------------------------------------------------+
+| ``divModNoSlacks``               | boolean   | Choose how division and modulo operations should be encoded.            |
+|                                  |           | When using ``false`` they are replaced by multiplication with slack     |
+|                                  |           | variables. This is the default. Using ``true`` here is recommended if   |
+|                                  |           | you are using the CHC engine and not using Spacer as the Horn solver    |
+|                                  |           | (using Eldarica, for example). See the `Formal Verification section     |
+|                                  |           | <formal_verification>` for a more detailed explanation.                 |
++----------------------------------+-----------+-------------------------------------------------------------------------+
+| ``engine``                       | string    | Choose which model checker engine to use: all (default), bmc, chc,      |
+|                                  |           | none.                                                                   |
++----------------------------------+-----------+-------------------------------------------------------------------------+
+| ``modelChecker.extCalls``        | string    | Choose whether external calls should be considered trusted in case the  |
+|                                  |           | code of the called function is available at compile-time. For details   |
+|                                  |           | see the `SMTChecker section <formal_verification>`.                     |
++----------------------------------+-----------+-------------------------------------------------------------------------+
+| ``modelChecker.invariants``      | string[]  | Choose which types of invariants should be reported to the user:        |
+|                                  |           | contract, reentrancy.                                                   |
++----------------------------------+-----------+-------------------------------------------------------------------------+
+| ``modelChecker.showProvedSafe``  | boolean   | Choose whether to output all proved targets. The default is ``false``.  |
++----------------------------------+-----------+-------------------------------------------------------------------------+
+| ``modelChecker.showUnproved``    | boolean   | Choose whether to output all unproved targets. The default is           |
+|                                  |           | ``false``.                                                              |
++----------------------------------+-----------+-------------------------------------------------------------------------+
+| ``modelChecker.showUnsupported`` | boolean   | Choose whether to output all unsupported language features. The default |
+|                                  |           | is ``false``.                                                           |
++----------------------------------+-----------+-------------------------------------------------------------------------+
+| ``modelChecker.solvers``         | string[]  | Choose which solvers should be used, if available. Options:             |
+|                                  |           | ``"cvc5"``, ``"smtlib2"``, ``"z3"``. See the `Formal Verification       |
+|                                  |           | section <formal_verification>` for the solvers description.             |
++----------------------------------+-----------+-------------------------------------------------------------------------+
+| ``modelChecker.targets``         | string[]  | Choose which targets should be checked. Options: constantCondition,     |
+|                                  |           | underflow, overflow, divByZero, balance, assert, popEmptyArray,         |
+|                                  |           | outOfBounds. If the option is not given all targets are checked by      |
+|                                  |           | default, except underflow/overflow for Solidity >=0.8.7. See the        |
+|                                  |           | `Formal Verification section <formal_verification>` for the targets     |
+|                                  |           | description.                                                            |
++----------------------------------+-----------+-------------------------------------------------------------------------+
+| ``modelChecker.timeout``         | integer   | Timeout for each SMT query in milliseconds. If this option is not       |
+|                                  |           | given, the SMTChecker will use a deterministic resource limit by        |
+|                                  |           | default. A given timeout of 0 means no resource/time restrictions for   |
+|                                  |           | any query.                                                              |
++----------------------------------+-----------+-------------------------------------------------------------------------+
+
+Example: TODO: cleanup. complete settings? Minimal and realistic?
 
 .. code-block:: javascript
 
@@ -539,6 +908,213 @@ Input Description
 Output Description
 ------------------
 
+The Solidity Standard JSON Output is the structured result returned by the
+Solidity compiler after processing a Standard JSON Input file.
+The output object is shaped by the `outputSelection` field in the input JSON file,
+only the artifacts explicitly requested are included in the response.
+Errors and warnings are always returned regardless of output selection settings.
+
+The root JSON output object contains up to four top-level keys.
+
++---------------+--------+----------+-------------------------------------------------------------+
+| Field         | Type   | Required | Description                                                 |
++===============+========+==========+=============================================================+
+| ``errors``    | array  | No       | Not present if no errors, warnings, infos were encountered. |
++---------------+--------+----------+-------------------------------------------------------------+
+| ``sources``   | object | Yes      | This contains the file-level outputs.                       |
+|               |        |          | It can be limited/filtered by the outputSelection settings. |
++---------------+--------+----------+-------------------------------------------------------------+
+| ``contracts`` | object | Yes      | This contains the contract-level outputs.                   |
+|               |        |          | It can be limited/filtered by the outputSelection settings. |
++---------------+--------+----------+-------------------------------------------------------------+
+| ``ethdebug``  | object | No       | Global Ethdebug output (experimental).                      |
++---------------+--------+----------+-------------------------------------------------------------+
+
+Errors
+------
+
+The ``errors`` array contains diagnostic messages produced during compilation.
+Each element is an object describing an error, warning, or info message.
+
++------------------------------+--------+----------+-----------------------------------------------------------------------------+
+| Field                        | Type   | Required | Description                                                                 |
++==============================+========+==========+=============================================================================+
+| ``type``                     | string | Yes      | Error type, such as "TypeError", "InternalCompilerError", "Exception", etc. |
+|                              |        |          | See below for complete list of types.                                       |
++------------------------------+--------+----------+-----------------------------------------------------------------------------+
+| ``component``                | string | Yes      | Component where the error originated, such as "general" etc.                |
++------------------------------+--------+----------+-----------------------------------------------------------------------------+
+| ``severity``                 | string | Yes      | Possible values are "error", "warning" or "info",                           |
+|                              |        |          | but please note that this may be extended in the future.                    |
++------------------------------+--------+----------+-----------------------------------------------------------------------------+
+| ``errorCode``                | string | No       | Unique code for the cause of the error.                                     |
++------------------------------+--------+----------+-----------------------------------------------------------------------------+
+| ``message``                  | string | Yes      | The error message.                                                          |
++------------------------------+--------+----------+-----------------------------------------------------------------------------+
+| ``formattedMessage``         | string | No       | The message formatted with source location.                                 |
++------------------------------+--------+----------+-----------------------------------------------------------------------------+
+| ``sourceLocation``           | object | No       | Location within the source file.                                            |
+|                              |        |          | Contains three fields, "file", "start", "end".                              |
++------------------------------+--------+----------+-----------------------------------------------------------------------------+
+| ``secondarySourceLocations`` | array  | No       | Further locations (e.g. places of conflicting declarations).                |
+|                              |        |          | Contains the same fields of "sourceLocation" and also "message".            |
++------------------------------+--------+----------+-----------------------------------------------------------------------------+
+
+Error Types
+^^^^^^^^^^^
+
+1. ``JSONError``: JSON input doesn't conform to the required format, e.g. input is not a JSON object, the language is not supported, etc.
+2. ``IOError``: IO and import processing errors, such as unresolvable URL or hash mismatch in supplied sources.
+3. ``ParserError``: Source code doesn't conform to the language rules.
+4. ``DocstringParsingError``: The NatSpec tags in the comment block cannot be parsed.
+5. ``SyntaxError``: Syntactical error, such as ``continue`` is used outside of a ``for`` loop.
+6. ``DeclarationError``: Invalid, unresolvable or clashing identifier names. e.g. ``Identifier not found``
+7. ``TypeError``: Error within the type system, such as invalid type conversions, invalid assignments, etc.
+8. ``UnimplementedFeatureError``: Feature is not supported by the compiler, but is expected to be supported in future versions.
+9. ``InternalCompilerError``: Internal bug triggered in the compiler - this should be reported as an issue.
+10. ``Exception``: Unknown failure during compilation - this should be reported as an issue.
+11. ``CompilerError``: Invalid use of the compiler stack - this should be reported as an issue.
+12. ``FatalError``: Fatal error not processed correctly - this should be reported as an issue.
+13. ``YulException``: Error during Yul code generation - this should be reported as an issue.
+14. ``Warning``: A warning, which didn't stop the compilation, but should be addressed if possible.
+15. ``Info``: Information that the compiler thinks the user might find useful, but is not dangerous and does not necessarily need to be addressed.
+
+
+Sources
+-------
+
+The ``sources`` object in the output contains file-level compilation artifacts.
+Each entry corresponds to a source file provided in the input.
+
+- ``id``: Identifier of the source (used in source maps).
+- ``ast``: The AST object.
+
+Contracts
+---------
+
+The ``contracts`` object is organized as a two-level map: the first level key is the source file name,
+and the second level key is the contract name.
+If the language has no concept of contract names (e.g., Yul), the contract name is an empty string.
+
++----------------------------+--------+----------------------------------------------------------------------------------+
+| Field                      | Type   | Description                                                                      |
++============================+========+==================================================================================+
+| ``abi``                    | array  | The Ethereum Contract ABI. If empty, it is represented as an empty array.        |
+|                            |        | See :ref:`ABI section <ABI>`.                                                    |
++----------------------------+--------+----------------------------------------------------------------------------------+
+| ``metadata``               | string | See the :ref:`Metadata Output documentation<metadata>` (serialised JSON string). |
++----------------------------+--------+----------------------------------------------------------------------------------+
+| ``userdoc``                | object | User documentation (see :ref:`Natspec Format<natspec>`).                         |
++----------------------------+--------+----------------------------------------------------------------------------------+
+| ``devdoc``                 | object | Developer documentation (see :ref:`Natspec Format<natspec>`).                    |
++----------------------------+--------+----------------------------------------------------------------------------------+
+| ``ir``                     | string | Intermediate representation before optimization.                                 |
++----------------------------+--------+----------------------------------------------------------------------------------+
+| ``irAst``                  | object | AST of intermediate representation before optimization.                          |
++----------------------------+--------+----------------------------------------------------------------------------------+
+| ``irOptimized``            | string | Intermediate representation after optimization.                                  |
++----------------------------+--------+----------------------------------------------------------------------------------+
+| ``irOptimizedAst``         | object | AST of intermediate representation after optimization.                           |
++----------------------------+--------+----------------------------------------------------------------------------------+
+| ``storageLayout``          | object | Describes the :ref:`storage layout <storage-layout>`.                            |
++----------------------------+--------+----------------------------------------------------------------------------------+
+| ``transientStorageLayout`` | object | Describes the :ref:`transient storage layout <storage-layout>`.                  |
++----------------------------+--------+----------------------------------------------------------------------------------+
+| ``evm``                    | object | EVM-related outputs. Described below.                                            |
++----------------------------+--------+----------------------------------------------------------------------------------+
+
+evm
+^^^
+
+The `evm` object is the largest output section, containing all bytecode, assembly, debugging data,
+method identifiers, and gas estimates for a contract.
+
++-----------------------+--------+---------------------------------------------------------------------------------------------+
+| Field                 | Type   | Description                                                                                 |
++=======================+========+=============================================================================================+
+| ``assembly``          | string | New format EVM assembly representation of the compiled contract as a human-readable string. |
++-----------------------+--------+---------------------------------------------------------------------------------------------+
+| ``legacyAssembly``    | object | Old style assembly output as a structured JSON object. Contains code arrays, data sections, |
+|                       |        | and source references. Corresponds to the ``--asm-json`` CLI flag.                          |
++-----------------------+--------+---------------------------------------------------------------------------------------------+
+| ``bytecode``          | object | Contains immutable references and ethdebug (experimental).                                  |
++-----------------------+--------+---------------------------------------------------------------------------------------------+
+| ``deployedBytecode``  | object | Contains immutable references and ethdebug (experimental).                                  |
++-----------------------+--------+---------------------------------------------------------------------------------------------+
+| ``methodIdentifiers`` | object | The list of function hashes. Maps thje name of the method to its hash.                      |
++-----------------------+--------+---------------------------------------------------------------------------------------------+
+| ``gasEstimates``      | object | Function gas estimates.                                                                     |
++-----------------------+--------+---------------------------------------------------------------------------------------------+
+| ``yulCFGJson``        | object | Yul CFG representation of the SSA form (experimental).                                      |
++-----------------------+--------+---------------------------------------------------------------------------------------------+
+
+evm.bytecode
+^^^^^^^^^^^^
+
+The ``evm.bytecode`` object contains the deployment (creation) bytecode and all associated debugging and linking metadata.
+The deployment bytecode is the code that runs during contract creation and returns the runtime bytecode.
+
++-----------------------+--------+----------------------------------------------------------------------------------------+
+| Field                 | Type   | Description                                                                            |
++=======================+========+========================================================================================+
+| ``object``            | string | The compiled bytecode as a hex string.                                                 |
++-----------------------+--------+----------------------------------------------------------------------------------------+
+| ``opcodes``           | string | Opcode list.                                                                           |
++-----------------------+--------+----------------------------------------------------------------------------------------+
+| ``sourceMap``         | string | The source mapping as a string. See the source mapping definition.                     |
++-----------------------+--------+----------------------------------------------------------------------------------------+
+| ``generatedSources``  | array  | Array of sources generated by the compiler. Currently only contains a single Yul file. |
++-----------------------+--------+----------------------------------------------------------------------------------------+
+| ``linkReferences``    | object | If given, this is an unlinked object. References for unlinked library calls.           |
++-----------------------+--------+----------------------------------------------------------------------------------------+
+| ``functionDebugData`` | object | Debugging data at the level of functions.                                              |
++-----------------------+--------+----------------------------------------------------------------------------------------+
+| ``ethdebug``          | object | Debug information in the ethdebug format (experimental).                               |
++-----------------------+--------+----------------------------------------------------------------------------------------+
+
+The ``evm.deployedBytecode`` object has the same structure as ``evm.bytecode``.
+Additionally, it includes the ``immutableReferences`` suboject which maps AST IDs of immutables to their bytecode offset and size.
+For example, two references to the immutable with AST ID 3, both 32 bytes, the first one at bytecode offset 42,
+and the other at bytecode offset 80, is specified as:
+
+.. code-block:: javascript
+
+    "immutableReferences": {
+      "3": [{ "start": 42, "length": 32 }, { "start": 80, "length": 32 }]
+    }
+
+
+
+Gas Estimates
+^^^^^^^^^^^^^
+
+The ``evm.gasEstimates`` object provides estimated gas costs for contract creation and function execution.
+
+- ``creation``: Gas estimates for contract deployment. Contains three string fields.
+
+  - ``codeDepositCost``: Gas to store the runtime bytecode on-chain.
+  - ``executionCost``: Gas to execute the constructor
+  - ``totalCost``: Sum of both previous costs.
+
+- ``external``: Map of external/public function signatures to their estimated execution gas cost as a string.
+- ``internal``: Map of internal function names to their estimated execution gas cost as a string.
+
+.. note::
+    Values may be "infinite" if the compiler cannot determine a bound.
+
+Yul CFG
+^^^^^^^
+
+Experimental.
+Yul CFG representation of the SSA form.
+
+Ethdebug
+--------
+
+Experimental.
+
+Example: TODO: cleanup.
+
 .. code-block:: javascript
 
     {
@@ -700,26 +1276,6 @@ Output Description
       // Global Ethdebug output (experimental)
       "ethdebug": {/* ... */ }
     }
-
-
-Error Types
-~~~~~~~~~~~
-
-1. ``JSONError``: JSON input doesn't conform to the required format, e.g. input is not a JSON object, the language is not supported, etc.
-2. ``IOError``: IO and import processing errors, such as unresolvable URL or hash mismatch in supplied sources.
-3. ``ParserError``: Source code doesn't conform to the language rules.
-4. ``DocstringParsingError``: The NatSpec tags in the comment block cannot be parsed.
-5. ``SyntaxError``: Syntactical error, such as ``continue`` is used outside of a ``for`` loop.
-6. ``DeclarationError``: Invalid, unresolvable or clashing identifier names. e.g. ``Identifier not found``
-7. ``TypeError``: Error within the type system, such as invalid type conversions, invalid assignments, etc.
-8. ``UnimplementedFeatureError``: Feature is not supported by the compiler, but is expected to be supported in future versions.
-9. ``InternalCompilerError``: Internal bug triggered in the compiler - this should be reported as an issue.
-10. ``Exception``: Unknown failure during compilation - this should be reported as an issue.
-11. ``CompilerError``: Invalid use of the compiler stack - this should be reported as an issue.
-12. ``FatalError``: Fatal error not processed correctly - this should be reported as an issue.
-13. ``YulException``: Error during Yul code generation - this should be reported as an issue.
-14. ``Warning``: A warning, which didn't stop the compilation, but should be addressed if possible.
-15. ``Info``: Information that the compiler thinks the user might find useful, but is not dangerous and does not necessarily need to be addressed.
 
 .. index:: ! Experimental mode, ! --experimental
 .. _experimental-mode:
