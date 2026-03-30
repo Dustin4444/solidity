@@ -32,6 +32,7 @@
 #include <fstream>
 #include <cstring>
 #include <map>
+#include <unordered_map>
 
 static evmc::VM evmone = evmc::VM{evmc_create_evmone()};
 
@@ -44,12 +45,16 @@ using namespace solidity::util;
 
 /// Result of a single compile-deploy-execute run, including EVM result,
 /// recorded logs, and storage state for differential comparison.
+/// Transient storage map type: slot → value (no StorageValue wrapper).
+using TransientStorageMap = std::unordered_map<evmc::bytes32, evmc::bytes32>;
+
 struct RunResult
 {
 	evmc::Result result;
 	bool subCallOutOfGas = false;
 	std::vector<evmc::MockedHost::log_record> logs;
 	std::map<evmc::address, StorageMap> storage;
+	std::map<evmc::address, TransientStorageMap> transientStorage;
 };
 
 /// Gas limit for EVM execution — low enough to keep fuzzing fast,
@@ -76,6 +81,9 @@ static RunResult runOnce(
 )
 {
 	EVMHost hostContext(_version, evmone);
+	// Give the sender (tx.origin) some initial balance so that value
+	// transfers in .call{value:...}() work during testing.
+	hostContext.accounts[hostContext.tx_context.tx_origin].set_balance(0xffffffff);
 	std::string contractName = "C";
 	std::string methodName = "test()";
 	CompilerInput cInput(
@@ -110,7 +118,13 @@ static RunResult runOnce(
 		if (!account.storage.empty())
 			storage[addr] = account.storage;
 
-	return RunResult{std::move(result), subCallOOG, std::move(logs), std::move(storage)};
+	// Capture transient storage for all accounts
+	std::map<evmc::address, TransientStorageMap> transientStorage;
+	for (auto const& [addr, account] : hostContext.accounts)
+		if (!account.transient_storage.empty())
+			transientStorage[addr] = account.transient_storage;
+
+	return RunResult{std::move(result), subCallOOG, std::move(logs), std::move(storage), std::move(transientStorage)};
 }
 
 /// Compare two log records for equality (ignoring creator address,
@@ -150,6 +164,55 @@ static std::map<evmc::address, StorageMap> filterZeroStorage(
 	return filtered;
 }
 
+/// Filter out transient storage entries where value is zero.
+static std::map<evmc::address, TransientStorageMap> filterZeroTransientStorage(
+	std::map<evmc::address, TransientStorageMap> const& _storage
+)
+{
+	static constexpr evmc::bytes32 zero{};
+	std::map<evmc::address, TransientStorageMap> filtered;
+	for (auto const& [addr, storageMap] : _storage)
+	{
+		TransientStorageMap nonZero;
+		for (auto const& [key, val] : storageMap)
+			if (val != zero)
+				nonZero[key] = val;
+		if (!nonZero.empty())
+			filtered[addr] = std::move(nonZero);
+	}
+	return filtered;
+}
+
+/// Compare transient storage maps for equality (positionally, ignoring addresses).
+static bool transientStorageEqual(
+	std::map<evmc::address, TransientStorageMap> const& _a,
+	std::map<evmc::address, TransientStorageMap> const& _b
+)
+{
+	auto filtA = filterZeroTransientStorage(_a);
+	auto filtB = filterZeroTransientStorage(_b);
+	if (filtA.size() != filtB.size())
+		return false;
+	auto itA = filtA.begin();
+	auto itB = filtB.begin();
+	for (; itA != filtA.end(); ++itA, ++itB)
+	{
+		auto const& storageA = itA->second;
+		auto const& storageB = itB->second;
+		if (storageA.size() != storageB.size())
+			return false;
+		for (auto const& [key, valA] : storageA)
+		{
+			auto jt = storageB.find(key);
+			if (jt == storageB.end())
+				return false;
+			if (valA != jt->second)
+				return false;
+		}
+	}
+	return true;
+}
+
 /// Compare storage maps for equality (comparing current values only).
 /// Ignores account addresses because different bytecodes (optimized vs
 /// non-optimized) produce different CREATE/CREATE2 addresses. Instead,
@@ -182,6 +245,49 @@ static bool storageEqual(
 		}
 	}
 	return true;
+}
+
+/// Maps a sequence of uint32 values to a Yul optimizer step abbreviation string.
+/// Capped at 64 steps to prevent pathological sequences that cause optimizer timeouts.
+/// Bracket placement is derived from the input data for diverse iteration patterns.
+static std::string buildOptimizerSequence(google::protobuf::RepeatedField<google::protobuf::uint32> const& _steps)
+{
+	static std::string const validChars = "flcCUnDEvejsxIOoighFTLMrSmVatpud";
+	static constexpr size_t maxSteps = 64;
+
+	if (_steps.empty())
+		return OptimiserSettings::DefaultYulOptimiserSteps;
+
+	size_t const numSteps = std::min(static_cast<size_t>(_steps.size()), maxSteps);
+	std::string seq;
+	seq.reserve(numSteps + 4);
+	for (size_t i = 0; i < numSteps; ++i)
+		seq += validChars[_steps[static_cast<int>(i)] % validChars.size()];
+
+	// Use first two step values to control bracket placement diversity.
+	// This allows the fuzzer to explore: no brackets, brackets at various positions.
+	if (seq.size() >= 3)
+	{
+		uint32_t control = _steps[0];
+		size_t const n = seq.size();
+		// 1 in 4 chance of no brackets at all
+		if (control % 4 != 0)
+		{
+			// Derive bracket positions from input data
+			size_t lo = (_steps.size() >= 2 ? _steps[1] : control) % n;
+			size_t hi = (_steps.size() >= 3 ? _steps[2] : control / 7) % n;
+			if (lo > hi)
+				std::swap(lo, hi);
+			// Ensure at least one step inside brackets
+			if (hi <= lo)
+				hi = lo + 1;
+			if (hi > n)
+				hi = n;
+			seq = seq.substr(0, lo) + "[" + seq.substr(lo, hi - lo) + "]" + seq.substr(hi);
+		}
+	}
+
+	return seq;
 }
 
 DEFINE_PROTO_FUZZER(Program const& _input)
@@ -228,80 +334,98 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 
 	try
 	{
+		// Build custom optimizer sequences from proto if provided
+		std::string optimizerSeq = _input.optimiser_seq_size() > 0
+			? buildOptimizerSequence(_input.optimiser_seq())
+			: std::string(OptimiserSettings::DefaultYulOptimiserSteps);
+		std::string optimizerCleanupSeq = _input.optimiser_cleanup_seq_size() > 0
+			? buildOptimizerSequence(_input.optimiser_cleanup_seq())
+			: std::string(OptimiserSettings::DefaultYulOptimiserCleanupSteps);
+
+		// Choose settings for the two runs based on mode
+		OptimiserSettings settingsA, settingsB;
+		bool viaIR_A, viaIR_B;
+		std::string modeLabel;
 		if (s_modeViaIR)
 		{
-			// Mode: unoptimized (legacy) vs optimized (viaIR)
-			auto runA = runOnce(version, source, OptimiserSettings::minimal(), false, extraCalldataHex);
-			if (runA.result.status_code != EVMC_SUCCESS)
-				return;
-
-			auto runB = runOnce(version, source, OptimiserSettings::standard(), true, extraCalldataHex);
-
-			bool gasRelated =
-				runA.result.status_code == EVMC_OUT_OF_GAS ||
-				runB.result.status_code == EVMC_OUT_OF_GAS ||
-				runA.subCallOutOfGas ||
-				runB.subCallOutOfGas;
-
-			if (!gasRelated && runB.result.status_code == EVMC_SUCCESS)
-			{
-				solAssert(
-					runA.result.output_size == runB.result.output_size &&
-					std::memcmp(runA.result.output_data, runB.result.output_data, runA.result.output_size) == 0,
-					"Sol proto2 fuzzer (viaIR mode): unoptimized legacy vs optimized viaIR output differs"
-				);
-				solAssert(
-					logsEqual(runA.logs, runB.logs),
-					"Sol proto2 fuzzer (viaIR mode): unoptimized legacy vs optimized viaIR logs differ"
-				);
-				solAssert(
-					storageEqual(runA.storage, runB.storage),
-					"Sol proto2 fuzzer (viaIR mode): unoptimized legacy vs optimized viaIR storage differs"
-				);
-			}
+			settingsA = OptimiserSettings::minimal();
+			settingsB = OptimiserSettings::standard();
+			settingsB.yulOptimiserSteps = optimizerSeq;
+			settingsB.yulOptimiserCleanupSteps = optimizerCleanupSeq;
+			viaIR_A = false;
+			viaIR_B = true;
+			modeLabel = "Sol proto2 fuzzer (viaIR mode)";
 		}
 		else
 		{
-			// Mode: unoptimized vs optimized (same viaIR flag)
-			auto runNoOpt = runOnce(version, source, OptimiserSettings::minimal(), viaIR, extraCalldataHex);
+			settingsA = OptimiserSettings::minimal();
+			settingsB = OptimiserSettings::standard();
+			settingsB.yulOptimiserSteps = optimizerSeq;
+			settingsB.yulOptimiserCleanupSteps = optimizerCleanupSeq;
+			viaIR_A = viaIR;
+			viaIR_B = viaIR;
+			modeLabel = "Sol proto2 fuzzer";
+		}
 
-			if (runNoOpt.result.status_code != EVMC_SUCCESS)
-				return;
+		// Always run both configurations
+		auto runA = runOnce(version, source, settingsA, viaIR_A, extraCalldataHex);
+		auto runB = runOnce(version, source, settingsB, viaIR_B, extraCalldataHex);
 
-			auto runOpt = runOnce(version, source, OptimiserSettings::standard(), viaIR, extraCalldataHex);
+		// Skip on deployment failure (neither run produced a callable contract)
+		if (runA.result.status_code != EVMC_SUCCESS &&
+			runA.result.status_code != EVMC_REVERT)
+			return;
+		if (runB.result.status_code != EVMC_SUCCESS &&
+			runB.result.status_code != EVMC_REVERT)
+			return;
 
-			bool gasRelated =
-				runNoOpt.result.status_code == EVMC_OUT_OF_GAS ||
-				runOpt.result.status_code == EVMC_OUT_OF_GAS ||
-				runNoOpt.subCallOutOfGas ||
-				runOpt.subCallOutOfGas;
+		// Skip on gas-related differences (legitimate across optimization levels)
+		bool gasRelated =
+			runA.result.status_code == EVMC_OUT_OF_GAS ||
+			runB.result.status_code == EVMC_OUT_OF_GAS ||
+			runA.subCallOutOfGas ||
+			runB.subCallOutOfGas;
+		if (gasRelated)
+			return;
 
-			if (!gasRelated)
-			{
-				solAssert(
-					runNoOpt.result.status_code == runOpt.result.status_code,
-					"Sol proto2 fuzzer: status code differs (noOpt=" +
-					std::to_string(runNoOpt.result.status_code) + " opt=" +
-					std::to_string(runOpt.result.status_code) + ")"
-				);
+		// Compare status codes (catches success-vs-revert mismatches)
+		solAssert(
+			runA.result.status_code == runB.result.status_code,
+			modeLabel + ": status code differs (A=" +
+			std::to_string(runA.result.status_code) + " B=" +
+			std::to_string(runB.result.status_code) + ")"
+		);
 
-				if (runNoOpt.result.status_code == EVMC_SUCCESS && runOpt.result.status_code == EVMC_SUCCESS)
-				{
-					solAssert(
-						runNoOpt.result.output_size == runOpt.result.output_size &&
-						std::memcmp(runNoOpt.result.output_data, runOpt.result.output_data, runNoOpt.result.output_size) == 0,
-						"Sol proto2 fuzzer: optimized vs non-optimized output differs"
-					);
-					solAssert(
-						logsEqual(runNoOpt.logs, runOpt.logs),
-						"Sol proto2 fuzzer: optimized vs non-optimized logs differ"
-					);
-					solAssert(
-						storageEqual(runNoOpt.storage, runOpt.storage),
-						"Sol proto2 fuzzer: optimized vs non-optimized storage differs"
-					);
-				}
-			}
+		// Compare output/logs/storage when both succeeded
+		if (runA.result.status_code == EVMC_SUCCESS && runB.result.status_code == EVMC_SUCCESS)
+		{
+			solAssert(
+				runA.result.output_size == runB.result.output_size &&
+				std::memcmp(runA.result.output_data, runB.result.output_data, runA.result.output_size) == 0,
+				modeLabel + ": output differs"
+			);
+			solAssert(
+				logsEqual(runA.logs, runB.logs),
+				modeLabel + ": logs differ"
+			);
+			solAssert(
+				storageEqual(runA.storage, runB.storage),
+				modeLabel + ": storage differs"
+			);
+			solAssert(
+				transientStorageEqual(runA.transientStorage, runB.transientStorage),
+				modeLabel + ": transient storage differs"
+			);
+		}
+
+		// Compare revert data when both reverted
+		if (runA.result.status_code == EVMC_REVERT && runB.result.status_code == EVMC_REVERT)
+		{
+			solAssert(
+				runA.result.output_size == runB.result.output_size &&
+				std::memcmp(runA.result.output_data, runB.result.output_data, runA.result.output_size) == 0,
+				modeLabel + ": revert data differs"
+			);
 		}
 	}
 	catch (evmasm::StackTooDeepException const&)

@@ -296,6 +296,8 @@ std::string ProtoConverter::visit(Program const& _p)
 			);
 			if (eri.numParams == 0)
 				eri.numParams = 1;
+			for (unsigned k = 0; k < eri.numParams; k++)
+				eri.paramNames.push_back("ep_" + std::to_string(j) + "_" + std::to_string(k));
 			info.errors.push_back(eri);
 		}
 
@@ -313,6 +315,7 @@ std::string ProtoConverter::visit(Program const& _p)
 
 		info.hasReceive = c.has_receive();
 		info.hasFallback = c.has_fallback_func();
+		info.hasCtorParam = c.has_constructor() && c.constructor().has_has_param() && c.constructor().has_param();
 
 		m_contracts.push_back(info);
 	}
@@ -404,10 +407,37 @@ std::string ProtoConverter::visit(Program const& _p)
 		m_freeFunctions.push_back(ffi);
 	}
 
+	// Check if we should generate UDVT
+	m_hasUdvt = _p.has_gen_udvt() && _p.gen_udvt();
+
 	// Generate source
 	std::ostringstream o;
 	o << "// SPDX-License-Identifier: GPL-3.0\n";
 	o << "pragma solidity >=0.0;\n\n";
+
+	// Generate UDVT and operator functions if enabled
+	if (m_hasUdvt)
+	{
+		o << "type MyUint is uint256;\n\n";
+		// Free functions for user-defined operators
+		o << "function _udvtAdd(MyUint a, MyUint b) pure returns (MyUint) {\n";
+		o << "\treturn MyUint.wrap(MyUint.unwrap(a) + MyUint.unwrap(b));\n";
+		o << "}\n";
+		o << "function _udvtSub(MyUint a, MyUint b) pure returns (MyUint) {\n";
+		o << "\treturn MyUint.wrap(MyUint.unwrap(a) - MyUint.unwrap(b));\n";
+		o << "}\n";
+		o << "function _udvtMul(MyUint a, MyUint b) pure returns (MyUint) {\n";
+		o << "\treturn MyUint.wrap(MyUint.unwrap(a) * MyUint.unwrap(b));\n";
+		o << "}\n";
+		o << "function _udvtEq(MyUint a, MyUint b) pure returns (bool) {\n";
+		o << "\treturn MyUint.unwrap(a) == MyUint.unwrap(b);\n";
+		o << "}\n";
+		o << "function _udvtLt(MyUint a, MyUint b) pure returns (bool) {\n";
+		o << "\treturn MyUint.unwrap(a) < MyUint.unwrap(b);\n";
+		o << "}\n\n";
+		// Bind operators to the UDVT
+		o << "using {_udvtAdd as +, _udvtSub as -, _udvtMul as *, _udvtEq as ==, _udvtLt as <} for MyUint global;\n\n";
+	}
 
 	// Generate free functions (file-level, implicitly internal, pure)
 	for (unsigned i = 0; i < numFreeFuncs; i++)
@@ -593,7 +623,7 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 		for (unsigned j = 0; j < err.numParams; j++)
 		{
 			if (j > 0) o << ", ";
-			o << "uint256";
+			o << "uint256 " << err.paramNames[j];
 		}
 		o << ");\n";
 	}
@@ -625,10 +655,21 @@ std::string ProtoConverter::visitContract(ContractDef const& _c, unsigned _idx)
 	if (!isLibrary && (_c.has_constructor() || hasImmutables))
 	{
 		bool payable = _c.has_constructor() && _c.constructor().payable();
-		o << "\tconstructor() ";
+		bool hasParam = info.hasCtorParam;
+		o << "\tconstructor(";
+		if (hasParam)
+			o << "uint256 _cp";
+		o << ") ";
 		if (payable)
 			o << "payable ";
 		o << "{\n";
+		// Store constructor param in first state var if available
+		if (hasParam && !info.stateVars.empty())
+		{
+			auto const& sv = info.stateVars[0];
+			if (!sv.isConstant && !sv.isImmutable)
+				o << "\t\t" << sv.name << " = " << sv.typeStr << "(_cp);\n";
+		}
 
 		// Set up state for constructor body
 		m_canReadState = true;
@@ -1249,18 +1290,37 @@ std::string ProtoConverter::visitRevert(RevertStmt const& _s)
 
 	unsigned errIdx = _s.error_id() % m_currentErrors.size();
 	auto const& err = m_currentErrors[errIdx];
+	bool useNamed = _s.has_use_named_args() && _s.use_named_args();
 
 	std::ostringstream o;
-	o << indent() << "revert " << err.name << "(";
-	for (unsigned i = 0; i < err.numParams; i++)
+	if (useNamed)
 	{
-		if (i > 0) o << ", ";
-		if (i < static_cast<unsigned>(_s.args_size()))
-			o << visitUintExpr(_s.args(i));
-		else
-			o << "0";
+		// Named parameter syntax: revert Err({param1: val1, param2: val2})
+		o << indent() << "revert " << err.name << "({";
+		for (unsigned i = 0; i < err.numParams; i++)
+		{
+			if (i > 0) o << ", ";
+			o << err.paramNames[i] << ": ";
+			if (i < static_cast<unsigned>(_s.args_size()))
+				o << visitUintExpr(_s.args(i));
+			else
+				o << "0";
+		}
+		o << "});\n";
 	}
-	o << ");\n";
+	else
+	{
+		o << indent() << "revert " << err.name << "(";
+		for (unsigned i = 0; i < err.numParams; i++)
+		{
+			if (i > 0) o << ", ";
+			if (i < static_cast<unsigned>(_s.args_size()))
+				o << visitUintExpr(_s.args(i));
+			else
+				o << "0";
+		}
+		o << ");\n";
+	}
 	return o.str();
 }
 
@@ -1276,17 +1336,32 @@ std::string ProtoConverter::visitRequire(RequireStmt const& _s)
 		return indent() + "assert(" + cond + ");\n";
 	else if (_s.has_error_id() && !m_currentErrors.empty())
 	{
-		// require(cond, CustomError(args))
 		unsigned errIdx = _s.error_id() % m_currentErrors.size();
 		auto const& err = m_currentErrors[errIdx];
+		bool useNamed = _s.has_use_named_args() && _s.use_named_args();
 		std::ostringstream o;
-		o << indent() << "require(" << cond << ", " << err.name << "(";
-		for (unsigned i = 0; i < err.numParams; i++)
+		if (useNamed)
 		{
-			if (i > 0) o << ", ";
-			o << "0";
+			// require(cond, CustomError({param1: val1, ...}))
+			o << indent() << "require(" << cond << ", " << err.name << "({";
+			for (unsigned i = 0; i < err.numParams; i++)
+			{
+				if (i > 0) o << ", ";
+				o << err.paramNames[i] << ": 0";
+			}
+			o << "}));\n";
 		}
-		o << "));\n";
+		else
+		{
+			// require(cond, CustomError(args))
+			o << indent() << "require(" << cond << ", " << err.name << "(";
+			for (unsigned i = 0; i < err.numParams; i++)
+			{
+				if (i > 0) o << ", ";
+				o << "0";
+			}
+			o << "));\n";
+		}
 		return o.str();
 	}
 	else if (_s.has_with_message() && _s.with_message())
@@ -2325,6 +2400,92 @@ std::string ProtoConverter::visitUintExpr(Expression const& _e)
 			result = defaultUintLiteral();
 		break;
 	}
+	case Expression::kAbiDecode:
+	{
+		// abi.decode(abi.encode(val), (uint256)) — round-trip encode/decode
+		std::string val = visitUintExpr(_e.abi_decode().value());
+		result = "abi.decode(abi.encode(" + val + "), (uint256))";
+		break;
+	}
+	case Expression::kUdvtExpr:
+	{
+		// UDVT wrap/unwrap: MyUint.wrap(val) / MyUint.unwrap(MyUint.wrap(val))
+		if (!m_hasUdvt)
+		{
+			result = defaultUintLiteral();
+			break;
+		}
+		auto const& ue = _e.udvt_expr();
+		std::string inner = visitUintExpr(ue.inner());
+		if (ue.wrap_only())
+			// Wrap then immediately unwrap to get back to uint256
+			result = "MyUint.unwrap(MyUint.wrap(" + inner + "))";
+		else
+		{
+			// Use a user-defined operator via wrap, then unwrap
+			// MyUint.unwrap(MyUint.wrap(a) + MyUint.wrap(b))
+			std::string b = defaultUintLiteral();
+			result = "MyUint.unwrap(MyUint.wrap(" + inner + ") + MyUint.wrap(" + b + "))";
+		}
+		break;
+	}
+	case Expression::kAbiEncodeCall:
+	{
+		// abi.encodeCall(this.func, (args)) — type-safe call encoding
+		// `this.` is not allowed in pure functions
+		if (m_currentMutability == PURE)
+		{
+			result = defaultUintLiteral();
+			break;
+		}
+		auto const& aec = _e.abi_encode_call();
+		if (m_currentContract >= m_contracts.size())
+		{
+			result = defaultUintLiteral();
+			break;
+		}
+		auto const& cinfo = m_contracts[m_currentContract];
+		// Find external functions (abi.encodeCall requires function pointer)
+		std::vector<unsigned> extFuncs;
+		for (unsigned i = 0; i < cinfo.functions.size(); i++)
+			if (cinfo.functions[i].vis == EXTERNAL)
+				extFuncs.push_back(i);
+		if (!extFuncs.empty())
+		{
+			unsigned idx = aec.func_id() % extFuncs.size();
+			auto const& target = cinfo.functions[extFuncs[idx]];
+			// Build args matching function params
+			std::ostringstream argsStr;
+			argsStr << "(";
+			for (unsigned i = 0; i < target.numParams; i++)
+			{
+				if (i > 0) argsStr << ", ";
+				ParamType pt = (i < target.paramTypes.size()) ? target.paramTypes[i] : PARAM_UINT256;
+				std::string val = (i < static_cast<unsigned>(aec.args_size()))
+					? visitUintExpr(aec.args(i)) : "0";
+				switch (pt)
+				{
+				case PARAM_BOOL:
+					argsStr << val << " % 2 == 1";
+					break;
+				case PARAM_ADDRESS:
+					argsStr << "address(uint160(" << val << "))";
+					break;
+				case PARAM_BYTES32:
+					argsStr << "bytes32(" << val << ")";
+					break;
+				default:
+					argsStr << val;
+					break;
+				}
+			}
+			argsStr << ")";
+			result = "uint256(keccak256(abi.encodeCall(this." + target.name + ", " + argsStr.str() + ")))";
+		}
+		else
+			result = defaultUintLiteral();
+		break;
+	}
 	default:
 		result = findVar(randomNumber());
 		break;
@@ -2435,7 +2596,7 @@ std::string ProtoConverter::generateTestContract()
 	o << "\t\tassembly { _v := calldataload(_o) }\n";
 	o << "\t}\n";
 
-	o << "\tfunction test() public returns (uint256) {\n";
+	o << "\tfunction test() public payable returns (uint256) {\n";
 	o << "\t\tuint256 _r = 0;\n";
 
 	unsigned callIdx = 0;
@@ -2465,10 +2626,16 @@ std::string ProtoConverter::generateTestContract()
 		{
 			o << "\t\ttry new " << ci.name << "(";
 		}
+		// Pass constructor parameter if this contract has one
+		if (ci.hasCtorParam)
+		{
+			o << "_cdl(" << (4 + paramOffset * 32) << ")";
+			paramOffset++;
+		}
 		o << ") returns (" << ci.name << " " << instVar << ") {\n";
 
-		// Call each public/external function via low-level call
-		// and XOR the result into _r for differential testing
+		// Call each public/external function via low-level call, staticcall,
+		// and delegatecall for differential testing
 		for (auto const& fi : ci.functions)
 		{
 			if (fi.vis != PUBLIC && fi.vis != EXTERNAL)
@@ -2484,50 +2651,136 @@ std::string ProtoConverter::generateTestContract()
 			}
 			sig += ")";
 
+			// Helper to emit the encoded arguments
+			auto emitArgs = [&](unsigned paramBase)
+			{
+				for (unsigned i = 0; i < fi.numParams; i++)
+				{
+					ParamType pt = (i < fi.paramTypes.size()) ? fi.paramTypes[i] : PARAM_UINT256;
+					std::string raw = "_cdl(" + std::to_string(4 + (paramBase + i) * 32) + ")";
+					switch (pt)
+					{
+					case PARAM_BOOL:
+						o << ", " << raw << " % 2 == 1";
+						break;
+					case PARAM_ADDRESS:
+						o << ", address(uint160(" << raw << "))";
+						break;
+					case PARAM_BYTES32:
+						o << ", bytes32(" << raw << ")";
+						break;
+					default:
+						o << ", " << raw;
+						break;
+					}
+				}
+			};
+
+			// Helper to emit result decoding
+			auto emitDecode = [&](std::string const& boolV, std::string const& dataV)
+			{
+				if (fi.returnTwo)
+				{
+					o << "\t\t\tif (" << boolV << " && " << dataV << ".length == 64) {\n";
+					o << "\t\t\t\t(uint256 _a" << callIdx << ", uint256 _b" << callIdx
+					  << ") = abi.decode(" << dataV << ", (uint256, uint256));\n";
+					o << "\t\t\t\t_r ^= _a" << callIdx << " ^ _b" << callIdx << ";\n";
+					o << "\t\t\t}\n";
+				}
+				else
+					o << "\t\t\tif (" << boolV << " && " << dataV << ".length == 32) "
+					  << "_r ^= abi.decode(" << dataV << ", (uint256));\n";
+			};
+
+			// 1. Regular .call() — with value for payable functions
 			std::string boolVar = "_s" + std::to_string(callIdx);
 			std::string dataVar = "_d" + std::to_string(callIdx);
 			callIdx++;
 
 			o << "\t\t\t(bool " << boolVar << ", bytes memory " << dataVar
-			  << ") = address(" << instVar
-			  << ").call(abi.encodeWithSignature(\"" << sig << "\"";
-			// Use random values from extra calldata as function arguments,
-			// cast to the appropriate type
-			for (unsigned i = 0; i < fi.numParams; i++)
-			{
-				ParamType pt = (i < fi.paramTypes.size()) ? fi.paramTypes[i] : PARAM_UINT256;
-				std::string raw = "_cdl(" + std::to_string(4 + (paramOffset + i) * 32) + ")";
-				switch (pt)
-				{
-				case PARAM_BOOL:
-					o << ", " << raw << " % 2 == 1";
-					break;
-				case PARAM_ADDRESS:
-					o << ", address(uint160(" << raw << "))";
-					break;
-				case PARAM_BYTES32:
-					o << ", bytes32(" << raw << ")";
-					break;
-				default:
-					o << ", " << raw;
-					break;
-				}
-			}
+			  << ") = address(" << instVar << ")";
+			if (fi.mut == PAYABLE)
+				o << ".call{value: " << (callIdx * 7 + 1) << "}";
+			else
+				o << ".call";
+			o << "(abi.encodeWithSignature(\"" << sig << "\"";
+			emitArgs(paramOffset);
 			paramOffset += fi.numParams;
 			o << "));\n";
+			emitDecode(boolVar, dataVar);
 
-			// XOR successful return values into _r
-			if (fi.returnTwo)
+			// 2. .staticcall() for view/pure functions
+			if (fi.mut == PURE || fi.mut == VIEW)
 			{
-				o << "\t\t\tif (" << boolVar << " && " << dataVar << ".length == 64) {\n";
-				o << "\t\t\t\t(uint256 _a" << callIdx << ", uint256 _b" << callIdx
-				  << ") = abi.decode(" << dataVar << ", (uint256, uint256));\n";
-				o << "\t\t\t\t_r ^= _a" << callIdx << " ^ _b" << callIdx << ";\n";
-				o << "\t\t\t}\n";
+				std::string scBool = "_ss" + std::to_string(callIdx);
+				std::string scData = "_sd" + std::to_string(callIdx);
+				callIdx++;
+
+				o << "\t\t\t(bool " << scBool << ", bytes memory " << scData
+				  << ") = address(" << instVar
+				  << ").staticcall(abi.encodeWithSignature(\"" << sig << "\"";
+				emitArgs(paramOffset);
+				paramOffset += fi.numParams;
+				o << "));\n";
+				emitDecode(scBool, scData);
 			}
-			else
-				o << "\t\t\tif (" << boolVar << " && " << dataVar << ".length == 32) "
-				  << "_r ^= abi.decode(" << dataVar << ", (uint256));\n";
+
+			// 3. .delegatecall() for non-payable functions (every other function)
+			if (callIdx % 3 == 0 && fi.mut != PAYABLE)
+			{
+				std::string dcBool = "_ds" + std::to_string(callIdx);
+				std::string dcData = "_dd" + std::to_string(callIdx);
+				callIdx++;
+
+				o << "\t\t\t(bool " << dcBool << ", bytes memory " << dcData
+				  << ") = address(" << instVar
+				  << ").delegatecall(abi.encodeWithSignature(\"" << sig << "\"";
+				emitArgs(paramOffset);
+				paramOffset += fi.numParams;
+				o << "));\n";
+				emitDecode(dcBool, dcData);
+			}
+
+			// 4. Typed external call (direct instance.func() call) — every other function.
+			// This tests the high-level ABI encoding/decoding codegen path.
+			if (callIdx % 2 == 0 && fi.vis == EXTERNAL)
+			{
+				o << "\t\t\ttry " << instVar << "." << fi.name << "(";
+				for (unsigned i = 0; i < fi.numParams; i++)
+				{
+					if (i > 0) o << ", ";
+					ParamType pt = (i < fi.paramTypes.size()) ? fi.paramTypes[i] : PARAM_UINT256;
+					std::string raw = "_cdl(" + std::to_string(4 + (paramOffset + i) * 32) + ")";
+					switch (pt)
+					{
+					case PARAM_BOOL:
+						o << raw << " % 2 == 1";
+						break;
+					case PARAM_ADDRESS:
+						o << "address(uint160(" << raw << "))";
+						break;
+					case PARAM_BYTES32:
+						o << "bytes32(" << raw << ")";
+						break;
+					default:
+						o << raw;
+						break;
+					}
+				}
+				paramOffset += fi.numParams;
+				if (fi.returnTwo)
+				{
+					o << ") returns (uint256 _ta" << callIdx << ", uint256 _tb" << callIdx << ") {\n";
+					o << "\t\t\t\t_r ^= _ta" << callIdx << " ^ _tb" << callIdx << ";\n";
+				}
+				else
+				{
+					o << ") returns (uint256 _tv" << callIdx << ") {\n";
+					o << "\t\t\t\t_r ^= _tv" << callIdx << ";\n";
+				}
+				o << "\t\t\t} catch {}\n";
+				callIdx++;
+			}
 		}
 
 		// Close try block, empty catch (skip this contract on revert)
@@ -2559,6 +2812,59 @@ std::string ProtoConverter::generateTestContract()
 				paramOffset++;
 			}
 			o << ");\n";
+		}
+	}
+
+	// Cross-contract interaction: if we have multiple deployed contracts,
+	// call functions of the second contract from the first contract's context
+	// by passing addresses around. This tests inter-contract state flows.
+	{
+		std::vector<unsigned> nonLibContracts;
+		for (unsigned i = 0; i < m_contracts.size(); i++)
+			if (m_contracts[i].kind != ContractDef::LIBRARY && !m_contracts[i].functions.empty())
+				nonLibContracts.push_back(i);
+
+		if (nonLibContracts.size() >= 2)
+		{
+			auto const& ciA = m_contracts[nonLibContracts[0]];
+			auto const& ciB = m_contracts[nonLibContracts[1]];
+			std::string instA = "_t" + ciA.name;
+			std::string instB = "_t" + ciB.name;
+
+			// Call B's first public/external function from A's address context
+			// using low-level call with A's address as intermediary
+			for (auto const& fi : ciB.functions)
+			{
+				if (fi.vis != PUBLIC && fi.vis != EXTERNAL)
+					continue;
+				// Build signature
+				std::string sig = fi.name + "(";
+				for (unsigned i = 0; i < fi.numParams; i++)
+				{
+					if (i > 0) sig += ",";
+					ParamType pt = (i < fi.paramTypes.size()) ? fi.paramTypes[i] : PARAM_UINT256;
+					sig += paramTypeAbiStr(pt);
+				}
+				sig += ")";
+
+				std::string boolVar = "_xs" + std::to_string(callIdx);
+				std::string dataVar = "_xd" + std::to_string(callIdx);
+				callIdx++;
+
+				o << "\t\t(bool " << boolVar << ", bytes memory " << dataVar
+				  << ") = address(" << instB
+				  << ").call(abi.encodeWithSignature(\"" << sig << "\"";
+				for (unsigned i = 0; i < fi.numParams; i++)
+				{
+					o << ", _cdl(" << (4 + (paramOffset + i) * 32) << ")";
+				}
+				paramOffset += fi.numParams;
+				o << "));\n";
+				if (!fi.returnTwo)
+					o << "\t\tif (" << boolVar << " && " << dataVar << ".length == 32) "
+					  << "_r ^= abi.decode(" << dataVar << ", (uint256));\n";
+				break; // Only do first function to keep code size manageable
+			}
 		}
 	}
 

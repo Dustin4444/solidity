@@ -87,6 +87,7 @@ private:
 	{
 		std::string name;
 		unsigned numParams;
+		std::vector<std::string> paramNames;
 	};
 
 	struct ModifierInfo
@@ -154,6 +155,7 @@ private:
 		std::vector<unsigned> baseIndices;
 		bool hasReceive = false;
 		bool hasFallback = false;
+		bool hasCtorParam = false;
 	};
 
 	// ===== Visitor methods =====
@@ -319,6 +321,8 @@ private:
 	std::string m_create2SaltHex;
 	/// Free functions info
 	std::vector<FreeFuncInfo> m_freeFunctions;
+	/// Whether we generated a UDVT (type MyUint is uint256)
+	bool m_hasUdvt = false;
 	/// RNG
 	std::shared_ptr<SolRandomNumGenerator> m_randomGen;
 };

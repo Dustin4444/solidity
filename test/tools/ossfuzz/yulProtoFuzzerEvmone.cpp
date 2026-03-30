@@ -49,6 +49,7 @@
 #include <fstream>
 #include <cstring>
 #include <map>
+#include <unordered_map>
 
 using namespace solidity;
 using namespace solidity::test;
@@ -82,6 +83,9 @@ static constexpr bool s_modeCheckStackAlloc = false;
 /// (prevents LOG/CALL spam from causing OOM or timeouts).
 static constexpr int64_t s_gasLimit = 400000;
 
+/// Transient storage map type: slot → value (no StorageValue wrapper).
+using TransientStorageMap = std::unordered_map<evmc::bytes32, evmc::bytes32>;
+
 /// Result of a single compile-deploy-execute run on evmone.
 struct RunResult
 {
@@ -89,6 +93,7 @@ struct RunResult
 	bool subCallOutOfGas = false;
 	std::vector<evmc::MockedHost::log_record> logs;
 	std::map<evmc::address, StorageMap> storage;
+	std::map<evmc::address, TransientStorageMap> transientStorage;
 };
 
 namespace
@@ -96,6 +101,7 @@ namespace
 
 /// Maps a sequence of uint32 values to a Yul optimizer step abbreviation string.
 /// Capped at 64 steps to prevent pathological sequences that cause optimizer timeouts.
+/// Bracket placement is derived from the input data for diverse iteration patterns.
 std::string buildOptimizerSequence(google::protobuf::RepeatedField<google::protobuf::uint32> const& _steps)
 {
 	static std::string const validChars = "flcCUnDEvejsxIOoighFTLMrSmVatpud";
@@ -106,16 +112,31 @@ std::string buildOptimizerSequence(google::protobuf::RepeatedField<google::proto
 
 	size_t const numSteps = std::min(static_cast<size_t>(_steps.size()), maxSteps);
 	std::string seq;
-	seq.reserve(numSteps + 2);
+	seq.reserve(numSteps + 4);
 	for (size_t i = 0; i < numSteps; ++i)
 		seq += validChars[_steps[static_cast<int>(i)] % validChars.size()];
 
-	if (_steps.size() >= 4)
+	// Use first two step values to control bracket placement diversity.
+	// This allows the fuzzer to explore: no brackets, brackets at various positions.
+	if (seq.size() >= 3)
 	{
+		uint32_t control = _steps[0];
 		size_t const n = seq.size();
-		size_t const lo = n / 4;
-		size_t const hi = (3 * n) / 4;
-		seq = seq.substr(0, lo) + "[" + seq.substr(lo, hi - lo) + "]" + seq.substr(hi);
+		// 1 in 4 chance of no brackets at all
+		if (control % 4 != 0)
+		{
+			// Derive bracket positions from input data
+			size_t lo = (_steps.size() >= 2 ? _steps[1] : control) % n;
+			size_t hi = (_steps.size() >= 3 ? _steps[2] : control / 7) % n;
+			if (lo > hi)
+				std::swap(lo, hi);
+			// Ensure at least one step inside brackets
+			if (hi <= lo)
+				hi = lo + 1;
+			if (hi > n)
+				hi = n;
+			seq = seq.substr(0, lo) + "[" + seq.substr(lo, hi - lo) + "]" + seq.substr(hi);
+		}
 	}
 
 	return seq;
@@ -156,6 +177,55 @@ std::map<evmc::address, StorageMap> filterZeroStorage(
 	return filtered;
 }
 
+/// Filter out transient storage entries where value is zero.
+std::map<evmc::address, TransientStorageMap> filterZeroTransientStorage(
+	std::map<evmc::address, TransientStorageMap> const& _storage
+)
+{
+	static constexpr evmc::bytes32 zero{};
+	std::map<evmc::address, TransientStorageMap> filtered;
+	for (auto const& [addr, storageMap] : _storage)
+	{
+		TransientStorageMap nonZero;
+		for (auto const& [key, val] : storageMap)
+			if (val != zero)
+				nonZero[key] = val;
+		if (!nonZero.empty())
+			filtered[addr] = std::move(nonZero);
+	}
+	return filtered;
+}
+
+/// Compare transient storage maps for equality (positionally, ignoring addresses).
+bool transientStorageEqual(
+	std::map<evmc::address, TransientStorageMap> const& _a,
+	std::map<evmc::address, TransientStorageMap> const& _b
+)
+{
+	auto filtA = filterZeroTransientStorage(_a);
+	auto filtB = filterZeroTransientStorage(_b);
+	if (filtA.size() != filtB.size())
+		return false;
+	auto itA = filtA.begin();
+	auto itB = filtB.begin();
+	for (; itA != filtA.end(); ++itA, ++itB)
+	{
+		auto const& storageA = itA->second;
+		auto const& storageB = itB->second;
+		if (storageA.size() != storageB.size())
+			return false;
+		for (auto const& [key, valA] : storageA)
+		{
+			auto jt = storageB.find(key);
+			if (jt == storageB.end())
+				return false;
+			if (valA != jt->second)
+				return false;
+		}
+	}
+	return true;
+}
+
 /// Compare storage maps for equality (comparing current values only).
 /// Ignores account addresses because different bytecodes produce different
 /// CREATE/CREATE2 addresses. Instead, compares accounts positionally.
@@ -188,13 +258,28 @@ bool storageEqual(
 	return true;
 }
 
+/// Deploy bytecode directly as creation code (for Yul objects that already
+/// contain deployment logic — datacopy+return of runtime code).
+static evmc::Result deployObjectCode(bytes const& _input, EVMHost& _host, int64_t _gas)
+{
+	evmc_message msg = {};
+	msg.gas = _gas;
+	msg.input_data = _input.data();
+	msg.input_size = _input.size();
+	msg.kind = EVMC_CREATE;
+	return _host.call(msg);
+}
+
 /// Compile Yul source, deploy on evmone, execute with calldata, return results.
+/// @param _isObject true if the input is a Yul object (deployment bytecode already
+///   includes creation logic); false for plain blocks that need a deploy wrapper.
 RunResult runYulOnce(
 	EVMVersion _version,
 	std::string const& _yulSource,
 	OptimiserSettings _settings,
 	bytes const& _calldata,
-	bool _viaSSACFG = false
+	bool _viaSSACFG = false,
+	bool _isObject = false
 )
 {
 	EVMHost hostContext(_version, evmone);
@@ -208,22 +293,26 @@ RunResult runYulOnce(
 	}
 	catch (solidity::yul::StackTooDeepError const&)
 	{
-		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, false, {}, {}};
+		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, false, {}, {}, {}};
 	}
 	catch (solidity::yul::YulException const&)
 	{
 		// Parse/analysis/codegen failure — skip this input.
-		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, false, {}, {}};
+		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, false, {}, {}, {}};
 	}
 	catch (solidity::yul::YulAssertion const&)
 	{
 		// Parse/analysis assertion failure — skip this input.
-		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, false, {}, {}};
+		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, false, {}, {}, {}};
 	}
 
-	evmc::Result deployResult = YulEvmoneUtility::deployCode(byteCode, hostContext, s_gasLimit);
+	// Objects already contain deployment logic (datacopy+return of runtime code),
+	// so deploy directly. Plain blocks need the deployCode wrapper.
+	evmc::Result deployResult = _isObject
+		? deployObjectCode(byteCode, hostContext, s_gasLimit)
+		: YulEvmoneUtility::deployCode(byteCode, hostContext, s_gasLimit);
 	if (deployResult.status_code != EVMC_SUCCESS)
-		return RunResult{std::move(deployResult), false, {}, {}};
+		return RunResult{std::move(deployResult), false, {}, {}, {}};
 
 	auto callMsg = YulEvmoneUtility::callMessage(deployResult.create_address, _calldata);
 	callMsg.gas = s_gasLimit;
@@ -242,16 +331,20 @@ RunResult runYulOnce(
 		if (!account.storage.empty())
 			storage[addr] = account.storage;
 
-	return RunResult{std::move(callResult), subCallOOG, std::move(logs), std::move(storage)};
+	// Capture transient storage for all accounts
+	std::map<evmc::address, TransientStorageMap> transientStorage;
+	for (auto const& [addr, account] : hostContext.accounts)
+		if (!account.transient_storage.empty())
+			transientStorage[addr] = account.transient_storage;
+
+	return RunResult{std::move(callResult), subCallOOG, std::move(logs), std::move(storage), std::move(transientStorage)};
 }
 
 } // anonymous namespace
 
 DEFINE_PROTO_FUZZER(Program const& _input)
 {
-	// Subobjects cause issues with deployment — skip them.
-	if (_input.has_obj())
-		return;
+	bool isObject = _input.has_obj();
 
 	// filterStatefulInstructions=false: keep sstore/tstore/log — we compare them.
 	// filterOptimizationNoise=true: filter datasize/dataoffset that inherently differ.
@@ -310,7 +403,7 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		settingsA.yulOptimiserCleanupSteps = optimizerCleanupSeq;
 	}
 
-	auto runA = runYulOnce(version, yul_source, settingsA, calldata, /*viaSSACFG=*/false);
+	auto runA = runYulOnce(version, yul_source, settingsA, calldata, /*viaSSACFG=*/false, isObject);
 
 	// Bail on deployment failure or serious call errors
 	if (runA.result.status_code != EVMC_SUCCESS &&
@@ -331,7 +424,7 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 
 	// In SSACFG mode: run B uses the SSA CFG codegen backend.
 	// In default / check-stack-alloc mode: run B uses legacy codegen.
-	auto runB = runYulOnce(version, yul_source, settingsB, calldata, /*viaSSACFG=*/s_modeSSACFG);
+	auto runB = runYulOnce(version, yul_source, settingsB, calldata, /*viaSSACFG=*/s_modeSSACFG, isObject);
 
 	// Skip comparison if either run hit gas-related or serious errors
 	bool gasRelated =
@@ -375,6 +468,20 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		solAssert(
 			storageEqual(runA.storage, runB.storage),
 			modeLabel + " storage differs"
+		);
+		solAssert(
+			transientStorageEqual(runA.transientStorage, runB.transientStorage),
+			modeLabel + " transient storage differs"
+		);
+	}
+
+	// Compare revert data when both reverted
+	if (runA.result.status_code == EVMC_REVERT && runB.result.status_code == EVMC_REVERT)
+	{
+		solAssert(
+			runA.result.output_size == runB.result.output_size &&
+			std::memcmp(runA.result.output_data, runB.result.output_data, runA.result.output_size) == 0,
+			modeLabel + " revert data differs"
 		);
 	}
 }

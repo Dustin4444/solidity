@@ -295,6 +295,19 @@ message AbiEncodeExpr {
 	repeated Expression args = 2;
 }
 
+// abi.decode(abi.encode(val), (uint256)) — round-trip encode/decode
+// Returns uint256 by decoding from encoded bytes
+message AbiDecodeExpr {
+	required Expression value = 1;
+}
+
+// abi.encodeCall(this.funcName, (args)) — type-safe function call encoding
+// Returns bytes, hashed to uint256 for the expression context
+message AbiEncodeCallExpr {
+	required uint32 func_id = 1;
+	repeated Expression args = 2;
+}
+
 // keccak256(abi.encode(...)), sha256(...), ripemd160(...)
 message HashExpr {
 	enum Kind {
@@ -451,7 +464,18 @@ message Expression {
 		ConcatExpr concat = 23;
 		SelectorExpr selector = 24;
 		ArrayLengthExpr array_length = 25;
+		AbiDecodeExpr abi_decode = 26;
+		AbiEncodeCallExpr abi_encode_call = 27;
+		// UDVT wrap/unwrap: MyUint.wrap(val) returns MyUint, MyUint.unwrap(x) returns uint256
+		UdvtExpr udvt_expr = 28;
 	}
+}
+
+// User-defined value type expression: wrap or unwrap
+message UdvtExpr {
+	required Expression inner = 1;
+	// true = wrap(inner), false = unwrap(wrap(inner)) [round-trip to uint256]
+	required bool wrap_only = 2;
 }
 
 // ======================= STATEMENTS =======================
@@ -505,6 +529,9 @@ message RequireStmt {
 	// When set and is_assert is false, use a custom error:
 	// require(cond, ErrorName(args))
 	optional uint32 error_id = 4;
+	// When true and error_id is set, uses named parameter syntax:
+	// require(cond, ErrorName({param1: val1, ...}))
+	optional bool use_named_args = 5;
 }
 
 // selfdestruct(payable(address(...)))
@@ -520,6 +547,8 @@ message EmitStmt {
 message RevertStmt {
 	required uint32 error_id = 1;
 	repeated Expression args = 2;
+	// When true, uses named parameter syntax: revert Err({name: val, ...})
+	optional bool use_named_args = 3;
 }
 
 message DeleteStmt {
@@ -689,6 +718,9 @@ message FunctionDef {
 message ConstructorDef {
 	required Block body = 1;
 	required bool payable = 2;
+	// When true, constructor takes a uint256 parameter.
+	// Tests constructor parameter handling and inheritance.
+	optional bool has_param = 3;
 }
 
 message StateVarDecl {
@@ -750,6 +782,14 @@ message Program {
 	optional bytes create2_salt = 6;
 	// File-level free functions (implicitly internal, pure)
 	repeated FreeFunctionDef free_functions = 7;
+	// Whether to generate a user-defined value type (UDVT) wrapping uint256
+	// and user-defined operators for it
+	optional bool gen_udvt = 10;
+	// Custom Yul optimizer step sequence (mapped to step abbreviations).
+	// When empty, the default optimizer sequence is used.
+	repeated uint32 optimiser_seq = 8;
+	// Custom Yul optimizer cleanup step sequence.
+	repeated uint32 optimiser_cleanup_seq = 9;
 }
 
 package solidity.test.sol2protofuzzer;
