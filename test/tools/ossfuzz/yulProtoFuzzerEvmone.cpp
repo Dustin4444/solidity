@@ -208,22 +208,22 @@ RunResult runYulOnce(
 	}
 	catch (solidity::yul::StackTooDeepError const&)
 	{
-		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, {}, {}};
+		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, false, {}, {}};
 	}
 	catch (solidity::yul::YulException const&)
 	{
 		// Parse/analysis/codegen failure — skip this input.
-		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, {}, {}};
+		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, false, {}, {}};
 	}
 	catch (solidity::yul::YulAssertion const&)
 	{
 		// Parse/analysis assertion failure — skip this input.
-		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, {}, {}};
+		return RunResult{evmc::Result{EVMC_INTERNAL_ERROR}, false, {}, {}};
 	}
 
 	evmc::Result deployResult = YulEvmoneUtility::deployCode(byteCode, hostContext, s_gasLimit);
 	if (deployResult.status_code != EVMC_SUCCESS)
-		return RunResult{std::move(deployResult), {}, {}};
+		return RunResult{std::move(deployResult), false, {}, {}};
 
 	auto callMsg = YulEvmoneUtility::callMessage(deployResult.create_address, _calldata);
 	callMsg.gas = s_gasLimit;
