@@ -53,6 +53,8 @@ static constexpr char const* RED = "\033[31m";
 static constexpr char const* YELLOW = "\033[33m";
 static constexpr char const* RESET = "\033[0m";
 
+static constexpr int64_t s_gasLimit = 400000;
+
 /// Result of a single compile-deploy-execute run.
 struct RunResult
 {
@@ -153,7 +155,7 @@ static RunResult runYulOnce(
 		return result;
 	}
 
-	evmc::Result deployResult = YulEvmoneUtility::deployCode(result.bytecode, hostContext);
+	evmc::Result deployResult = YulEvmoneUtility::deployCode(result.bytecode, hostContext, s_gasLimit);
 	if (deployResult.status_code != EVMC_SUCCESS)
 	{
 		result.statusCode = deployResult.status_code;
@@ -161,6 +163,7 @@ static RunResult runYulOnce(
 	}
 
 	auto callMsg = YulEvmoneUtility::callMessage(deployResult.create_address, _calldata);
+	callMsg.gas = s_gasLimit;
 	evmc::Result callResult = hostContext.call(callMsg);
 	result.statusCode = callResult.status_code;
 	if (callResult.output_data && callResult.output_size > 0)
