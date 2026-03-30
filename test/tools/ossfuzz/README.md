@@ -117,8 +117,8 @@ Firstly, whenever relevant we ONLY use latest EVM version.
   Compares optimized Yul with `optimizeStackAllocation` off vs on (both legacy
   codegen). Catches miscompilations introduced by the stack-reuse
   code-generation pass.
-- `sol_proto_ossfuzz` (from `solProtoFuzzer.cpp`). Generates random Solidity
-  via the Protobuf schema `solProto.proto`, producing code with
+- `sol_proto_ossfuzz_nondiff` (from `solProtoFuzzer.cpp`). Generates random
+  Solidity via the Protobuf schema `solProto.proto`, producing code with
   functions that return known constants. Compiles with minimal optimizer
   settings, deploys on evmone, asserts `test()` does not revert and returns
   0 (i.e. all constants are returned correctly). Not differential — single
