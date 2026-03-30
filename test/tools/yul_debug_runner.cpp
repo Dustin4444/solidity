@@ -63,6 +63,7 @@ struct RunResult
 	std::string internalErrorMsg;
 	bytes bytecode;
 	evmc_status_code statusCode = EVMC_INTERNAL_ERROR;
+	bool subCallOutOfGas = false;
 	bytes output;
 	std::vector<evmc::MockedHost::log_record> logs;
 	std::map<evmc::address, StorageMap> storage;
@@ -166,6 +167,7 @@ static RunResult runYulOnce(
 	callMsg.gas = s_gasLimit;
 	evmc::Result callResult = hostContext.call(callMsg);
 	result.statusCode = callResult.status_code;
+	result.subCallOutOfGas = hostContext.m_subCallOutOfGas;
 	if (callResult.output_data && callResult.output_size > 0)
 		result.output = bytes(callResult.output_data, callResult.output_data + callResult.output_size);
 
@@ -310,12 +312,15 @@ static bool compareRuns(
 		return false;
 	}
 
-	if (_a.statusCode == EVMC_OUT_OF_GAS || _b.statusCode == EVMC_OUT_OF_GAS)
+	if (_a.statusCode == EVMC_OUT_OF_GAS || _b.statusCode == EVMC_OUT_OF_GAS ||
+		_a.subCallOutOfGas || _b.subCallOutOfGas)
 	{
 		if (!_quiet)
 			std::cout << "  SKIPPED (out-of-gas: "
-				<< _labelA << "=" << statusCodeToString(_a.statusCode) << ", "
-				<< _labelB << "=" << statusCodeToString(_b.statusCode) << ")"
+				<< _labelA << "=" << statusCodeToString(_a.statusCode)
+				<< (_a.subCallOutOfGas ? " [sub-call OOG]" : "") << ", "
+				<< _labelB << "=" << statusCodeToString(_b.statusCode)
+				<< (_b.subCallOutOfGas ? " [sub-call OOG]" : "") << ")"
 				<< std::endl;
 		return false;
 	}

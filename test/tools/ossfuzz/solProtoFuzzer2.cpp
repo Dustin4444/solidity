@@ -47,6 +47,7 @@ using namespace solidity::util;
 struct RunResult
 {
 	evmc::Result result;
+	bool subCallOutOfGas = false;
 	std::vector<evmc::MockedHost::log_record> logs;
 	std::map<evmc::address, StorageMap> storage;
 };
@@ -95,6 +96,7 @@ static RunResult runOnce(
 		s_gasLimit
 	);
 	evmc::Result result = evmoneUtil.compileDeployAndExecute({}, _extraCalldataHex);
+	bool subCallOOG = hostContext.m_subCallOutOfGas;
 
 	// Capture logs
 	std::vector<evmc::MockedHost::log_record> logs(
@@ -108,7 +110,7 @@ static RunResult runOnce(
 		if (!account.storage.empty())
 			storage[addr] = account.storage;
 
-	return RunResult{std::move(result), std::move(logs), std::move(storage)};
+	return RunResult{std::move(result), subCallOOG, std::move(logs), std::move(storage)};
 }
 
 /// Compare two log records for equality (ignoring creator address,
@@ -237,7 +239,9 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 
 			bool gasRelated =
 				runA.result.status_code == EVMC_OUT_OF_GAS ||
-				runB.result.status_code == EVMC_OUT_OF_GAS;
+				runB.result.status_code == EVMC_OUT_OF_GAS ||
+				runA.subCallOutOfGas ||
+				runB.subCallOutOfGas;
 
 			if (!gasRelated && runB.result.status_code == EVMC_SUCCESS)
 			{
@@ -268,7 +272,9 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 
 			bool gasRelated =
 				runNoOpt.result.status_code == EVMC_OUT_OF_GAS ||
-				runOpt.result.status_code == EVMC_OUT_OF_GAS;
+				runOpt.result.status_code == EVMC_OUT_OF_GAS ||
+				runNoOpt.subCallOutOfGas ||
+				runOpt.subCallOutOfGas;
 
 			if (!gasRelated)
 			{

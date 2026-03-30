@@ -88,6 +88,7 @@ public:
 		tx_context.block_number++;
 		tx_context.block_timestamp += 15;
 		recorded_logs.clear();
+		m_subCallOutOfGas = false;
 		newTransactionFrame();
 	}
 
@@ -146,6 +147,11 @@ private:
 	langutil::EVMVersion m_evmVersion;
 	/// EVM version requested from EVMC (matches the above)
 	evmc_revision m_evmRevision;
+
+	/// True if any sub-call during execution returned EVMC_OUT_OF_GAS.
+	/// Useful for differential testing: when this is set, log/output differences
+	/// across optimization levels are expected (gas consumption varies).
+	bool m_subCallOutOfGas = false;
 
 	/// Store the accounts that have been created in the current transaction.
 	std::unordered_set<evmc::address> m_newlyCreatedAccounts;

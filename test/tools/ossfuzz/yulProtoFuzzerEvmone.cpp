@@ -86,6 +86,7 @@ static constexpr int64_t s_gasLimit = 400000;
 struct RunResult
 {
 	evmc::Result result;
+	bool subCallOutOfGas = false;
 	std::vector<evmc::MockedHost::log_record> logs;
 	std::map<evmc::address, StorageMap> storage;
 };
@@ -227,6 +228,7 @@ RunResult runYulOnce(
 	auto callMsg = YulEvmoneUtility::callMessage(deployResult.create_address, _calldata);
 	callMsg.gas = s_gasLimit;
 	evmc::Result callResult = hostContext.call(callMsg);
+	bool subCallOOG = hostContext.m_subCallOutOfGas;
 
 	// Capture logs
 	std::vector<evmc::MockedHost::log_record> logs(
@@ -240,7 +242,7 @@ RunResult runYulOnce(
 		if (!account.storage.empty())
 			storage[addr] = account.storage;
 
-	return RunResult{std::move(callResult), std::move(logs), std::move(storage)};
+	return RunResult{std::move(callResult), subCallOOG, std::move(logs), std::move(storage)};
 }
 
 } // anonymous namespace
@@ -334,7 +336,9 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	// Skip comparison if either run hit gas-related or serious errors
 	bool gasRelated =
 		runA.result.status_code == EVMC_OUT_OF_GAS ||
-		runB.result.status_code == EVMC_OUT_OF_GAS;
+		runB.result.status_code == EVMC_OUT_OF_GAS ||
+		runA.subCallOutOfGas ||
+		runB.subCallOutOfGas;
 	if (gasRelated)
 		return;
 

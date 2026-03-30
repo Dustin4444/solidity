@@ -181,6 +181,7 @@ void EVMHost::reset()
 	recorded_account_accesses.clear();
 	m_newlyCreatedAccounts.clear();
 	m_totalCodeDepositGas = 0;
+	m_subCallOutOfGas = false;
 
 	// Mark all precompiled contracts as existing. Existing here means to have a balance (as per EIP-161).
 	// NOTE: keep this in sync with `EVMHost::call` below.
@@ -445,6 +446,8 @@ evmc::Result EVMHost::call(evmc_message const& _message) noexcept
 	{
 		accounts = stateBackup;
 		recorded_logs = logsBackup;
+		if (result.status_code == EVMC_OUT_OF_GAS)
+			m_subCallOutOfGas = true;
 	}
 
 	return result;
