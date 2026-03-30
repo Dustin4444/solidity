@@ -23,6 +23,7 @@
 #include <test/EVMHost.h>
 
 #include <libevmasm/Exceptions.h>
+#include <liblangutil/Exceptions.h>
 
 #include <libyul/YulString.h>
 
@@ -431,5 +432,9 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	catch (evmasm::StackTooDeepException const&)
 	{
 		// Stack-too-deep in legacy codegen is expected for some inputs.
+	}
+	catch (langutil::StackTooDeepError const&)
+	{
+		// Stack-too-deep in IR codegen is expected for some inputs.
 	}
 }
