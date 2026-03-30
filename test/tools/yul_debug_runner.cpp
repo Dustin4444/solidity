@@ -38,6 +38,7 @@
 #include <iomanip>
 #include <cstring>
 #include <map>
+#include <unordered_map>
 
 using namespace solidity::test::fuzzer;
 using namespace solidity::test;
@@ -55,6 +56,8 @@ static constexpr char const* RESET = "\033[0m";
 
 static constexpr int64_t s_gasLimit = 400000;
 
+using TransientStorageMap = std::unordered_map<evmc::bytes32, evmc::bytes32>;
+
 /// Result of a single compile-deploy-execute run.
 struct RunResult
 {
@@ -67,6 +70,7 @@ struct RunResult
 	bytes output;
 	std::vector<evmc::MockedHost::log_record> logs;
 	std::map<evmc::address, StorageMap> storage;
+	std::map<evmc::address, TransientStorageMap> transientStorage;
 };
 
 static std::string statusCodeToString(evmc_status_code _code)
@@ -179,6 +183,11 @@ static RunResult runYulOnce(
 		if (!account.storage.empty())
 			result.storage[addr] = account.storage;
 
+	// Capture transient storage
+	for (auto const& [addr, account] : hostContext.accounts)
+		if (!account.transient_storage.empty())
+			result.transientStorage[addr] = account.transient_storage;
+
 	return result;
 }
 
@@ -239,6 +248,55 @@ static bool storageEqual(
 			if (jt == storageB.end())
 				return false;
 			if (valA.current != jt->second.current)
+				return false;
+		}
+	}
+	return true;
+}
+
+/// Filter out transient storage entries where value is zero.
+static std::map<evmc::address, TransientStorageMap> filterZeroTransientStorage(
+	std::map<evmc::address, TransientStorageMap> const& _storage
+)
+{
+	static constexpr evmc::bytes32 zero{};
+	std::map<evmc::address, TransientStorageMap> filtered;
+	for (auto const& [addr, storageMap] : _storage)
+	{
+		TransientStorageMap nonZero;
+		for (auto const& [key, val] : storageMap)
+			if (val != zero)
+				nonZero[key] = val;
+		if (!nonZero.empty())
+			filtered[addr] = std::move(nonZero);
+	}
+	return filtered;
+}
+
+/// Compare transient storage maps positionally.
+static bool transientStorageEqual(
+	std::map<evmc::address, TransientStorageMap> const& _a,
+	std::map<evmc::address, TransientStorageMap> const& _b
+)
+{
+	auto filtA = filterZeroTransientStorage(_a);
+	auto filtB = filterZeroTransientStorage(_b);
+	if (filtA.size() != filtB.size())
+		return false;
+	auto itA = filtA.begin();
+	auto itB = filtB.begin();
+	for (; itA != filtA.end(); ++itA, ++itB)
+	{
+		auto const& storageA = itA->second;
+		auto const& storageB = itB->second;
+		if (storageA.size() != storageB.size())
+			return false;
+		for (auto const& [key, valA] : storageA)
+		{
+			auto jt = storageB.find(key);
+			if (jt == storageB.end())
+				return false;
+			if (valA != jt->second)
 				return false;
 		}
 	}
@@ -348,13 +406,29 @@ static bool compareRuns(
 		bool storageMatch = storageEqual(_a.storage, _b.storage);
 		if (!gasRelated && !storageMatch) mismatch = true;
 
+		// Transient storage
+		bool transientMatch = transientStorageEqual(_a.transientStorage, _b.transientStorage);
+		if (!gasRelated && !transientMatch) mismatch = true;
+
 		if (!_quiet)
 		{
-			std::cout << "  Output:  " << (gasRelated ? OOG_STR : matchStr(outputMatch)) << std::endl;
-			std::cout << "  Logs:    " << (gasRelated ? OOG_STR : matchStr(logsMatch)) << std::endl;
-			std::cout << "  Storage: " << (gasRelated ? OOG_STR : matchStr(storageMatch)) << std::endl;
+			std::cout << "  Output:    " << (gasRelated ? OOG_STR : matchStr(outputMatch)) << std::endl;
+			std::cout << "  Logs:      " << (gasRelated ? OOG_STR : matchStr(logsMatch)) << std::endl;
+			std::cout << "  Storage:   " << (gasRelated ? OOG_STR : matchStr(storageMatch)) << std::endl;
+			std::cout << "  Transient: " << (gasRelated ? OOG_STR : matchStr(transientMatch)) << std::endl;
 		}
 	}
+
+	// Compare revert data when both reverted
+	if (_a.statusCode == EVMC_REVERT && _b.statusCode == EVMC_REVERT)
+	{
+		bool revertMatch = (_a.output.size() == _b.output.size() &&
+			std::memcmp(_a.output.data(), _b.output.data(), _a.output.size()) == 0);
+		if (!gasRelated && !revertMatch) mismatch = true;
+		if (!_quiet)
+			std::cout << "  Revert data: " << (gasRelated ? OOG_STR : matchStr(revertMatch)) << std::endl;
+	}
+
 	if (!_quiet)
 		std::cout << std::endl;
 	return mismatch;
