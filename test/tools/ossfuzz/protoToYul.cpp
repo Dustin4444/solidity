@@ -259,11 +259,10 @@ void ProtoConverter::visit(Expression const& _x)
 			m_output << dictionaryToken();
 		break;
 	case Expression::kUnopdata:
-		// Filter datasize and dataoffset because these instructions may return
-		// a value that is a function of optimisation. Therefore, when run on
-		// an EVM client, the execution traces for unoptimised vs optimised
-		// programs may differ. This ends up as a false-positive bug report.
-		if (m_isObject && !m_filterStatefulInstructions)
+		// Filter datasize and dataoffset because these return values that
+		// depend on bytecode size/layout, which changes across optimization
+		// levels (same class of issue as codesize).
+		if (m_isObject && !m_filterStatefulInstructions && !m_filterOptimizationNoise)
 			visit(_x.unopdata());
 		else
 			m_output << dictionaryToken();
@@ -862,6 +861,13 @@ void ProtoConverter::visit(CopyFunc const& _x)
 		m_output << "returndatacopy";
 		break;
 	case CopyFunc::DATA:
+		// datacopy copies from the object's data section, which contains
+		// sub-object bytecodes that differ across optimization levels.
+		if (m_filterOptimizationNoise)
+		{
+			m_output << "calldatacopy";
+			break;
+		}
 		m_output << "datacopy";
 		break;
 	case CopyFunc::MEMORY:
