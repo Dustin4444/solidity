@@ -24,6 +24,8 @@
 
 #include <libevmasm/Exceptions.h>
 
+#include <libyul/YulString.h>
+
 #include <evmone/evmone.h>
 #include <src/libfuzzer/libfuzzer_macro.h>
 
@@ -182,6 +184,8 @@ static bool storageEqual(
 
 DEFINE_PROTO_FUZZER(Program const& _input)
 {
+	yul::YulStringRepository::reset();
+
 	ProtoConverter converter;
 	std::string sol_source = converter.protoToSolidity(_input);
 
