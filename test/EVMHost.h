@@ -101,6 +101,12 @@ public:
 	static evmc::address convertToEVMC(Address const& _addr);
 	static util::h256 convertFromEVMC(evmc::bytes32 const& _data);
 	static evmc::bytes32 convertToEVMC(util::h256 const& _data);
+
+	/// True if any sub-call during execution returned EVMC_OUT_OF_GAS.
+	/// Useful for differential testing: when this is set, log/output differences
+	/// across optimization levels are expected (gas consumption varies).
+	bool m_subCallOutOfGas = false;
+
 private:
 	/// Transfer value between accounts. Checks for sufficient balance.
 	void transfer(evmc::MockedAccount& _sender, evmc::MockedAccount& _recipient, u256 const& _value) noexcept;
@@ -147,11 +153,6 @@ private:
 	langutil::EVMVersion m_evmVersion;
 	/// EVM version requested from EVMC (matches the above)
 	evmc_revision m_evmRevision;
-
-	/// True if any sub-call during execution returned EVMC_OUT_OF_GAS.
-	/// Useful for differential testing: when this is set, log/output differences
-	/// across optimization levels are expected (gas consumption varies).
-	bool m_subCallOutOfGas = false;
 
 	/// Store the accounts that have been created in the current transaction.
 	std::unordered_set<evmc::address> m_newlyCreatedAccounts;

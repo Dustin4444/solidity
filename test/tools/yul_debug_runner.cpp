@@ -312,18 +312,11 @@ static bool compareRuns(
 		return false;
 	}
 
-	if (_a.statusCode == EVMC_OUT_OF_GAS || _b.statusCode == EVMC_OUT_OF_GAS ||
-		_a.subCallOutOfGas || _b.subCallOutOfGas)
-	{
-		if (!_quiet)
-			std::cout << "  SKIPPED (out-of-gas: "
-				<< _labelA << "=" << statusCodeToString(_a.statusCode)
-				<< (_a.subCallOutOfGas ? " [sub-call OOG]" : "") << ", "
-				<< _labelB << "=" << statusCodeToString(_b.statusCode)
-				<< (_b.subCallOutOfGas ? " [sub-call OOG]" : "") << ")"
-				<< std::endl;
-		return false;
-	}
+	bool gasRelated =
+		_a.statusCode == EVMC_OUT_OF_GAS || _b.statusCode == EVMC_OUT_OF_GAS ||
+		_a.subCallOutOfGas || _b.subCallOutOfGas;
+
+	static std::string const OOG_STR = std::string(YELLOW) + "OOG" + RESET;
 
 	bool mismatch = false;
 	auto matchStr = [](bool _match) -> std::string {
@@ -334,9 +327,9 @@ static bool compareRuns(
 
 	// Status code
 	bool statusMatch = (_a.statusCode == _b.statusCode);
-	if (!statusMatch) mismatch = true;
+	if (!gasRelated && !statusMatch) mismatch = true;
 	if (!_quiet)
-		std::cout << "  Status:  " << matchStr(statusMatch)
+		std::cout << "  Status:  " << (gasRelated ? OOG_STR : matchStr(statusMatch))
 			<< " (" << statusCodeToString(_a.statusCode) << " vs " << statusCodeToString(_b.statusCode) << ")"
 			<< std::endl;
 
@@ -345,21 +338,21 @@ static bool compareRuns(
 		// Output
 		bool outputMatch = (_a.output.size() == _b.output.size() &&
 			std::memcmp(_a.output.data(), _b.output.data(), _a.output.size()) == 0);
-		if (!outputMatch) mismatch = true;
+		if (!gasRelated && !outputMatch) mismatch = true;
 
 		// Logs
 		bool logsMatch = logsEqual(_a.logs, _b.logs);
-		if (!logsMatch) mismatch = true;
+		if (!gasRelated && !logsMatch) mismatch = true;
 
 		// Storage
 		bool storageMatch = storageEqual(_a.storage, _b.storage);
-		if (!storageMatch) mismatch = true;
+		if (!gasRelated && !storageMatch) mismatch = true;
 
 		if (!_quiet)
 		{
-			std::cout << "  Output:  " << matchStr(outputMatch) << std::endl;
-			std::cout << "  Logs:    " << matchStr(logsMatch) << std::endl;
-			std::cout << "  Storage: " << matchStr(storageMatch) << std::endl;
+			std::cout << "  Output:  " << (gasRelated ? OOG_STR : matchStr(outputMatch)) << std::endl;
+			std::cout << "  Logs:    " << (gasRelated ? OOG_STR : matchStr(logsMatch)) << std::endl;
+			std::cout << "  Storage: " << (gasRelated ? OOG_STR : matchStr(storageMatch)) << std::endl;
 		}
 	}
 	if (!_quiet)
@@ -390,6 +383,7 @@ int main(int argc, char* argv[])
 		("optimizer-sequence", po::value<std::string>()->default_value(""), "Custom Yul optimizer step sequence (e.g. from fuzzer protobuf)")
 		("optimizer-cleanup-sequence", po::value<std::string>()->default_value(""), "Custom Yul optimizer cleanup step sequence")
 		("quiet,q", "Quiet mode: only print one-line summary, for use by delta debuggers")
+		("verbose,v", "Verbose mode: print full logs and storage for all configs")
 	;
 
 	po::positional_options_description positional;
@@ -426,6 +420,7 @@ int main(int argc, char* argv[])
 	std::string optimizerSequence = vm["optimizer-sequence"].as<std::string>();
 	std::string optimizerCleanupSequence = vm["optimizer-cleanup-sequence"].as<std::string>();
 	bool quiet = vm.count("quiet") > 0;
+	bool verbose = vm.count("verbose") > 0;
 
 	// Read source file
 	std::ifstream ifs(inputFile);
@@ -538,11 +533,11 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (!quiet)
+	if (!quiet && verbose)
 	{
 		std::cout << std::endl;
 
-		// Print all results
+		// Print all results (verbose only — includes full bytecode, logs, storage)
 		for (size_t i = 0; i < configs.size(); i++)
 			printRunResult(configs[i].label, results[i], std::cout);
 	}
@@ -579,65 +574,96 @@ int main(int argc, char* argv[])
 			std::cout << std::endl;
 		}
 
-		// Print logs
+		// Print log/storage summary (counts only unless --verbose)
 		std::cout << YELLOW << "========== LOGS ==========" << RESET << std::endl;
-		std::cout << "NOTE: Creator addresses differ across configs because different bytecodes" << std::endl;
-		std::cout << "produce different CREATE/CREATE2 addresses. This is expected and not a bug." << std::endl;
-		std::cout << std::endl;
 		for (size_t i = 0; i < configs.size(); i++)
 		{
-			std::cout << "--- " << configs[i].label << " ---" << std::endl;
+			std::cout << "  " << configs[i].label << ": ";
 			if (results[i].compilationFailed)
-				std::cout << "  COMPILATION FAILED" << std::endl;
-			else if (results[i].logs.empty())
-				std::cout << "  (no logs)" << std::endl;
+				std::cout << "COMPILATION FAILED";
 			else
-			{
-				for (size_t j = 0; j < results[i].logs.size(); j++)
-				{
-					auto const& log = results[i].logs[j];
-					std::cout << "  Log[" << j << "]:" << std::endl;
-					std::cout << "    Creator: " << toHexString(log.creator) << std::endl;
-					std::cout << "    Data (" << log.data.size() << " bytes): ";
-					std::ostringstream dataSS;
-					for (uint8_t b : log.data)
-						dataSS << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
-					std::cout << dataSS.str() << std::endl;
-					std::cout << "    Topics (" << log.topics.size() << "):" << std::endl;
-					for (size_t k = 0; k < log.topics.size(); k++)
-						std::cout << "      [" << k << "]: " << toHexString(log.topics[k]) << std::endl;
-				}
-			}
+				std::cout << results[i].logs.size() << " logs";
+			if (results[i].subCallOutOfGas)
+				std::cout << " [sub-call OOG]";
 			std::cout << std::endl;
+		}
+		std::cout << std::endl;
+
+		if (verbose)
+		{
+			std::cout << "NOTE: Creator addresses differ across configs because different bytecodes" << std::endl;
+			std::cout << "produce different CREATE/CREATE2 addresses. This is expected and not a bug." << std::endl;
+			std::cout << std::endl;
+			for (size_t i = 0; i < configs.size(); i++)
+			{
+				std::cout << "--- " << configs[i].label << " ---" << std::endl;
+				if (results[i].compilationFailed)
+					std::cout << "  COMPILATION FAILED" << std::endl;
+				else if (results[i].logs.empty())
+					std::cout << "  (no logs)" << std::endl;
+				else
+				{
+					for (size_t j = 0; j < results[i].logs.size(); j++)
+					{
+						auto const& log = results[i].logs[j];
+						std::cout << "  Log[" << j << "]:" << std::endl;
+						std::cout << "    Creator: " << toHexString(log.creator) << std::endl;
+						std::cout << "    Data (" << log.data.size() << " bytes): ";
+						std::ostringstream dataSS;
+						for (uint8_t b : log.data)
+							dataSS << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
+						std::cout << dataSS.str() << std::endl;
+						std::cout << "    Topics (" << log.topics.size() << "):" << std::endl;
+						for (size_t k = 0; k < log.topics.size(); k++)
+							std::cout << "      [" << k << "]: " << toHexString(log.topics[k]) << std::endl;
+					}
+				}
+				std::cout << std::endl;
+			}
 		}
 
 		// Print storage
 		std::cout << YELLOW << "========== STORAGE ==========" << RESET << std::endl;
-		std::cout << "NOTE: Account addresses differ across configs because different bytecodes" << std::endl;
-		std::cout << "produce different CREATE/CREATE2 addresses. This is expected and not a bug." << std::endl;
-		std::cout << "NOTE: Slots with value zero are hidden (equivalent to unwritten in the EVM)." << std::endl;
-		std::cout << std::endl;
 		for (size_t i = 0; i < configs.size(); i++)
 		{
-			std::cout << "--- " << configs[i].label << " ---" << std::endl;
+			auto filtered = filterZeroStorage(results[i].storage);
+			std::cout << "  " << configs[i].label << ": ";
 			if (results[i].compilationFailed)
-				std::cout << "  COMPILATION FAILED" << std::endl;
+				std::cout << "COMPILATION FAILED";
 			else
+				std::cout << filtered.size() << " accounts";
+			std::cout << std::endl;
+		}
+		std::cout << std::endl;
+
+		if (verbose)
+		{
+			std::cout << "NOTE: Account addresses differ across configs because different bytecodes" << std::endl;
+			std::cout << "produce different CREATE/CREATE2 addresses. This is expected and not a bug." << std::endl;
+			std::cout << "NOTE: Slots with value zero are hidden (equivalent to unwritten in the EVM)." << std::endl;
+			std::cout << std::endl;
+			for (size_t i = 0; i < configs.size(); i++)
 			{
-				auto filtered = filterZeroStorage(results[i].storage);
-				if (filtered.empty())
-					std::cout << "  (no storage)" << std::endl;
+				std::cout << "--- " << configs[i].label << " ---" << std::endl;
+				if (results[i].compilationFailed)
+					std::cout << "  COMPILATION FAILED" << std::endl;
 				else
 				{
-					for (auto const& [addr, storageMap] : filtered)
+					auto filtered = filterZeroStorage(results[i].storage);
+					if (filtered.empty())
+						std::cout << "  (no storage)" << std::endl;
+					else
 					{
-						std::cout << "  Account " << toHexString(addr) << " (" << storageMap.size() << " slots):" << std::endl;
-						for (auto const& [key, val] : storageMap)
-							std::cout << "    " << toHexString(key) << " => " << toHexString(val.current) << std::endl;
+						for (auto const& [addr, storageMap] : filtered)
+						{
+							std::cout << "  Account " << toHexString(addr) << " (" << storageMap.size() << " slots):" << std::endl;
+							for (auto const& [key, val] : storageMap)
+								std::cout << "    " << toHexString(key) << " => " << toHexString(val.current) << std::endl;
+						}
 					}
 				}
+				std::cout << std::endl;
 			}
-			std::cout << std::endl;
 		}
 
 		// Write output files if requested
