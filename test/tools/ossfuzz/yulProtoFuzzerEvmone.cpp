@@ -94,17 +94,20 @@ namespace
 {
 
 /// Maps a sequence of uint32 values to a Yul optimizer step abbreviation string.
+/// Capped at 64 steps to prevent pathological sequences that cause optimizer timeouts.
 std::string buildOptimizerSequence(google::protobuf::RepeatedField<google::protobuf::uint32> const& _steps)
 {
 	static std::string const validChars = "flcCUnDEvejsxIOoighFTLMrSmVatpud";
+	static constexpr size_t maxSteps = 64;
 
 	if (_steps.empty())
 		return OptimiserSettings::DefaultYulOptimiserSteps;
 
+	size_t const numSteps = std::min(static_cast<size_t>(_steps.size()), maxSteps);
 	std::string seq;
-	seq.reserve(static_cast<size_t>(_steps.size()) + 2);
-	for (auto const s: _steps)
-		seq += validChars[s % validChars.size()];
+	seq.reserve(numSteps + 2);
+	for (size_t i = 0; i < numSteps; ++i)
+		seq += validChars[_steps[static_cast<int>(i)] % validChars.size()];
 
 	if (_steps.size() >= 4)
 	{

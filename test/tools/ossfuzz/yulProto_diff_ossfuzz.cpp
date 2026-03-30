@@ -56,18 +56,21 @@ namespace
 /// Each value is taken modulo the number of valid step characters.
 /// If the sequence has >= 4 elements, the middle half is wrapped in [...] to
 /// test the "repeat until stable" behaviour.
+/// Capped at 64 steps to prevent pathological sequences that cause optimizer timeouts.
 std::string buildOptimizerSequence(google::protobuf::RepeatedField<google::protobuf::uint32> const& _steps)
 {
 	// All 32 valid step abbreviations (matches Suite.cpp stepNameToAbbreviationMap)
 	static std::string const validChars = "flcCUnDEvejsxIOoighFTLMrSmVatpud";
+	static constexpr size_t maxSteps = 64;
 
 	if (_steps.empty())
 		return OptimiserSettings::DefaultYulOptimiserSteps;
 
+	size_t const numSteps = std::min(static_cast<size_t>(_steps.size()), maxSteps);
 	std::string seq;
-	seq.reserve(static_cast<size_t>(_steps.size()) + 2);
-	for (auto const s: _steps)
-		seq += validChars[s % validChars.size()];
+	seq.reserve(numSteps + 2);
+	for (size_t i = 0; i < numSteps; ++i)
+		seq += validChars[_steps[static_cast<int>(i)] % validChars.size()];
 
 	// Wrap middle portion in brackets to also fuzz iterative stabilization.
 	if (_steps.size() >= 4)
