@@ -292,6 +292,7 @@ evmc::Result EVMHost::call(evmc_message const& _message) noexcept
 		return precompileBlake2f(_message);
 
 	auto const stateBackup = accounts;
+	auto const logsBackup = recorded_logs;
 
 	u256 value{convertFromEVMC(_message.value)};
 	auto& sender = accounts[_message.sender];
@@ -441,7 +442,10 @@ evmc::Result EVMHost::call(evmc_message const& _message) noexcept
 	}
 
 	if (result.status_code != EVMC_SUCCESS)
+	{
 		accounts = stateBackup;
+		recorded_logs = logsBackup;
+	}
 
 	return result;
 }
