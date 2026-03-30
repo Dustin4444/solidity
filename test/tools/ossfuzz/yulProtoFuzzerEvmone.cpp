@@ -261,10 +261,24 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	EVMVersion version = EVMVersion::current();
 	auto calldata = converter.calldata();
 
+	// Build optimizer sequences early so we can dump them
+	std::string optimizerSeq = _input.optimiser_seq_size() > 0
+		? buildOptimizerSequence(_input.optimiser_seq())
+		: std::string(OptimiserSettings::DefaultYulOptimiserSteps);
+	std::string optimizerCleanupSeq = _input.optimiser_cleanup_seq_size() > 0
+		? buildOptimizerSequence(_input.optimiser_cleanup_seq())
+		: std::string(OptimiserSettings::DefaultYulOptimiserCleanupSteps);
+
 	if (const char* dump_path = getenv("PROTO_FUZZER_DUMP_PATH"))
 	{
 		std::ofstream of(dump_path);
 		of.write(yul_source.data(), static_cast<std::streamsize>(yul_source.size()));
+	}
+	if (const char* dump_path = getenv("PROTO_FUZZER_DUMP_SEQ_PATH"))
+	{
+		std::ofstream of(dump_path);
+		of << "optimizer-sequence: " << optimizerSeq << std::endl;
+		of << "optimizer-cleanup-sequence: " << optimizerCleanupSeq << std::endl;
 	}
 
 	YulStringRepository::reset();
@@ -287,10 +301,8 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	// Use custom optimizer sequence if provided in proto (for both modes that optimize)
 	if (settingsA.runYulOptimiser && _input.optimiser_seq_size() > 0)
 	{
-		settingsA.yulOptimiserSteps = buildOptimizerSequence(_input.optimiser_seq());
-		settingsA.yulOptimiserCleanupSteps = _input.optimiser_cleanup_seq_size() > 0
-			? buildOptimizerSequence(_input.optimiser_cleanup_seq())
-			: std::string(OptimiserSettings::DefaultYulOptimiserCleanupSteps);
+		settingsA.yulOptimiserSteps = optimizerSeq;
+		settingsA.yulOptimiserCleanupSteps = optimizerCleanupSeq;
 	}
 
 	auto runA = runYulOnce(version, yul_source, settingsA, calldata, /*viaSSACFG=*/false);
@@ -308,10 +320,8 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	// Use custom optimizer sequence if provided in proto
 	if (_input.optimiser_seq_size() > 0)
 	{
-		settingsB.yulOptimiserSteps = buildOptimizerSequence(_input.optimiser_seq());
-		settingsB.yulOptimiserCleanupSteps = _input.optimiser_cleanup_seq_size() > 0
-			? buildOptimizerSequence(_input.optimiser_cleanup_seq())
-			: std::string(OptimiserSettings::DefaultYulOptimiserCleanupSteps);
+		settingsB.yulOptimiserSteps = optimizerSeq;
+		settingsB.yulOptimiserCleanupSteps = optimizerCleanupSeq;
 	}
 
 	// In SSACFG mode: run B uses the SSA CFG codegen backend.

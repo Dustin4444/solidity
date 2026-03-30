@@ -379,6 +379,8 @@ int main(int argc, char* argv[])
 		("input-file", po::value<std::string>(), "Yul source file")
 		("output-dir", po::value<std::string>()->default_value(""), "Directory to write output files (optional)")
 		("calldata", po::value<std::string>()->default_value(""), "Calldata in hex (e.g. \"a0ffba\"), passed to deployed contract")
+		("optimizer-sequence", po::value<std::string>()->default_value(""), "Custom Yul optimizer step sequence (e.g. from fuzzer protobuf)")
+		("optimizer-cleanup-sequence", po::value<std::string>()->default_value(""), "Custom Yul optimizer cleanup step sequence")
 		("quiet,q", "Quiet mode: only print one-line summary, for use by delta debuggers")
 	;
 
@@ -413,6 +415,8 @@ int main(int argc, char* argv[])
 	std::string inputFile = vm["input-file"].as<std::string>();
 	std::string outputDir = vm["output-dir"].as<std::string>();
 	std::string calldataHex = vm["calldata"].as<std::string>();
+	std::string optimizerSequence = vm["optimizer-sequence"].as<std::string>();
+	std::string optimizerCleanupSequence = vm["optimizer-cleanup-sequence"].as<std::string>();
 	bool quiet = vm.count("quiet") > 0;
 
 	// Read source file
@@ -445,6 +449,10 @@ int main(int argc, char* argv[])
 		std::cout << "EVM version: " << version.name() << " (latest, hardcoded)" << std::endl;
 		if (!calldataHex.empty())
 			std::cout << "Calldata: " << calldataHex << std::endl;
+		if (!optimizerSequence.empty())
+			std::cout << "Optimizer sequence: " << optimizerSequence << std::endl;
+		if (!optimizerCleanupSequence.empty())
+			std::cout << "Optimizer cleanup sequence: " << optimizerCleanupSequence << std::endl;
 		std::cout << std::endl;
 	}
 
@@ -472,10 +480,18 @@ int main(int argc, char* argv[])
 	OptimiserSettings settingsOpt = OptimiserSettings::full();
 	settingsOpt.runYulOptimiser = true;
 	settingsOpt.optimizeStackAllocation = true;
+	if (!optimizerSequence.empty())
+		settingsOpt.yulOptimiserSteps = optimizerSequence;
+	if (!optimizerCleanupSequence.empty())
+		settingsOpt.yulOptimiserCleanupSteps = optimizerCleanupSequence;
 
 	OptimiserSettings settingsOptNoStackAlloc = OptimiserSettings::full();
 	settingsOptNoStackAlloc.runYulOptimiser = true;
 	settingsOptNoStackAlloc.optimizeStackAllocation = false;
+	if (!optimizerSequence.empty())
+		settingsOptNoStackAlloc.yulOptimiserSteps = optimizerSequence;
+	if (!optimizerCleanupSequence.empty())
+		settingsOptNoStackAlloc.yulOptimiserCleanupSteps = optimizerCleanupSequence;
 
 	std::vector<Config> configs = {
 		{"unoptimized", settingsNoOpt, false},
