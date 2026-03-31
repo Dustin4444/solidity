@@ -27,6 +27,7 @@
 
 #include <libevmasm/Exceptions.h>
 #include <liblangutil/Exceptions.h>
+#include <libyul/optimiser/Suite.h>
 
 #include <boost/program_options.hpp>
 
@@ -119,6 +120,78 @@ static std::string toHexString(evmc::address const& _addr)
 	for (uint8_t b : _addr.bytes)
 		ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
 	return ss.str();
+}
+
+/// Expand an optimizer abbreviation sequence to human-readable step names.
+/// E.g. "fDv" → "BlockFlattener, DeadCodeEliminator, SSAValueChecker"
+/// Brackets and colons are preserved as-is.
+static std::string expandOptimizerSequence(std::string const& _abbreviations)
+{
+	auto const& nameMap = yul::OptimiserSuite::stepAbbreviationToNameMap();
+	std::string result;
+	for (char c : _abbreviations)
+	{
+		if (c == '[' || c == ']' || c == ':' || c == ' ' || c == '\n')
+		{
+			if (!result.empty() && result.back() != ' ' && c != ']' && c != ':')
+				result += ' ';
+			result += c;
+			if (c != ' ')
+				result += ' ';
+			continue;
+		}
+		auto it = nameMap.find(c);
+		if (it != nameMap.end())
+		{
+			if (!result.empty() && result.back() != ' ' && result.back() != '[')
+				result += ", ";
+			result += it->second;
+		}
+	}
+	return result;
+}
+
+/// Print optimizer sequence info: always prints the default sequence as reference,
+/// then the used sequence (noting if it's the default).
+static void printOptimizerSequences(
+	std::string const& _usedSeq,
+	std::string const& _usedCleanupSeq,
+	std::ostream& _out
+)
+{
+	std::string const defaultSeq = OptimiserSettings::DefaultYulOptimiserSteps;
+	std::string const defaultCleanupSeq = OptimiserSettings::DefaultYulOptimiserCleanupSteps;
+
+	bool seqIsDefault = (_usedSeq == defaultSeq);
+	bool cleanupIsDefault = (_usedCleanupSeq == defaultCleanupSeq);
+
+	_out << YELLOW << "========== OPTIMIZER SEQUENCES ==========" << RESET << std::endl;
+
+	// Optimizer sequence
+	_out << "  Default optimizer sequence:  " << defaultSeq << std::endl;
+	_out << "    " << expandOptimizerSequence(defaultSeq) << std::endl;
+	if (seqIsDefault)
+		_out << "  Used optimizer sequence:     (same as default)" << std::endl;
+	else
+	{
+		_out << "  Used optimizer sequence:     " << _usedSeq << std::endl;
+		_out << "    " << expandOptimizerSequence(_usedSeq) << std::endl;
+	}
+
+	_out << std::endl;
+
+	// Cleanup sequence
+	_out << "  Default cleanup sequence:   " << defaultCleanupSeq << std::endl;
+	_out << "    " << expandOptimizerSequence(defaultCleanupSeq) << std::endl;
+	if (cleanupIsDefault)
+		_out << "  Used cleanup sequence:      (same as default)" << std::endl;
+	else
+	{
+		_out << "  Used cleanup sequence:      " << _usedCleanupSeq << std::endl;
+		_out << "    " << expandOptimizerSequence(_usedCleanupSeq) << std::endl;
+	}
+
+	_out << std::endl;
 }
 
 static RunResult runOnce(
@@ -517,6 +590,12 @@ int main(int argc, char* argv[])
 		if (!extraCalldataHex.empty())
 			std::cout << "Extra calldata: " << extraCalldataHex << std::endl;
 		std::cout << std::endl;
+		// Sol debug runner always uses default optimizer sequences
+		printOptimizerSequences(
+			OptimiserSettings::DefaultYulOptimiserSteps,
+			OptimiserSettings::DefaultYulOptimiserCleanupSteps,
+			std::cout
+		);
 	}
 
 	// Load evmone VM (relies on LD_LIBRARY_PATH to find the shared library)
