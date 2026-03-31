@@ -657,6 +657,7 @@ int main(int argc, char* argv[])
 		{"optimized_legacy_no_stack_alloc", settingsOptNoStackAlloc, false},
 	};
 
+	std::string irDir = outputDir.empty() ? "." : outputDir;
 	std::vector<RunResult> results;
 	for (auto const& config : configs)
 	{
@@ -685,25 +686,19 @@ int main(int argc, char* argv[])
 			r.internalErrorMsg = e.what();
 			results.push_back(std::move(r));
 		}
-	}
 
-	// Write optimized IR files
-	if (!quiet)
-	{
-		std::string irDir = outputDir.empty() ? "." : outputDir;
-		std::cout << std::endl;
-		std::cout << YELLOW << "========== OPTIMIZED YUL IR FILES ==========" << RESET << std::endl;
-		for (size_t i = 0; i < configs.size(); i++)
+		// Write optimized IR file immediately so it's available even if a later config hangs/OOMs
+		if (!quiet)
 		{
-			std::string irFile = irDir + "/" + configs[i].label + ".yul";
-			if (results[i].compilationFailed)
-				std::cout << "  " << configs[i].label << ": COMPILATION FAILED (no IR)" << std::endl;
-			else if (results[i].optimizedIR.empty())
-				std::cout << "  " << configs[i].label << ": (no IR available)" << std::endl;
+			auto const& result = results.back();
+			std::string irFile = irDir + "/" + config.label + ".yul";
+			if (result.compilationFailed)
+				std::cout << "  IR: COMPILATION FAILED (no IR)" << std::endl;
+			else if (result.optimizedIR.empty())
+				std::cout << "  IR: (no IR available)" << std::endl;
 			else
-				writeToFile(irFile, results[i].optimizedIR);
+				writeToFile(irFile, result.optimizedIR);
 		}
-		std::cout << std::endl;
 	}
 
 	if (!quiet && verbose)

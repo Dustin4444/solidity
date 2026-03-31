@@ -639,6 +639,7 @@ int main(int argc, char* argv[])
 		{"opt_viaIR=" + std::string(!viaIR ? "true" : "false"), OptimiserSettings::standard(), !viaIR},
 	};
 
+	std::string irDir = outputDir.empty() ? "." : outputDir;
 	std::vector<RunResult> results;
 	for (auto const& config : configs)
 	{
@@ -686,31 +687,25 @@ int main(int argc, char* argv[])
 			r.internalErrorMsg = e.what();
 			results.push_back(std::move(r));
 		}
-	}
 
-	// Write Yul IR files
-	if (!quiet)
-	{
-		std::string irDir = outputDir.empty() ? "." : outputDir;
-		std::cout << std::endl;
-		std::cout << YELLOW << "========== YUL IR FILES ==========" << RESET << std::endl;
-		for (size_t i = 0; i < configs.size(); i++)
+		// Write Yul IR files immediately so they're available even if a later config hangs/OOMs
+		if (!quiet)
 		{
-			std::string irFile = irDir + "/" + configs[i].label + ".yul";
-			std::string irOptFile = irDir + "/" + configs[i].label + ".optimized.yul";
-			if (results[i].compilationFailed)
-				std::cout << "  " << configs[i].label << ": COMPILATION FAILED (no IR)" << std::endl;
-			else if (results[i].yulIR.empty() && results[i].yulIROptimized.empty())
-				std::cout << "  " << configs[i].label << ": (no IR available, viaIR not enabled)" << std::endl;
+			auto const& result = results.back();
+			std::string irFile = irDir + "/" + config.label + ".yul";
+			std::string irOptFile = irDir + "/" + config.label + ".optimized.yul";
+			if (result.compilationFailed)
+				std::cout << "  IR: COMPILATION FAILED (no IR)" << std::endl;
+			else if (result.yulIR.empty() && result.yulIROptimized.empty())
+				std::cout << "  IR: (no IR available, viaIR not enabled)" << std::endl;
 			else
 			{
-				if (!results[i].yulIR.empty())
-					writeToFile(irFile, results[i].yulIR);
-				if (!results[i].yulIROptimized.empty())
-					writeToFile(irOptFile, results[i].yulIROptimized);
+				if (!result.yulIR.empty())
+					writeToFile(irFile, result.yulIR);
+				if (!result.yulIROptimized.empty())
+					writeToFile(irOptFile, result.yulIROptimized);
 			}
 		}
-		std::cout << std::endl;
 	}
 
 	if (!quiet && verbose)
