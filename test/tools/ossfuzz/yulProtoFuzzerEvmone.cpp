@@ -374,9 +374,10 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	}
 	if (const char* dump_path = getenv("PROTO_FUZZER_DUMP_SEQ_PATH"))
 	{
+		std::string content = "optimizer-sequence: " + optimizerSeq + "\n"
+			+ "optimizer-cleanup-sequence: " + optimizerCleanupSeq + "\n";
 		std::ofstream of(dump_path);
-		of << "optimizer-sequence: " << optimizerSeq << std::endl;
-		of << "optimizer-cleanup-sequence: " << optimizerCleanupSeq << std::endl;
+		of.write(content.data(), static_cast<std::streamsize>(content.size()));
 	}
 
 	YulStringRepository::reset();
