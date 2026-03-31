@@ -38,6 +38,11 @@ bytes YulAssembler::assemble()
 	return m_stack.assemble(YulStack::Machine::EVM, m_viaSSACFG).bytecode->bytecode;
 }
 
+std::string YulAssembler::printIR() const
+{
+	return m_stack.print();
+}
+
 std::shared_ptr<yul::Object> YulAssembler::object()
 {
 	return m_stack.parserResult();

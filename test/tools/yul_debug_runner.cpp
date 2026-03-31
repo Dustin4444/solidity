@@ -66,6 +66,7 @@ struct RunResult
 	bool internalError = false;
 	std::string internalErrorMsg;
 	bytes bytecode;
+	std::string optimizedIR;
 	evmc_status_code statusCode = EVMC_INTERNAL_ERROR;
 	bool subCallOutOfGas = false;
 	bytes output;
@@ -213,6 +214,7 @@ static RunResult runYulOnce(
 	{
 		YulAssembler assembler{_version, std::nullopt, _settings, _yulSource, _viaSSACFG};
 		result.bytecode = assembler.assemble();
+		result.optimizedIR = assembler.printIR();
 	}
 	catch (solidity::yul::StackTooDeepError const&)
 	{
@@ -683,6 +685,25 @@ int main(int argc, char* argv[])
 			r.internalErrorMsg = e.what();
 			results.push_back(std::move(r));
 		}
+	}
+
+	// Write optimized IR files
+	if (!quiet)
+	{
+		std::string irDir = outputDir.empty() ? "." : outputDir;
+		std::cout << std::endl;
+		std::cout << YELLOW << "========== OPTIMIZED YUL IR FILES ==========" << RESET << std::endl;
+		for (size_t i = 0; i < configs.size(); i++)
+		{
+			std::string irFile = irDir + "/" + configs[i].label + ".yul";
+			if (results[i].compilationFailed)
+				std::cout << "  " << configs[i].label << ": COMPILATION FAILED (no IR)" << std::endl;
+			else if (results[i].optimizedIR.empty())
+				std::cout << "  " << configs[i].label << ": (no IR available)" << std::endl;
+			else
+				writeToFile(irFile, results[i].optimizedIR);
+		}
+		std::cout << std::endl;
 	}
 
 	if (!quiet && verbose)

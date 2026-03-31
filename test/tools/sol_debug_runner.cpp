@@ -64,6 +64,8 @@ struct RunResult
 	bool internalError = false;  // Internal compiler error (assertion failure, etc.)
 	std::string internalErrorMsg;
 	bytes bytecode;
+	std::string yulIR;
+	std::string yulIROptimized;
 	evmc_status_code statusCode = EVMC_INTERNAL_ERROR;
 	bool subCallOutOfGas = false;
 	bytes output;
@@ -221,13 +223,26 @@ static RunResult runOnce(
 		_viaIR
 	);
 
-	// First, compile separately to extract bytecode for dumping.
+	// First, compile separately to extract bytecode and IR for dumping.
 	// Scoped so the CompilerStack is destroyed before EvmoneUtility creates its own.
 	{
 		SolidityCompilationFramework compiler(cInput);
 		auto compOutput = compiler.compileContract();
 		if (compOutput.has_value() && !compOutput->byteCode.empty())
+		{
 			result.bytecode = compOutput->byteCode;
+			// Extract Yul IR (only available when viaIR is enabled)
+			try
+			{
+				auto const& ir = compiler.yulIR("test.sol:" + contractName);
+				if (ir.has_value())
+					result.yulIR = *ir;
+				auto const& irOpt = compiler.yulIROptimized("test.sol:" + contractName);
+				if (irOpt.has_value())
+					result.yulIROptimized = *irOpt;
+			}
+			catch (...) {}
+		}
 		else
 		{
 			result.compilationFailed = true;
@@ -671,6 +686,31 @@ int main(int argc, char* argv[])
 			r.internalErrorMsg = e.what();
 			results.push_back(std::move(r));
 		}
+	}
+
+	// Write Yul IR files
+	if (!quiet)
+	{
+		std::string irDir = outputDir.empty() ? "." : outputDir;
+		std::cout << std::endl;
+		std::cout << YELLOW << "========== YUL IR FILES ==========" << RESET << std::endl;
+		for (size_t i = 0; i < configs.size(); i++)
+		{
+			std::string irFile = irDir + "/" + configs[i].label + ".yul";
+			std::string irOptFile = irDir + "/" + configs[i].label + ".optimized.yul";
+			if (results[i].compilationFailed)
+				std::cout << "  " << configs[i].label << ": COMPILATION FAILED (no IR)" << std::endl;
+			else if (results[i].yulIR.empty() && results[i].yulIROptimized.empty())
+				std::cout << "  " << configs[i].label << ": (no IR available, viaIR not enabled)" << std::endl;
+			else
+			{
+				if (!results[i].yulIR.empty())
+					writeToFile(irFile, results[i].yulIR);
+				if (!results[i].yulIROptimized.empty())
+					writeToFile(irOptFile, results[i].yulIROptimized);
+			}
+		}
+		std::cout << std::endl;
 	}
 
 	if (!quiet && verbose)

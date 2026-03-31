@@ -97,6 +97,16 @@ public:
 	/// method identifiers in contract if compilation is successful,
 	/// null value otherwise.
 	std::optional<CompilerOutput> compileContract();
+	/// @returns the optimized Yul IR for the given contract (only available when viaIR is enabled).
+	std::optional<std::string> const& yulIROptimized(std::string const& _contractName) const
+	{
+		return m_compiler.yulIROptimized(_contractName);
+	}
+	/// @returns the unoptimized Yul IR for the given contract (only available when viaIR is enabled).
+	std::optional<std::string> const& yulIR(std::string const& _contractName) const
+	{
+		return m_compiler.yulIR(_contractName);
+	}
 private:
 	frontend::CompilerStack m_compiler;
 	CompilerInput m_compilerInput;
