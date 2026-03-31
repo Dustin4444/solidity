@@ -701,9 +701,15 @@ int main(int argc, char* argv[])
 			else
 			{
 				if (!result.yulIR.empty())
+				{
 					writeToFile(irFile, result.yulIR);
+					std::cout << "    ^ Yul IR (pre-optimization) for " << config.label << std::endl;
+				}
 				if (!result.yulIROptimized.empty())
+				{
 					writeToFile(irOptFile, result.yulIROptimized);
+					std::cout << "    ^ Yul IR (post-optimization, pre-codegen) for " << config.label << std::endl;
+				}
 			}
 		}
 	}

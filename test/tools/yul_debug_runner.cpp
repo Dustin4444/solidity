@@ -230,7 +230,16 @@ static RunResult runYulOnce(
 		result.optimizedIR = assembler.printIR();
 		// Write IR to disk immediately, before assembly which may OOM
 		if (!_irOutputPath.empty())
-			writeToFile(_irOutputPath, result.optimizedIR);
+		{
+			std::ofstream irOut(_irOutputPath);
+			if (irOut.is_open())
+			{
+				irOut << result.optimizedIR;
+				std::cout << "  Yul IR (post-optimization, pre-codegen) written to: " << _irOutputPath << std::endl;
+			}
+			else
+				std::cerr << "Error: Cannot write to " << _irOutputPath << std::endl;
+		}
 		result.bytecode = assembler.assembleOnly();
 	}
 	catch (solidity::yul::StackTooDeepError const&)
