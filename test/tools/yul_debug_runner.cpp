@@ -197,13 +197,26 @@ static void printOptimizerSequences(
 	_out << std::endl;
 }
 
+static void writeToFile(std::string const& _path, std::string const& _content)
+{
+	std::ofstream f(_path);
+	if (!f.is_open())
+	{
+		std::cerr << "Error: Cannot write to " << _path << std::endl;
+		return;
+	}
+	f << _content;
+	std::cout << "  Written: " << _path << std::endl;
+}
+
 static RunResult runYulOnce(
 	evmc::VM& _vm,
 	EVMVersion _version,
 	std::string const& _yulSource,
 	OptimiserSettings _settings,
 	bytes const& _calldata,
-	bool _viaSSACFG = false
+	bool _viaSSACFG = false,
+	std::string const& _irOutputPath = {}
 )
 {
 	RunResult result;
@@ -213,8 +226,12 @@ static RunResult runYulOnce(
 	try
 	{
 		YulAssembler assembler{_version, std::nullopt, _settings, _yulSource, _viaSSACFG};
-		result.bytecode = assembler.assemble();
+		assembler.parseAndOptimize();
 		result.optimizedIR = assembler.printIR();
+		// Write IR to disk immediately, before assembly which may OOM
+		if (!_irOutputPath.empty())
+			writeToFile(_irOutputPath, result.optimizedIR);
+		result.bytecode = assembler.assembleOnly();
 	}
 	catch (solidity::yul::StackTooDeepError const&)
 	{
@@ -509,18 +526,6 @@ static bool compareRuns(
 	return mismatch;
 }
 
-static void writeToFile(std::string const& _path, std::string const& _content)
-{
-	std::ofstream f(_path);
-	if (!f.is_open())
-	{
-		std::cerr << "Error: Cannot write to " << _path << std::endl;
-		return;
-	}
-	f << _content;
-	std::cout << "  Written: " << _path << std::endl;
-}
-
 int main(int argc, char* argv[])
 {
 	po::options_description desc("yul_debug_runner - reproduce Yul fuzzer compile/deploy/execute");
@@ -663,9 +668,10 @@ int main(int argc, char* argv[])
 	{
 		if (!quiet)
 			std::cout << "Running: " << config.label << "..." << std::endl;
+		std::string irFile = quiet ? "" : irDir + "/" + config.label + ".yul";
 		try
 		{
-			results.push_back(runYulOnce(evmVM, version, yulSource, config.settings, calldata, config.viaSSACFG));
+			results.push_back(runYulOnce(evmVM, version, yulSource, config.settings, calldata, config.viaSSACFG, irFile));
 		}
 		catch (solidity::yul::StackTooDeepError const&)
 		{
@@ -685,19 +691,6 @@ int main(int argc, char* argv[])
 			r.internalError = true;
 			r.internalErrorMsg = e.what();
 			results.push_back(std::move(r));
-		}
-
-		// Write optimized IR file immediately so it's available even if a later config hangs/OOMs
-		if (!quiet)
-		{
-			auto const& result = results.back();
-			std::string irFile = irDir + "/" + config.label + ".yul";
-			if (result.compilationFailed)
-				std::cout << "  IR: COMPILATION FAILED (no IR)" << std::endl;
-			else if (result.optimizedIR.empty())
-				std::cout << "  IR: (no IR available)" << std::endl;
-			else
-				writeToFile(irFile, result.optimizedIR);
 		}
 	}
 

@@ -25,6 +25,12 @@ using namespace solidity::yul;
 
 bytes YulAssembler::assemble()
 {
+	parseAndOptimize();
+	return assembleOnly();
+}
+
+void YulAssembler::parseAndOptimize()
+{
 	if (
 		!m_stack.parseAndAnalyze("source", m_yulProgram) ||
 		!m_stack.parserResult()->code() ||
@@ -35,6 +41,10 @@ bytes YulAssembler::assemble()
 
 	if (m_optimiseYul)
 		m_stack.optimize();
+}
+
+bytes YulAssembler::assembleOnly()
+{
 	return m_stack.assemble(YulStack::Machine::EVM, m_viaSSACFG).bytecode->bytecode;
 }
 

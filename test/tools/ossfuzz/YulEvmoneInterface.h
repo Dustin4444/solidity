@@ -48,8 +48,13 @@ public:
 		m_viaSSACFG(_viaSSACFG)
 	{}
 	solidity::bytes assemble();
+	/// Parses, analyzes, and optionally optimizes the Yul source.
+	/// Must be called before assembleOnly() or printIR().
+	void parseAndOptimize();
+	/// Assembles to bytecode. Must be called after parseAndOptimize().
+	solidity::bytes assembleOnly();
 	/// @returns the Yul IR as a string (optimized if optimization was enabled).
-	/// Must be called after assemble().
+	/// Must be called after parseAndOptimize().
 	std::string printIR() const;
 	std::shared_ptr<yul::Object> object();
 private:
