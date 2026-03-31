@@ -171,11 +171,11 @@ static void printOptimizerSequences(
 	_out << "  Default optimizer sequence:  " << defaultSeq << std::endl;
 	_out << "    " << expandOptimizerSequence(defaultSeq) << std::endl;
 	if (seqIsDefault)
-		_out << "  Used optimizer sequence:     (same as default)" << std::endl;
+		_out << GREEN << "  Used optimizer sequence:     (same as default)" << RESET << std::endl;
 	else
 	{
-		_out << "  Used optimizer sequence:     " << _usedSeq << std::endl;
-		_out << "    " << expandOptimizerSequence(_usedSeq) << std::endl;
+		_out << GREEN << "  Used optimizer sequence:     " << _usedSeq << RESET << std::endl;
+		_out << GREEN << "    " << expandOptimizerSequence(_usedSeq) << RESET << std::endl;
 	}
 
 	_out << std::endl;
@@ -184,11 +184,11 @@ static void printOptimizerSequences(
 	_out << "  Default cleanup sequence:   " << defaultCleanupSeq << std::endl;
 	_out << "    " << expandOptimizerSequence(defaultCleanupSeq) << std::endl;
 	if (cleanupIsDefault)
-		_out << "  Used cleanup sequence:      (same as default)" << std::endl;
+		_out << GREEN << "  Used cleanup sequence:      (same as default)" << RESET << std::endl;
 	else
 	{
-		_out << "  Used cleanup sequence:      " << _usedCleanupSeq << std::endl;
-		_out << "    " << expandOptimizerSequence(_usedCleanupSeq) << std::endl;
+		_out << GREEN << "  Used cleanup sequence:      " << _usedCleanupSeq << RESET << std::endl;
+		_out << GREEN << "    " << expandOptimizerSequence(_usedCleanupSeq) << RESET << std::endl;
 	}
 
 	_out << std::endl;
