@@ -171,21 +171,21 @@ CCACHE_DISABLE=1 make -j8 sol_debug_runner
 
 ### Reproducing a fuzzer crash
 
-1. Dump the Solidity source from a crash input:
+1. Dump the Yul/Solidity source from a crash input:
 
-   ```bash
-   PROTO_FUZZER_DUMP_PATH=bad-log.sol \
-     ./build/test/tools/ossfuzz/sol_proto_ossfuzz_evmone crash-<hash>
+  ```bash
+  PROTO_FUZZER_DUMP_PATH=tout.yul PROTO_FUZZER_DUMP_SEQ_PATH=tout.seq \
+    ./build/test/tools/ossfuzz/yul_proto_ossfuzz_evmone timeout-bd3e51cef7024834e7a83e27e361a611c7dce954
    ```
 
 2. Run the debug tool:
 
    ```bash
    mkdir -p /tmp/debug-output
-
    LD_LIBRARY_PATH=/home/matesoos/development/evmone/build/lib:$LD_LIBRARY_PATH \
-     ./build-normal/test/tools/sol_debug_runner bad-log.sol \
-     --output-dir /tmp/debug-output
+    ./build-normal/test/tools/yul_debug_runner tout.yul --verbose \
+    --optimizer-sequence "<seq from tout.seq>" \
+    --optimizer-cleanup-sequence "<cleanup from tout.seq>"
    ```
 
 3. Check the terminal output. The tool prints per-configuration details
@@ -459,6 +459,7 @@ First, dump Solidity source from fuzzer corpus entries:
 
 ```bash
 mkdir -p tmp
+rm tmp/*.sol
 find my_corpus_sol_proto_ossfuzz_evmone/ -maxdepth 1 -type f -print0 \
   | shuf -z -n 200 \
   | while IFS= read -r -d '' file; do
