@@ -59,6 +59,11 @@ namespace
 /// Capped at 64 steps to prevent pathological sequences that cause optimizer timeouts.
 std::string buildOptimizerSequence(google::protobuf::RepeatedField<google::protobuf::uint32> const& _steps)
 {
+	// TODO: Remove this early return to re-enable random optimization sequences.
+	// Currently disabled to use only the default sequence.
+	(void)_steps;
+	return OptimiserSettings::DefaultYulOptimiserSteps;
+
 	// All 32 valid step abbreviations (matches Suite.cpp stepNameToAbbreviationMap)
 	static std::string const validChars = "flcCUnDEvejsxIOoighFTLMrSmVatpud";
 	static constexpr size_t maxSteps = 64;
