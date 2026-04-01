@@ -35,6 +35,8 @@
 #include <boost/program_options.hpp>
 
 #include <chrono>
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
@@ -673,11 +675,22 @@ int main(int argc, char* argv[])
 	};
 
 	std::string irDir = outputDir.empty() ? "." : outputDir;
+
+	// Derive solc binary path from argv[0]
+	// argv[0] is like ".../build/test/tools/yul_debug_runner", solc is at ".../build/solc/solc"
+	std::string solcBinary;
+	{
+		std::string self = argv[0];
+		auto pos = self.rfind('/');
+		if (pos != std::string::npos)
+			solcBinary = self.substr(0, pos) + "/../../solc/solc";
+	}
+
 	std::vector<RunResult> results;
 	for (auto const& config : configs)
 	{
 		if (!quiet)
-			std::cout << "\033[42m" << "Running: " << config.label << "..." << RESET << std::endl;
+			std::cout << RED << "Running: " << config.label << "..." << RESET << std::endl;
 		std::string irFile = quiet ? "" : irDir + "/" + config.label + ".yul";
 		auto startTime = std::chrono::steady_clock::now();
 		try
@@ -709,12 +722,11 @@ int main(int argc, char* argv[])
 			auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 			std::cout << "  Time: " << elapsedMs << " ms" << std::endl;
 
-			// Print equivalent solc command
-			std::string irPath = irDir + "/" + config.label + ".yul";
-			std::cout << "  Equivalent solc command: solc --strict-assembly";
+			// Build solc flags
+			std::string solcFlags = " --strict-assembly";
 			if (config.settings.runYulOptimiser)
 			{
-				std::cout << " --optimize";
+				solcFlags += " --optimize";
 				if (!optimizerSequence.empty() || !optimizerCleanupSequence.empty())
 				{
 					std::string seq = optimizerSequence.empty()
@@ -723,12 +735,35 @@ int main(int argc, char* argv[])
 					std::string cleanupSeq = optimizerCleanupSequence.empty()
 						? std::string(OptimiserSettings::DefaultYulOptimiserCleanupSteps)
 						: optimizerCleanupSequence;
-					std::cout << " --yul-optimizations \"" << seq << ":" << cleanupSeq << "\"";
+					solcFlags += " --yul-optimizations \"" + seq + ":" + cleanupSeq + "\"";
 				}
 			}
 			if (config.viaSSACFG)
-				std::cout << " --via-ssa-cfg";
-			std::cout << " " << irPath << std::endl;
+				solcFlags += " --via-ssa-cfg";
+
+			// Print equivalent solc command
+			std::string irPath = irDir + "/" + config.label + ".yul";
+			std::cout << "  Equivalent solc command: solc" << solcFlags << " " << irPath << std::endl;
+
+			// Run perf profiling with solc on the original input file
+			if (!solcBinary.empty())
+			{
+				std::string perfDataFile = irDir + "/" + config.label + ".perf.data";
+				std::string perfReportFile = irDir + "/" + config.label + ".perf_top50.txt";
+				std::string perfRecordCmd = "perf record --call-graph fp -o " + perfDataFile
+					+ " -- " + solcBinary + solcFlags + " " + inputFile + " > /dev/null 2>&1";
+				int perfRet = std::system(perfRecordCmd.c_str());
+				if (perfRet == 0)
+				{
+					std::string perfReportCmd = "perf report -i " + perfDataFile
+						+ " --stdio 2>/dev/null | head -50 > " + perfReportFile;
+					std::system(perfReportCmd.c_str());
+					std::remove(perfDataFile.c_str());
+					std::cout << "  Perf top 50 written to: " << perfReportFile << std::endl;
+				}
+				else
+					std::cout << "  Perf: skipped (perf record failed)" << std::endl;
+			}
 		}
 	}
 
