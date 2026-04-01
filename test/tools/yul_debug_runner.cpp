@@ -34,6 +34,7 @@
 
 #include <boost/program_options.hpp>
 
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
@@ -676,8 +677,9 @@ int main(int argc, char* argv[])
 	for (auto const& config : configs)
 	{
 		if (!quiet)
-			std::cout << "Running: " << config.label << "..." << std::endl;
+			std::cout << "\033[42m" << "Running: " << config.label << "..." << RESET << std::endl;
 		std::string irFile = quiet ? "" : irDir + "/" + config.label + ".yul";
+		auto startTime = std::chrono::steady_clock::now();
 		try
 		{
 			results.push_back(runYulOnce(evmVM, version, yulSource, config.settings, calldata, config.viaSSACFG, irFile));
@@ -700,6 +702,33 @@ int main(int argc, char* argv[])
 			r.internalError = true;
 			r.internalErrorMsg = e.what();
 			results.push_back(std::move(r));
+		}
+		auto endTime = std::chrono::steady_clock::now();
+		if (!quiet)
+		{
+			auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+			std::cout << "  Time: " << elapsedMs << " ms" << std::endl;
+
+			// Print equivalent solc command
+			std::string irPath = irDir + "/" + config.label + ".yul";
+			std::cout << "  Equivalent solc command: solc --strict-assembly";
+			if (config.settings.runYulOptimiser)
+			{
+				std::cout << " --optimize";
+				if (!optimizerSequence.empty() || !optimizerCleanupSequence.empty())
+				{
+					std::string seq = optimizerSequence.empty()
+						? std::string(OptimiserSettings::DefaultYulOptimiserSteps)
+						: optimizerSequence;
+					std::string cleanupSeq = optimizerCleanupSequence.empty()
+						? std::string(OptimiserSettings::DefaultYulOptimiserCleanupSteps)
+						: optimizerCleanupSequence;
+					std::cout << " --yul-optimizations \"" << seq << ":" << cleanupSeq << "\"";
+				}
+			}
+			if (config.viaSSACFG)
+				std::cout << " --via-ssa-cfg";
+			std::cout << " " << irPath << std::endl;
 		}
 	}
 
