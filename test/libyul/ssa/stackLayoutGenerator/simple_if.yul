@@ -48,7 +48,7 @@
 // Block1_0Exit:0 -> Block1_2 [style="solid"];
 // Block1_0Exit:1 -> Block1_1 [style="solid"];
 // Block1_1 [label="\
-// IN: [ReturnLabel[1], v1, v0]\l\
+// IN: [ReturnLabel[1], JUNK, v0]\l\
 // \l\
 // [ReturnLabel[1], JUNK, lit1, v0]\l\
 // add\l\

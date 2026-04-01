@@ -31,7 +31,7 @@
 // Block0_0Exit:0 -> Block0_2 [style="solid"];
 // Block0_0Exit:1 -> Block0_1 [style="solid"];
 // Block0_1 [label="\
-// IN: [v0]\l\
+// IN: [JUNK]\l\
 // \l\
 // [JUNK, lit0, lit0]\l\
 // revert\l\
@@ -55,7 +55,7 @@
 // Block0_2Exit:0 -> Block0_5 [style="solid"];
 // Block0_2Exit:1 -> Block0_4 [style="solid"];
 // Block0_4 [label="\
-// IN: [v0, v1]\l\
+// IN: [JUNK, JUNK]\l\
 // \l\
 // [JUNK, JUNK, lit0, lit0]\l\
 // revert\l\

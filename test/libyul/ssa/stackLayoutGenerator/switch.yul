@@ -41,9 +41,9 @@
 // Block0_0Exit:0 -> Block0_3 [style="solid"];
 // Block0_0Exit:1 -> Block0_2 [style="solid"];
 // Block0_2 [label="\
-// IN: [v0]\l\
+// IN: [JUNK]\l\
 // \l\
-// OUT: [v0]\l\
+// OUT: [JUNK]\l\
 // "];
 // Block0_2 -> Block0_2Exit [arrowhead=none];
 // Block0_2Exit [label="Jump" shape=oval];

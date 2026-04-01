@@ -159,6 +159,7 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 	}
 
 	auto const& block = m_cfg.block(_blockId);
+	auto const& liveIn = m_liveness.liveIn(_blockId);
 
 	auto const& stackInProposals = m_inputStackProposalsPerBlock[_blockId.value];
 	yulAssert(!stackInProposals.empty(), fmt::format("None of the parents of block {} were generated", _blockId));
@@ -169,11 +170,11 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 		yulAssert(stackInProposals.size() == 1);
 		blockLayout.stackIn = stackInProposals[0].second;
 		handlePhiFunctions(blockLayout.stackIn, PhiInverse(m_cfg, stackInProposals[0].first, _blockId), m_liveness.liveIn(_blockId));
+		StackType stack(blockLayout.stackIn, {});
+		declareJunk(stack, liveIn);
 	}
 	else
 	{
-		// we have more than one entry and need to unify or at the very least apply phi fct.
-		auto const& liveIn = m_liveness.liveIn(_blockId);
 		// Pre-compute each parent's proposal
 		std::vector<StackData> proposals(stackInProposals.size());
 		for (std::size_t i = 0; i < stackInProposals.size(); ++i)
@@ -291,7 +292,6 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 	std::visit(
 		util::GenericVisitor{
 			[&](SSACFG::BasicBlock::ConditionalJump const& _cJump) {
-				auto const& zeroLiveIn = m_liveness.liveIn(_cJump.zero);
 				auto const& blockLiveOut = m_liveness.liveOut(_blockId);
 
 				// check if we have to do anything (dup the condition, bring it to the top etc)
@@ -325,25 +325,8 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				stack.pop<false>();
 
 				// Define successor stack-in layouts
-				{
-					// nonZero is always single-entry
-					std::optional<BlockLayout>& nonZeroLayout = m_resultLayout[_cJump.nonZero];
-					yulAssert(!nonZeroLayout, "There should be no way to reach this block other than by going through the parent.");
-					nonZeroLayout = BlockLayout{};
-					nonZeroLayout->stackIn = currentStackData;
-
-					if (
-						std::optional<BlockLayout>& zeroLayout = m_resultLayout[_cJump.zero];
-						!zeroLayout
-					)
-					{
-						zeroLayout = BlockLayout{};
-						zeroLayout->stackIn = currentStackData;
-						handlePhiFunctions(zeroLayout->stackIn, PhiInverse(m_cfg, _blockId, _cJump.zero), zeroLiveIn);
-						StackType zeroStack(zeroLayout->stackIn, {});
-						declareJunk(zeroStack, zeroLiveIn);
-					}
-				}
+				m_inputStackProposalsPerBlock[_cJump.zero.value].emplace_back(_blockId, currentStackData);
+				m_inputStackProposalsPerBlock[_cJump.nonZero.value].emplace_back(_blockId, currentStackData);
 			},
 			[&](SSACFG::BasicBlock::FunctionReturn const& _functionReturn) {
 				yulAssert(m_hasFunctionReturnLabel, "When there is a proper function return, we need to have a label for it");
