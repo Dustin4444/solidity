@@ -739,7 +739,7 @@ int main(int argc, char* argv[])
 				}
 			}
 			if (config.viaSSACFG)
-				solcFlags += " --via-ssa-cfg";
+				solcFlags += " --experimental --via-ssa-cfg";
 
 			// Print equivalent solc command
 			std::string irPath = irDir + "/" + config.label + ".yul";
@@ -750,19 +750,45 @@ int main(int argc, char* argv[])
 			{
 				std::string perfDataFile = irDir + "/" + config.label + ".perf.data";
 				std::string perfReportFile = irDir + "/" + config.label + ".perf_top50.txt";
+				std::string perfErrFile = irDir + "/" + config.label + ".perf.err";
 				std::string perfRecordCmd = "perf record --call-graph fp -o " + perfDataFile
-					+ " -- " + solcBinary + solcFlags + " " + inputFile + " > /dev/null 2>&1";
+					+ " -- " + solcBinary + solcFlags + " " + inputFile + " > /dev/null 2>" + perfErrFile;
 				int perfRet = std::system(perfRecordCmd.c_str());
 				if (perfRet == 0)
 				{
 					std::string perfReportCmd = "perf report -i " + perfDataFile
-						+ " --stdio 2>/dev/null | head -50 > " + perfReportFile;
+						+ " --stdio --no-children -g none --sort=overhead,symbol"
+						+ " 2>/dev/null | grep -v '^#' | sed 's/ \\[.\\] / /' | head -50 | cut -c1-200 > " + perfReportFile;
 					std::system(perfReportCmd.c_str());
-					std::remove(perfDataFile.c_str());
 					std::cout << "  Perf top 50 written to: " << perfReportFile << std::endl;
+
+					// Generate flame graph SVG via inferno
+					std::string flameFile = irDir + "/" + config.label + ".flamegraph.svg";
+					std::string flameCmd = "perf script -i " + perfDataFile
+						+ " 2>/dev/null | inferno-collapse-perf 2>/dev/null | inferno-flamegraph > " + flameFile + " 2>/dev/null";
+					int flameRet = std::system(flameCmd.c_str());
+					if (flameRet == 0)
+						std::cout << "  Flame graph written to: " << flameFile << std::endl;
+					else
+						std::cout << "  Flame graph: skipped (inferno not found?)" << std::endl;
+
+					std::remove(perfDataFile.c_str());
+					std::remove(perfErrFile.c_str());
 				}
 				else
-					std::cout << "  Perf: skipped (perf record failed)" << std::endl;
+				{
+					std::cout << "  Perf failed. Command was:" << std::endl;
+					std::cout << "    " << perfRecordCmd << std::endl;
+					std::ifstream errStream(perfErrFile);
+					if (errStream.is_open())
+					{
+						std::string errContents{std::istreambuf_iterator<char>(errStream), std::istreambuf_iterator<char>()};
+						if (!errContents.empty())
+							std::cout << "  Perf stderr: " << errContents;
+					}
+					std::remove(perfDataFile.c_str());
+					std::remove(perfErrFile.c_str());
+				}
 			}
 		}
 	}
