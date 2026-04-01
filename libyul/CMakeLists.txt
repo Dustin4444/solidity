@@ -113,6 +113,8 @@ add_library(yul
 	backends/evm/ssa/traversal/DominatorTree.h
 	backends/evm/ssa/traversal/ForwardTopologicalSort.cpp
 	backends/evm/ssa/traversal/ForwardTopologicalSort.h
+	backends/evm/ssa/traversal/ReducibilityCheck.cpp
+	backends/evm/ssa/traversal/ReducibilityCheck.h
 	optimiser/ASTCopier.cpp
 	optimiser/ASTCopier.h
 	optimiser/ASTWalker.cpp
