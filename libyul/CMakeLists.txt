@@ -109,6 +109,8 @@ add_library(yul
 	backends/evm/ssa/transform/TrivialPhiEliminator.h
 	backends/evm/ssa/transform/UnreachableBlockCleaner.cpp
 	backends/evm/ssa/transform/UnreachableBlockCleaner.h
+	backends/evm/ssa/traversal/DominatorTree.cpp
+	backends/evm/ssa/traversal/DominatorTree.h
 	backends/evm/ssa/traversal/ForwardTopologicalSort.cpp
 	backends/evm/ssa/traversal/ForwardTopologicalSort.h
 	optimiser/ASTCopier.cpp

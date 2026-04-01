@@ -41,10 +41,11 @@ public:
 	SSACFG::BlockId::ValueType preOrderIndexOf(SSACFG::BlockId::ValueType _block) const { return m_blockWisePreOrder[_block]; }
 	SSACFG::BlockId::ValueType maxSubtreePreOrderIndexOf(SSACFG::BlockId::ValueType _block) const { return m_blockWiseMaxSubtreePreOrder[_block]; }
 
-private:
-	void dfs(SSACFG::BlockId::ValueType _vertex);
 	/// Checks if block1 is an ancestor of block2, ie there's a path from block1 to block2 in the dfs tree
 	bool ancestor(SSACFG::BlockId::ValueType _block1, SSACFG::BlockId::ValueType _block2) const;
+
+private:
+	void dfs(SSACFG::BlockId::ValueType _vertex);
 
 	SSACFG const& m_cfg;
 	std::vector<char> m_explored{};

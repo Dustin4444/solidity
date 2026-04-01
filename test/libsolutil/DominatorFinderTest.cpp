@@ -19,6 +19,15 @@
  */
 #include <libsolutil/DominatorFinder.h>
 
+#include "range/v3/algorithm/sort.hpp"
+
+#include <liblangutil/EVMVersion.h>
+#include <libyul/backends/evm/EVMDialect.h>
+#include <libyul/backends/evm/ssa/SSACFG.h>
+#include <libyul/backends/evm/ssa/traversal/DominatorTree.h>
+#include <libyul/backends/evm/ssa/traversal/ForwardTopologicalSort.h>
+#include <ranges>
+
 #include <test/libsolidity/util/SoltestErrors.h>
 
 #include <boost/test/unit_test.hpp>
@@ -32,6 +41,9 @@
 #include <range/v3/view/transform.hpp>
 
 using namespace solidity::util;
+using namespace solidity::yul;
+using namespace solidity::yul::ssa;
+using namespace solidity::yul::ssa::traversal;
 
 namespace solidity::util::test
 {
@@ -84,7 +96,10 @@ public:
 
 		// Populate the successors of the vertices.
 		for (auto const& [from, to]: _edges)
+		{
 			vertices[vertexIdMap[from]].successors.emplace_back(&vertices[vertexIdMap[to]]);
+			edgesById.emplace_back(vertexIdMap[from], vertexIdMap[to]);
+		}
 
 		// Validate that all vertices used in the expected results are part of the graph.
 		std::set<TestVertexLabel> verticesSet = _vertices | ranges::to<std::set<TestVertexLabel>>;
@@ -166,8 +181,20 @@ public:
 		}) | ranges::to<std::map<TestVertexLabel, std::vector<TestVertexId>>>);
 	}
 
+	std::size_t maxOutDegree() const
+	{
+		std::map<TestVertexId, std::size_t> outDegree;
+		for (auto const& [from, _]: edgesById)
+			outDegree[from]++;
+		std::size_t result = 0;
+		for (auto const& [_, deg]: outDegree)
+			result = std::max(result, deg);
+		return result;
+	}
+
 	TestVertex const* entry = nullptr;
 	std::vector<TestVertex> vertices;
+	std::vector<std::pair<TestVertexId, TestVertexId>> edgesById;
 	// Reverse map from vertices labels to IDs
 	std::map<TestVertexLabel, TestVertexId> vertexIdMap;
 	std::map<TestVertexId, std::optional<TestVertexId>> expectedImmediateDominators;
@@ -175,9 +202,125 @@ public:
 	std::map<TestVertexId, std::vector<TestVertexId>> expectedDominatorTree;
 };
 
+/// Adapter wrapping the generic DominatorFinder for parametrized tests.
+struct GenericDominatorAdapter
+{
+	static constexpr std::size_t maxOutDegree = std::numeric_limits<std::size_t>::max();
+	static constexpr bool hasDfsIndices = true;
+
+	explicit GenericDominatorAdapter(DominatorFinderTest const& _test):
+		m_finder(*_test.entry) {}
+
+	std::map<TestVertexId, std::optional<TestVertexId>> immediateDominators() const
+	{
+		return m_finder.immediateDominators();
+	}
+
+	std::map<TestVertexId, TestDominatorFinder::DfsIndex> dfsIndexById() const
+	{
+		return m_finder.dfsIndexById();
+	}
+
+	std::map<TestVertexId, std::vector<TestVertexId>> dominatorTree() const
+	{
+		return m_finder.dominatorTree();
+	}
+
+	bool dominates(TestVertexId _a, TestVertexId _b) const
+	{
+		return m_finder.dominates(_a, _b);
+	}
+
+	TestDominatorFinder m_finder;
+};
+
+/// Adapter wrapping the SSACFG-specific DominatorTree for parametrized tests.
+struct SSACFGDominatorAdapter
+{
+	static constexpr std::size_t maxOutDegree = 2;
+	static constexpr bool hasDfsIndices = false;
+
+	explicit SSACFGDominatorAdapter(DominatorFinderTest const& _test)
+	{
+		auto const& dialect = EVMDialect::strictAssemblyForEVM(langutil::EVMVersion::current(), std::nullopt);
+		m_cfg = std::make_unique<SSACFG>(dialect);
+		for (std::size_t i = 0; i < _test.vertices.size(); ++i)
+			m_cfg->makeBlock(nullptr);
+
+		std::vector<std::vector<SSACFG::BlockId::ValueType>> successors(_test.vertices.size());
+		for (auto const& [from, to]: _test.edgesById)
+			successors[from].push_back(to);
+
+		for (std::size_t i = 0; i < _test.vertices.size(); ++i)
+		{
+			auto& block = m_cfg->block(SSACFG::BlockId{static_cast<SSACFG::BlockId::ValueType>(i)});
+			auto const& succs = successors[i];
+			if (succs.size() == 1)
+				block.exit = SSACFG::BasicBlock::Jump{SSACFG::BlockId{succs[0]}};
+			else if (succs.size() == 2)
+				block.exit = SSACFG::BasicBlock::ConditionalJump{{}, SSACFG::BlockId{succs[0]}, SSACFG::BlockId{succs[1]}};
+			else
+				soltestAssert(succs.empty(), "SSACFG only supports at most 2 successors per block");
+		}
+
+		for (auto const& [from, to]: _test.edgesById)
+			m_cfg->block(SSACFG::BlockId{static_cast<SSACFG::BlockId::ValueType>(to)}).entries.push_back(
+				SSACFG::BlockId{static_cast<SSACFG::BlockId::ValueType>(from)}
+			);
+
+		m_sort = std::make_unique<ForwardTopologicalSort>(*m_cfg);
+		m_domTree = std::make_unique<DominatorTree>(*m_sort);
+	}
+
+	std::map<TestVertexId, std::optional<TestVertexId>> immediateDominators() const
+	{
+		std::map<TestVertexId, std::optional<TestVertexId>> result;
+		for (auto blockIdx: m_sort->preOrder())
+		{
+			auto idom = m_domTree->immediateDominator(SSACFG::BlockId{blockIdx});
+			result[blockIdx] = (idom.value == blockIdx) ? std::nullopt : std::optional<TestVertexId>(idom.value);
+		}
+		return result;
+	}
+
+	std::map<TestVertexId, std::vector<TestVertexId>> dominatorTree() const
+	{
+		std::map<TestVertexId, std::vector<TestVertexId>> result;
+		for (auto blockIdx: m_sort->preOrder())
+		{
+			auto idom = m_domTree->immediateDominator(SSACFG::BlockId{blockIdx});
+			if (idom.value != blockIdx)
+				result[idom.value].push_back(blockIdx);
+		}
+		return result;
+	}
+
+	bool dominates(TestVertexId _a, TestVertexId _b) const
+	{
+		return m_domTree->dominates(
+			SSACFG::BlockId{static_cast<SSACFG::BlockId::ValueType>(_a)},
+			SSACFG::BlockId{static_cast<SSACFG::BlockId::ValueType>(_b)}
+		);
+	}
+
+	std::unique_ptr<SSACFG> m_cfg;
+	std::unique_ptr<ForwardTopologicalSort> m_sort;
+	std::unique_ptr<DominatorTree> m_domTree;
+};
+
+/// Sort children in a dominator tree map for order-independent comparison.
+std::map<TestVertexId, std::vector<TestVertexId>> sortedTree(std::map<TestVertexId, std::vector<TestVertexId>> _tree)
+{
+	for (auto& children: _tree | ranges::views::values)
+		ranges::sort(children);
+	return _tree;
+}
+
+using DominatorAdapters = std::tuple<GenericDominatorAdapter, SSACFGDominatorAdapter>;
+
 BOOST_AUTO_TEST_SUITE(Dominators)
 
-BOOST_AUTO_TEST_CASE(immediate_dominator_1)
+BOOST_AUTO_TEST_CASE_TEMPLATE(immediate_dominator_1, Adapter, DominatorAdapters)
 {
 	//            A
 	//            │
@@ -236,13 +379,16 @@ BOOST_AUTO_TEST_CASE(immediate_dominator_1)
 		}
 	);
 
-	TestDominatorFinder dominatorFinder(*test.entry);
-	BOOST_TEST(dominatorFinder.immediateDominators() == test.expectedImmediateDominators);
-	BOOST_TEST(dominatorFinder.dfsIndexById() == test.expectedDFSIndices);
-	BOOST_TEST(dominatorFinder.dominatorTree() == test.expectedDominatorTree);
+	if (test.maxOutDegree() > Adapter::maxOutDegree)
+		return;
+	Adapter adapter(test);
+	BOOST_TEST(adapter.immediateDominators() == test.expectedImmediateDominators);
+	if constexpr (Adapter::hasDfsIndices)
+		BOOST_TEST(adapter.dfsIndexById() == test.expectedDFSIndices);
+	BOOST_TEST(sortedTree(adapter.dominatorTree()) == sortedTree(test.expectedDominatorTree));
 }
 
-BOOST_AUTO_TEST_CASE(immediate_dominator_2)
+BOOST_AUTO_TEST_CASE_TEMPLATE(immediate_dominator_2, Adapter, DominatorAdapters)
 {
 	//    ┌────►A──────┐
 	//    │     │      ▼
@@ -290,13 +436,16 @@ BOOST_AUTO_TEST_CASE(immediate_dominator_2)
 		}
 	);
 
-	TestDominatorFinder dominatorFinder(*test.entry);
-	BOOST_TEST(dominatorFinder.immediateDominators() == test.expectedImmediateDominators);
-	BOOST_TEST(dominatorFinder.dfsIndexById() == test.expectedDFSIndices);
-	BOOST_TEST(dominatorFinder.dominatorTree() == test.expectedDominatorTree);
+	if (test.maxOutDegree() > Adapter::maxOutDegree)
+		return;
+	Adapter adapter(test);
+	BOOST_TEST(adapter.immediateDominators() == test.expectedImmediateDominators);
+	if constexpr (Adapter::hasDfsIndices)
+		BOOST_TEST(adapter.dfsIndexById() == test.expectedDFSIndices);
+	BOOST_TEST(sortedTree(adapter.dominatorTree()) == sortedTree(test.expectedDominatorTree));
 }
 
-BOOST_AUTO_TEST_CASE(immediate_dominator_3)
+BOOST_AUTO_TEST_CASE_TEMPLATE(immediate_dominator_3, Adapter, DominatorAdapters)
 {
 	//    ┌─────────┐
 	//    │         ▼
@@ -369,13 +518,16 @@ BOOST_AUTO_TEST_CASE(immediate_dominator_3)
 		}
 	);
 
-	TestDominatorFinder dominatorFinder(*test.entry);
-	BOOST_TEST(dominatorFinder.immediateDominators() == test.expectedImmediateDominators);
-	BOOST_TEST(dominatorFinder.dfsIndexById() == test.expectedDFSIndices);
-	BOOST_TEST(dominatorFinder.dominatorTree() == test.expectedDominatorTree);
+	if (test.maxOutDegree() > Adapter::maxOutDegree)
+		return;
+	Adapter adapter(test);
+	BOOST_TEST(adapter.immediateDominators() == test.expectedImmediateDominators);
+	if constexpr (Adapter::hasDfsIndices)
+		BOOST_TEST(adapter.dfsIndexById() == test.expectedDFSIndices);
+	BOOST_TEST(sortedTree(adapter.dominatorTree()) == sortedTree(test.expectedDominatorTree));
 }
 
-BOOST_AUTO_TEST_CASE(langauer_tarjan_p122_fig1)
+BOOST_AUTO_TEST_CASE_TEMPLATE(langauer_tarjan_p122_fig1, Adapter, DominatorAdapters)
 {
 	// T. Lengauer and R. E. Tarjan pg. 122 fig. 1
 	// ref: https://www.cs.princeton.edu/courses/archive/spr03/cs423/download/dominators.pdf
@@ -442,13 +594,16 @@ BOOST_AUTO_TEST_CASE(langauer_tarjan_p122_fig1)
 		}
 	);
 
-	TestDominatorFinder dominatorFinder(*test.entry);
-	BOOST_TEST(dominatorFinder.immediateDominators() == test.expectedImmediateDominators);
-	BOOST_TEST(dominatorFinder.dfsIndexById() == test.expectedDFSIndices);
-	BOOST_TEST(dominatorFinder.dominatorTree() == test.expectedDominatorTree);
+	if (test.maxOutDegree() > Adapter::maxOutDegree)
+		return;
+	Adapter adapter(test);
+	BOOST_TEST(adapter.immediateDominators() == test.expectedImmediateDominators);
+	if constexpr (Adapter::hasDfsIndices)
+		BOOST_TEST(adapter.dfsIndexById() == test.expectedDFSIndices);
+	BOOST_TEST(sortedTree(adapter.dominatorTree()) == sortedTree(test.expectedDominatorTree));
 }
 
-BOOST_AUTO_TEST_CASE(loukas_georgiadis)
+BOOST_AUTO_TEST_CASE_TEMPLATE(loukas_georgiadis, Adapter, DominatorAdapters)
 {
 	// Extracted from Loukas Georgiadis Dissertation - Linear-Time Algorithms for Dominators and Related Problems
 	// pg. 12 Fig. 2.2
@@ -502,13 +657,16 @@ BOOST_AUTO_TEST_CASE(loukas_georgiadis)
 		}
 	);
 
-	TestDominatorFinder dominatorFinder(*test.entry);
-	BOOST_TEST(dominatorFinder.immediateDominators() == test.expectedImmediateDominators);
-	BOOST_TEST(dominatorFinder.dfsIndexById() == test.expectedDFSIndices);
-	BOOST_TEST(dominatorFinder.dominatorTree() == test.expectedDominatorTree);
+	if (test.maxOutDegree() > Adapter::maxOutDegree)
+		return;
+	Adapter adapter(test);
+	BOOST_TEST(adapter.immediateDominators() == test.expectedImmediateDominators);
+	if constexpr (Adapter::hasDfsIndices)
+		BOOST_TEST(adapter.dfsIndexById() == test.expectedDFSIndices);
+	BOOST_TEST(sortedTree(adapter.dominatorTree()) == sortedTree(test.expectedDominatorTree));
 }
 
-BOOST_AUTO_TEST_CASE(itworst)
+BOOST_AUTO_TEST_CASE_TEMPLATE(itworst, Adapter, DominatorAdapters)
 {
 	// Worst-case families for k = 3
 	// Example itworst(3) pg. 26 fig. 2.9
@@ -581,13 +739,16 @@ BOOST_AUTO_TEST_CASE(itworst)
 		}
 	);
 
-	TestDominatorFinder dominatorFinder(*test.entry);
-	BOOST_TEST(dominatorFinder.immediateDominators() == test.expectedImmediateDominators);
-	BOOST_TEST(dominatorFinder.dfsIndexById() == test.expectedDFSIndices);
-	BOOST_TEST(dominatorFinder.dominatorTree() == test.expectedDominatorTree);
+	if (test.maxOutDegree() > Adapter::maxOutDegree)
+		return;
+	Adapter adapter(test);
+	BOOST_TEST(adapter.immediateDominators() == test.expectedImmediateDominators);
+	if constexpr (Adapter::hasDfsIndices)
+		BOOST_TEST(adapter.dfsIndexById() == test.expectedDFSIndices);
+	BOOST_TEST(sortedTree(adapter.dominatorTree()) == sortedTree(test.expectedDominatorTree));
 }
 
-BOOST_AUTO_TEST_CASE(idfsquad)
+BOOST_AUTO_TEST_CASE_TEMPLATE(idfsquad, Adapter, DominatorAdapters)
 {
 	// Worst-case families for k = 3
 	// Example idfsquad(3) pg. 26 fig. 2.9
@@ -642,13 +803,16 @@ BOOST_AUTO_TEST_CASE(idfsquad)
 		}
 	);
 
-	TestDominatorFinder dominatorFinder(*test.entry);
-	BOOST_TEST(dominatorFinder.immediateDominators() == test.expectedImmediateDominators);
-	BOOST_TEST(dominatorFinder.dfsIndexById() == test.expectedDFSIndices);
-	BOOST_TEST(dominatorFinder.dominatorTree() == test.expectedDominatorTree);
+	if (test.maxOutDegree() > Adapter::maxOutDegree)
+		return;
+	Adapter adapter(test);
+	BOOST_TEST(adapter.immediateDominators() == test.expectedImmediateDominators);
+	if constexpr (Adapter::hasDfsIndices)
+		BOOST_TEST(adapter.dfsIndexById() == test.expectedDFSIndices);
+	BOOST_TEST(sortedTree(adapter.dominatorTree()) == sortedTree(test.expectedDominatorTree));
 }
 
-BOOST_AUTO_TEST_CASE(ibsfquad)
+BOOST_AUTO_TEST_CASE_TEMPLATE(ibsfquad, Adapter, DominatorAdapters)
 {
 	// Worst-case families for k = 3
 	// Example ibfsquad(3) pg. 26 fig. 2.9
@@ -690,13 +854,16 @@ BOOST_AUTO_TEST_CASE(ibsfquad)
 		}
 	);
 
-	TestDominatorFinder dominatorFinder(*test.entry);
-	BOOST_TEST(dominatorFinder.immediateDominators() == test.expectedImmediateDominators);
-	BOOST_TEST(dominatorFinder.dfsIndexById() == test.expectedDFSIndices);
-	BOOST_TEST(dominatorFinder.dominatorTree() == test.expectedDominatorTree);
+	if (test.maxOutDegree() > Adapter::maxOutDegree)
+		return;
+	Adapter adapter(test);
+	BOOST_TEST(adapter.immediateDominators() == test.expectedImmediateDominators);
+	if constexpr (Adapter::hasDfsIndices)
+		BOOST_TEST(adapter.dfsIndexById() == test.expectedDFSIndices);
+	BOOST_TEST(sortedTree(adapter.dominatorTree()) == sortedTree(test.expectedDominatorTree));
 }
 
-BOOST_AUTO_TEST_CASE(sncaworst)
+BOOST_AUTO_TEST_CASE_TEMPLATE(sncaworst, Adapter, DominatorAdapters)
 {
 	// Worst-case families for k = 3
 	// Example sncaworst(3) pg. 26 fig. 2.9
@@ -739,10 +906,13 @@ BOOST_AUTO_TEST_CASE(sncaworst)
 		}
 	);
 
-	TestDominatorFinder dominatorFinder(*test.entry);
-	BOOST_TEST(dominatorFinder.immediateDominators() == test.expectedImmediateDominators);
-	BOOST_TEST(dominatorFinder.dfsIndexById() == test.expectedDFSIndices);
-	BOOST_TEST(dominatorFinder.dominatorTree() == test.expectedDominatorTree);
+	if (test.maxOutDegree() > Adapter::maxOutDegree)
+		return;
+	Adapter adapter(test);
+	BOOST_TEST(adapter.immediateDominators() == test.expectedImmediateDominators);
+	if constexpr (Adapter::hasDfsIndices)
+		BOOST_TEST(adapter.dfsIndexById() == test.expectedDFSIndices);
+	BOOST_TEST(sortedTree(adapter.dominatorTree()) == sortedTree(test.expectedDominatorTree));
 }
 
 BOOST_AUTO_TEST_CASE(collect_all_dominators_of_a_vertex)
@@ -799,7 +969,7 @@ BOOST_AUTO_TEST_CASE(collect_all_dominators_of_a_vertex)
 	BOOST_TEST(toVertexLabel(dominatorFinder.dominatorsOf(test.vertexIdMap["H"])) == std::vector<TestVertexLabel>({"G", "C", "B", "A"}));
 }
 
-BOOST_AUTO_TEST_CASE(check_dominance)
+BOOST_AUTO_TEST_CASE_TEMPLATE(check_dominance, Adapter, DominatorAdapters)
 {
 	//            A
 	//            │
@@ -872,15 +1042,14 @@ BOOST_AUTO_TEST_CASE(check_dominance)
 	};
 	soltestAssert(expectedDominanceTable.size() == test.vertices.size());
 
-	TestDominatorFinder dominatorFinder(*test.entry);
-	BOOST_TEST(dominatorFinder.dfsIndexById() == test.expectedDFSIndices);
+	Adapter adapter(test);
 	// Check if the dominance table is as expected.
-	for (TestDominatorFinder::DfsIndex i = 0; i < expectedDominanceTable.size(); ++i)
+	for (std::size_t i = 0; i < expectedDominanceTable.size(); ++i)
 	{
 		soltestAssert(expectedDominanceTable[i].size() == test.vertices.size());
-		for (TestDominatorFinder::DfsIndex j = 0; j < expectedDominanceTable[i].size(); ++j)
+		for (std::size_t j = 0; j < expectedDominanceTable[i].size(); ++j)
 		{
-			bool iDominatesJ = dominatorFinder.dominates(i, j);
+			bool iDominatesJ = adapter.dominates(i, j);
 			BOOST_CHECK_MESSAGE(
 				iDominatesJ == expectedDominanceTable[i][j],
 				fmt::format(
@@ -895,7 +1064,7 @@ BOOST_AUTO_TEST_CASE(check_dominance)
 	}
 }
 
-BOOST_AUTO_TEST_CASE(no_edges)
+BOOST_AUTO_TEST_CASE_TEMPLATE(no_edges, Adapter, DominatorAdapters)
 {
 	DominatorFinderTest test(
 		{"A"},
@@ -909,10 +1078,13 @@ BOOST_AUTO_TEST_CASE(no_edges)
 		{}
 	);
 
-	TestDominatorFinder dominatorFinder(*test.entry);
-	BOOST_TEST(dominatorFinder.immediateDominators() == test.expectedImmediateDominators);
-	BOOST_TEST(dominatorFinder.dfsIndexById() == test.expectedDFSIndices);
-	BOOST_TEST(dominatorFinder.dominatorTree() == test.expectedDominatorTree);
+	if (test.maxOutDegree() > Adapter::maxOutDegree)
+		return;
+	Adapter adapter(test);
+	BOOST_TEST(adapter.immediateDominators() == test.expectedImmediateDominators);
+	if constexpr (Adapter::hasDfsIndices)
+		BOOST_TEST(adapter.dfsIndexById() == test.expectedDFSIndices);
+	BOOST_TEST(sortedTree(adapter.dominatorTree()) == sortedTree(test.expectedDominatorTree));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
