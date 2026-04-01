@@ -23,6 +23,8 @@
 #include <libyul/backends/evm/ssa/StackShuffler.h>
 #include <libyul/backends/evm/ssa/StackUtils.h>
 
+#include <libevmasm/GasMeter.h>
+
 #include <libsolutil/Visitor.h>
 
 #include <range/v3/algorithm/count.hpp>
@@ -183,6 +185,7 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 				declareJunk(stack, liveIn);
 			}
 		}
+		bool const junkIsFree = m_junkAdmittingBlocksFinder->allowsAdditionOfJunk(_blockId);
 		std::vector cumulativeCosts(stackInProposals.size(), std::numeric_limits<std::size_t>::max());
 		for (std::size_t i = 0; i < stackInProposals.size(); ++i)
 		{
@@ -199,6 +202,19 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 				);
 				cumulativeCost += stack.callbacks().opGas;
 			}
+			// Junk slots in the chosen layout will need to be cleaned up eventually. This heuristic
+			// potentially underestimates the gas it requires to perform said cleanup.
+			// On revert paths (junk-admitting blocks) no cleanup is required.
+			if (!junkIsFree)
+				for (std::size_t k = 0; k < proposals[i].size(); ++k)
+					if (proposals[i][k].isJunk())
+					{
+						// Junk at the top can be popped (2 gas), junk deeper in
+						// the stack requires at least a swap before the pop (5 gas).
+						cumulativeCost += evmasm::GasMeter::runGas(evmasm::Instruction::POP, m_cfg.evmDialect.evmVersion());
+						if (k != proposals[i].size() - 1)
+							cumulativeCost += evmasm::GasMeter::swapGas(1, m_cfg.evmDialect.evmVersion());
+					}
 			cumulativeCosts[i] = cumulativeCost;
 		}
 		// Pick the proposal with the lowest cost; break ties by preferring smaller stacks
