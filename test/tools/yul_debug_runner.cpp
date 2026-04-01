@@ -757,7 +757,7 @@ int main(int argc, char* argv[])
 				if (perfRet == 0)
 				{
 					std::string perfReportCmd = "perf report -i " + perfDataFile
-						+ " --stdio --no-children -g none --sort=overhead,symbol"
+						+ " --stdio -g none"
 						+ " 2>/dev/null | grep -v '^#' | sed 's/ \\[.\\] / /' | head -50 | cut -c1-200 > " + perfReportFile;
 					std::system(perfReportCmd.c_str());
 					std::cout << "  Perf top 50 written to: " << perfReportFile << std::endl;
