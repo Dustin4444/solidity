@@ -751,11 +751,37 @@ int main(int argc, char* argv[])
 				std::string perfDataFile = irDir + "/" + config.label + ".perf.data";
 				std::string perfReportFile = irDir + "/" + config.label + ".perf_top50.txt";
 				std::string perfErrFile = irDir + "/" + config.label + ".perf.err";
-				std::string perfRecordCmd = "perf record --call-graph fp -o " + perfDataFile
+				std::string perfRecordCmd = "/usr/bin/time --verbose perf record --call-graph fp -o " + perfDataFile
 					+ " -- " + solcBinary + solcFlags + " " + inputFile + " > /dev/null 2>" + perfErrFile;
 				int perfRet = std::system(perfRecordCmd.c_str());
 				if (perfRet == 0)
 				{
+					// Parse max RSS from /usr/bin/time output
+					std::ifstream timeStream(perfErrFile);
+					if (timeStream.is_open())
+					{
+						std::string line;
+						while (std::getline(timeStream, line))
+						{
+							if (line.find("Maximum resident set size") != std::string::npos)
+							{
+								auto colonPos = line.rfind(':');
+								if (colonPos != std::string::npos)
+								{
+									std::string val = line.substr(colonPos + 1);
+									val.erase(0, val.find_first_not_of(" \t"));
+									val.erase(val.find_last_not_of(" \t") + 1);
+									try {
+										long kb = std::stol(val);
+										std::cout << "  Peak memory: " << kb / 1024 << " MB (" << kb << " KB)" << std::endl;
+									} catch (...) {}
+								}
+								break;
+							}
+						}
+					}
+					std::remove(perfErrFile.c_str());
+
 					std::string perfReportCmd = "perf report -i " + perfDataFile
 						+ " --stdio -g none"
 						+ " 2>/dev/null | grep -v '^#' | sed 's/ \\[.\\] / /' | head -50 | cut -c1-200 > " + perfReportFile;
@@ -773,7 +799,6 @@ int main(int argc, char* argv[])
 						std::cout << "  Flame graph: skipped (inferno not found?)" << std::endl;
 
 					std::remove(perfDataFile.c_str());
-					std::remove(perfErrFile.c_str());
 				}
 				else
 				{
