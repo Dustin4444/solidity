@@ -67,5 +67,4 @@ Thumbs.db
 
 # AI tooling
 /.claude/
-/debug-output
 /yul_debug_output-*
