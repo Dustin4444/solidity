@@ -2060,8 +2060,7 @@ void ProtoConverter::visit(Program const& _x)
 	{
 	case Program::kBlock:
 		m_output << "{\n";
-		if (_x.use_memoryguard())
-			m_output << "pop(memoryguard(0x10000))\n";
+		m_output << "pop(memoryguard(0x10000))\n";
 		m_output << "sstore(mload(mod(calldataload(0), " << std::to_string(s_maxMemory - 32) << ")), 1)\n";
 		visit(_x.block());
 		m_output << "}\n";

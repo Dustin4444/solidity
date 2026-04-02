@@ -425,7 +425,6 @@ message Program {
   optional uint32 expected_executions = 8;
   optional bool is_creation = 9;
   repeated uint32 optimiser_cleanup_seq = 10;
-  optional bool use_memoryguard = 11;
 }
 
 package solidity.yul.test.yul_fuzzer;
