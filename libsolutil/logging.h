@@ -13,7 +13,7 @@
 namespace solidity
 {
 
-enum class LogLevel : uint8_t { trace = 0, debug = 1, info = 2, warn = 3, error = 4, off = 5 };
+enum class LogLevel : std::uint8_t { trace = 0, debug = 1, info = 2, warn = 3, error = 4, off = 5 };
 
 /// Guard macro: skips argument evaluation when the logger's level is too low.
 ///   SOL_LOG(logger, debug, "x={} y={}", expensive1(), expensive2());
@@ -24,15 +24,15 @@ class Logger {
 public:
     explicit Logger(std::string name, LogLevel level = LogLevel::info, std::FILE* output = stdout)
         : m_name(std::move(name)),
-          m_level(static_cast<uint8_t>(level)),
+          m_level(static_cast<std::uint8_t>(level)),
           m_output(output) {}
 
     [[nodiscard]] bool should_log(LogLevel level) const noexcept {
-        return static_cast<uint8_t>(level) >= *const_cast<volatile uint8_t const*>(&m_level);
+        return static_cast<std::uint8_t>(level) >= m_level;
     }
 
     void set_level(LogLevel level) noexcept {
-        m_level = static_cast<uint8_t>(level);
+        m_level = static_cast<std::uint8_t>(level);
     }
 
     [[nodiscard]] LogLevel level() const noexcept {
@@ -77,7 +77,7 @@ public:
 
 private:
     std::string m_name;
-    uint8_t m_level;
+    std::uint8_t m_level;
     std::FILE* m_output;
 };
 
