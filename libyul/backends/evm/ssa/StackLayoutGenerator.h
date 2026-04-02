@@ -55,6 +55,10 @@ private:
 	bool m_hasFunctionReturnLabel;
 
 	std::unique_ptr<JunkAdmittingBlocksFinder> m_junkAdmittingBlocksFinder;
+	// Per-edge stack proposals for defineStackIn.
+	// m_inputStackProposalsPerBlock[blockId] contains (predecessorId, edgeStack) pairs
+	// representing the stack state flowing from each predecessor into the block.
+	std::vector<std::vector<std::pair<SSACFG::BlockId, StackData>>> m_inputStackProposalsPerBlock;
 	SSACFGStackLayout m_resultLayout;
 };
 

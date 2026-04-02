@@ -23,8 +23,9 @@
 #include <libyul/backends/evm/ssa/StackShuffler.h>
 #include <libyul/backends/evm/ssa/StackUtils.h>
 
+#include <libsolutil/Visitor.h>
+
 #include <range/v3/algorithm/count.hpp>
-#include <range/v3/algorithm/min_element.hpp>
 #include <range/v3/algorithm/replace.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/to_container.hpp>
@@ -64,7 +65,7 @@ void handlePhiFunctions(StackData& _stackData, PhiInverse const& _phiInverse, Li
 	}
 }
 
-using StackType = Stack<CountingInstructionsCallbacks>;
+using StackType = Stack<>;
 
 void declareJunk(StackType& _stack, LivenessAnalysis::LivenessData const& _live)
 {
@@ -98,6 +99,7 @@ StackLayoutGenerator::StackLayoutGenerator(
 	m_graphID(_graphID),
 	m_hasFunctionReturnLabel(_liveness.cfg().function && _liveness.cfg().canContinue),
 	m_junkAdmittingBlocksFinder(std::make_unique<JunkAdmittingBlocksFinder>(_liveness.cfg(), _liveness.topologicalSort())),
+	m_inputStackProposalsPerBlock(m_cfg.numBlocks()),
 	m_resultLayout(m_cfg.numBlocks())
 {
 	// traverse the cfg layer-wise using Kahn's algorithm:
@@ -155,67 +157,57 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 	}
 
 	auto const& block = m_cfg.block(_blockId);
+	auto const& liveIn = m_liveness.liveIn(_blockId);
 
-	std::vector<std::pair<SSACFG::BlockId, StackData const*>> parentExits;
-	for (auto const& entry: block.entries)
-		if (m_resultLayout[entry])
-			parentExits.emplace_back(entry, &m_resultLayout[entry]->stackOut);
-
-	yulAssert(!parentExits.empty(), fmt::format("None of the parents of block {} were generated", _blockId));
+	auto const& stackInProposals = m_inputStackProposalsPerBlock[_blockId.value];
+	yulAssert(!stackInProposals.empty(), fmt::format("None of the parents of block {} were generated", _blockId));
 
 	if (block.entries.size() == 1)
 	{
 		// pass through
-		yulAssert(parentExits.size() == 1);
-		blockLayout.stackIn = *parentExits[0].second;
-
-		if (!block.phis.empty())
-			handlePhiFunctions(blockLayout.stackIn, PhiInverse(m_cfg, parentExits[0].first, _blockId), m_liveness.liveIn(_blockId));
+		yulAssert(stackInProposals.size() == 1);
+		blockLayout.stackIn = stackInProposals[0].second;
+		handlePhiFunctions(blockLayout.stackIn, PhiInverse(m_cfg, stackInProposals[0].first, _blockId), liveIn);
+		StackType stack(blockLayout.stackIn, {});
+		declareJunk(stack, liveIn);
 	}
 	else
 	{
-		// we have more than one entry and need to unify or at the very least apply phi fct.
-		auto const& liveIn = m_liveness.liveIn(_blockId);
-		// Pre-compute each parent's phi-term proposal (declareJunk + handlePhiFunctions) once
-		std::vector<StackData> proposals(parentExits.size());
-		for (std::size_t i = 0; i < parentExits.size(); ++i)
+		// Pre-compute each parent's proposal
+		std::vector<StackData> proposals(stackInProposals.size());
+		for (std::size_t i = 0; i < stackInProposals.size(); ++i)
 		{
-			if (!parentExits[i].second)
-				continue;
-			proposals[i] = *parentExits[i].second;
+			proposals[i] = stackInProposals[i].second;
+			handlePhiFunctions(proposals[i], PhiInverse(m_cfg, stackInProposals[i].first, _blockId), liveIn);
 			{
 				StackType stack(proposals[i], {});
 				declareJunk(stack, liveIn);
 			}
-			handlePhiFunctions(proposals[i], PhiInverse(m_cfg, parentExits[i].first, _blockId), liveIn);
 		}
-		std::vector cumulativeCosts(parentExits.size(), std::numeric_limits<std::size_t>::max());
-		for (std::size_t i = 0; i < parentExits.size(); ++i)
+		std::vector cumulativeCosts(stackInProposals.size(), std::numeric_limits<std::size_t>::max());
+		for (std::size_t i = 0; i < stackInProposals.size(); ++i)
 		{
-			if (!parentExits[i].second)
-				continue;
 			std::size_t cumulativeCost = 0;
-			for (std::size_t j = 0; j < parentExits.size(); ++j)
+			for (std::size_t j = 0; j < stackInProposals.size(); ++j)
 			{
-				if (j == i || !parentExits[j].second)
-					continue;
 				auto proposalCopy = proposals[j];
-				StackType stack(proposalCopy, {});
-				StackShuffler<StackType::Callbacks>::shuffle(
+				Stack<GasAccumulatingCallbacks> stack(proposalCopy, {.cfg = m_cfg});
+				StackShuffler<GasAccumulatingCallbacks>::shuffle(
 					stack,
 					proposals[i],
 					{},
 					proposals[i].size()
 				);
-				cumulativeCost += stack.callbacks().numOps;
+				cumulativeCost += stack.callbacks().opGas;
 			}
 			cumulativeCosts[i] = cumulativeCost;
 		}
-		auto const argMin = static_cast<std::size_t>(
-			std::distance(cumulativeCosts.begin(), ranges::min_element(cumulativeCosts))
-		);
-		yulAssert(parentExits[argMin].second);
-		blockLayout.stackIn = std::move(proposals[argMin]);
+		// Pick the proposal with the lowest cost; break ties by preferring smaller stacks
+		std::size_t best = 0;
+		for (std::size_t i = 1; i < stackInProposals.size(); ++i)
+			if (std::make_pair(cumulativeCosts[i], proposals[i].size()) < std::make_pair(cumulativeCosts[best], proposals[best].size()))
+				best = i;
+		blockLayout.stackIn = std::move(proposals[best]);
 	}
 	m_resultLayout[_blockId] = blockLayout;
 }
@@ -260,7 +252,13 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 			)
 				stack.declareJunk(depth);
 
-		std::size_t const targetSize = findOptimalTargetSize(stack.data(), requiredStackTop, opLiveOutWithoutOutputs, junkCanBeAdded, m_hasFunctionReturnLabel);
+		std::size_t const targetSize = findOptimalTargetSize(
+			stack.data(),
+			requiredStackTop,
+			opLiveOutWithoutOutputs,
+			junkCanBeAdded,
+			m_hasFunctionReturnLabel
+		);
 		StackShuffler<StackType::Callbacks>::shuffle(
 			stack,
 			requiredStackTop,
@@ -270,64 +268,69 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 
 		blockLayout.operationIn.push_back(currentStackData);
 		for (std::size_t i = 0; i < requiredStackTop.size(); ++i)
-			stack.pop();
+			stack.pop<false>();
 		for (auto const& val: operation.outputs)
-			stack.push(Slot::makeValueID(val));
+			stack.push<false>(Slot::makeValueID(val));
 	}
 
-	if (auto const* cjump = std::get_if<SSACFG::BasicBlock::ConditionalJump>(&block.exit))
-	{
-		auto const& zeroLiveIn = m_liveness.liveIn(cjump->zero);
-		auto const& blockLiveOut = m_liveness.liveOut(_blockId);
+	std::visit(
+		util::GenericVisitor{
+			[&](SSACFG::BasicBlock::ConditionalJump const& _cJump) {
+				auto const& blockLiveOut = m_liveness.liveOut(_blockId);
 
-		// check if we have to do anything (dup the condition, bring it to the top etc)
-		bool const conditionSlotAlreadyFinal =
-			!blockLiveOut.contains(cjump->condition) &&  // if our live out does not contain the condition (ie we dont have to dup it)
-			!stack.empty() &&   // our stack is not empty
-			stack.top().isValueID() && stack.top().valueID() == cjump->condition;  // and the condition is already on top
-		if (!conditionSlotAlreadyFinal)
-		{
-			auto const condition = Slot::makeValueID(cjump->condition);
-			auto const targetSize = findOptimalTargetSize(stack.data(), {condition}, blockLiveOut, false, m_hasFunctionReturnLabel);
-			StackShuffler<StackType::Callbacks>::shuffle(
-				stack, {condition}, blockLiveOut, targetSize
-			);
-		}
+				// check if we have to do anything (dup the condition, bring it to the top etc)
+				bool const conditionSlotAlreadyFinal =
+					!blockLiveOut.contains(_cJump.condition) &&  // if our live out does not contain the condition (ie we dont have to dup it)
+					!stack.empty() &&   // our stack is not empty
+					stack.top().isValueID() && stack.top().valueID() == _cJump.condition;  // and the condition is already on top
+				if (!conditionSlotAlreadyFinal)
+				{
+					auto const condition = Slot::makeValueID(_cJump.condition);
+					auto const targetSize = findOptimalTargetSize(
+						stack.data(),
+						{condition},
+						blockLiveOut,
+						false,
+						m_hasFunctionReturnLabel
+					);
+					StackShuffler<StackType::Callbacks>::shuffle(
+						stack, {condition}, blockLiveOut, targetSize
+					);
+				}
 
-		yulAssert(!stack.empty() && stack.top().isValueID() && stack.top().valueID() == cjump->condition);
-		yulAssert(m_cfg.block(cjump->nonZero).phis.empty());
+				yulAssert(!stack.empty() && stack.top().isValueID() && stack.top().valueID() == _cJump.condition);
+				yulAssert(m_cfg.block(_cJump.nonZero).phis.empty());
 
-		// define zero and non-zero stack in layouts
-		{
-			std::optional<BlockLayout>& nonZeroLayout = m_resultLayout[cjump->nonZero];
-			yulAssert(!nonZeroLayout, "There should be no way to reach this block other than by going through the parent.");
-			nonZeroLayout = BlockLayout{};
-			nonZeroLayout->stackIn = currentStackData;
-			// Remove condition; consumed by JUMPI
-			nonZeroLayout->stackIn.pop_back();
+				// exitIn = pre-JUMPI state (condition on top) for CodeTransform
+				blockLayout.exitIn = currentStackData;
 
-			if (
-				std::optional<BlockLayout>& zeroLayout = m_resultLayout[cjump->zero];
-				!zeroLayout
-			)
-			{
-				// same as nonzero stack in initially
-				zeroLayout = nonZeroLayout;
-				handlePhiFunctions(zeroLayout->stackIn, PhiInverse(m_cfg, _blockId, cjump->zero), zeroLiveIn);
-				StackType zeroStack(zeroLayout->stackIn, {});
-				declareJunk(zeroStack, zeroLiveIn);
+				// Pop condition from symbolic stack (consumed by JUMPI).
+				// After this, currentStackData reflects the post-JUMPI stack.
+				stack.pop<false>();
+
+				// Define successor stack-in layouts
+				m_inputStackProposalsPerBlock[_cJump.zero.value].emplace_back(_blockId, currentStackData);
+				m_inputStackProposalsPerBlock[_cJump.nonZero.value].emplace_back(_blockId, currentStackData);
+			},
+			[&](SSACFG::BasicBlock::FunctionReturn const& _functionReturn) {
+				yulAssert(m_hasFunctionReturnLabel, "When there is a proper function return, we need to have a label for it");
+				// in case there are return values, let's bring the function return label to the top
+				StackData returnStack = _functionReturn.returnValues | ranges::views::transform(StackSlot::makeValueID) | ranges::to<std::vector>;
+				returnStack.push_back(StackSlot::makeFunctionReturnLabel(m_graphID));
+				StackShuffler<StackType::Callbacks>::shuffle(stack, returnStack);
+				blockLayout.exitIn = currentStackData;
+			},
+			[&](SSACFG::BasicBlock::Jump const& _jump) {
+				blockLayout.exitIn = currentStackData;
+				m_inputStackProposalsPerBlock[_jump.target.value].emplace_back(_blockId, currentStackData);
+			},
+			[&](SSACFG::BasicBlock::MainExit const&) {
+				blockLayout.exitIn = currentStackData;
+			},
+			[&](SSACFG::BasicBlock::Terminated const&) {
+				blockLayout.exitIn = currentStackData;
 			}
-		}
-	}
-
-	if (auto const* functionReturn = std::get_if<SSACFG::BasicBlock::FunctionReturn>(&block.exit))
-	{
-		yulAssert(m_hasFunctionReturnLabel, "When there is a proper function return, we need to have a label for it");
-		// in case there are return values, let's bring the function return label to the top
-		StackData returnStack = functionReturn->returnValues | ranges::views::transform(StackSlot::makeValueID) | ranges::to<std::vector>;
-		returnStack.push_back(StackSlot::makeFunctionReturnLabel(m_graphID));
-		StackShuffler<StackType::Callbacks>::shuffle(stack, returnStack);
-	}
-
-	blockLayout.stackOut = currentStackData;
+		},
+		block.exit
+	);
 }

@@ -105,6 +105,10 @@ add_library(yul
 	backends/evm/ssa/io/DotExporterBase.h
 	backends/evm/ssa/io/JSONExporter.cpp
 	backends/evm/ssa/io/JSONExporter.h
+	backends/evm/ssa/transform/TrivialPhiEliminator.cpp
+	backends/evm/ssa/transform/TrivialPhiEliminator.h
+	backends/evm/ssa/transform/UnreachableBlockCleaner.cpp
+	backends/evm/ssa/transform/UnreachableBlockCleaner.h
 	backends/evm/ssa/traversal/ForwardTopologicalSort.cpp
 	backends/evm/ssa/traversal/ForwardTopologicalSort.h
 	optimiser/ASTCopier.cpp

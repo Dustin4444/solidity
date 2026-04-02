@@ -210,7 +210,7 @@ public:
 	void swap(Depth const& _depth) { swap(depthToOffset(_depth)); }
 	void swap(Offset const& _offset)
 	{
-		yulAssert(swapReachable(_offset), "Stack too deep");
+		yulAssert(isValidSwapTarget(_offset), "Stack too deep");
 		std::swap((*m_data)[_offset.value], m_data->back());
 		if constexpr (!std::is_same_v<Callbacks, NoOpStackManipulationCallbacks>)
 			m_callbacks.swap(offsetToDepth(_offset));
@@ -250,8 +250,9 @@ public:
 
 	bool dupReachable(Offset const& _offset) const noexcept { return dupReachable(offsetToDepth(_offset)); }
 	bool dupReachable(Depth const& _depth) const noexcept { return _depth < size() && _depth.value + 1 <= reachableStackDepth; }
-	bool swapReachable(Offset const& _offset) const noexcept { return swapReachable(offsetToDepth(_offset)); }
-	bool swapReachable(Depth const& _depth) const noexcept { return _depth < size() && 1 <= _depth.value && _depth.value <= reachableStackDepth; }
+	bool isValidSwapTarget(Offset const& _offset) const noexcept { return isValidSwapTarget(offsetToDepth(_offset)); }
+	bool isValidSwapTarget(Depth const& _depth) const noexcept { return _depth < size() && 1 <= _depth.value && _depth.value <= reachableStackDepth; }
+	bool isBeyondSwapRange(Depth const& _depth) const noexcept { return _depth > reachableStackDepth; }
 
 	void declareJunk(Offset const& _offset) { (*m_data)[_offset.value] = Slot::makeJunk(); }
 	void declareJunk(Depth const& _depth) { declareJunk(depthToOffset(_depth)); }

@@ -185,7 +185,7 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 	// Shuffle to the block's exit layout before dispatching the exit.
 	// This ensures the condition is on top for ConditionalJump, phi pre-images are
 	// in the right positions for jumps, and return values are accessible for FunctionReturn.
-	StackShuffler<AssemblyCallbacks>::shuffle(m_stack, blockLayout->stackOut);
+	StackShuffler<AssemblyCallbacks>::shuffle(m_stack, blockLayout->exitIn);
 
 	// handle the block exit
 	std::visit(util::GenericVisitor{ [this, &_blockId](auto const& exit) { (*this)(_blockId, exit); } }, block.exit);

@@ -48,17 +48,17 @@
 // Block1_0Exit:0 -> Block1_2 [style="solid"];
 // Block1_0Exit:1 -> Block1_1 [style="solid"];
 // Block1_1 [label="\
-// IN: [ReturnLabel[1], v1, v0]\l\
+// IN: [ReturnLabel[1], JUNK, v0]\l\
 // \l\
-// [ReturnLabel[1], JUNK, v0, lit1, v0]\l\
+// [ReturnLabel[1], JUNK, lit1, v0]\l\
 // add\l\
-// [ReturnLabel[1], JUNK, v0, v3]\l\
+// [ReturnLabel[1], JUNK, v3]\l\
 // \l\
-// [ReturnLabel[1], JUNK, JUNK, v3, v3]\l\
+// [ReturnLabel[1], JUNK, v3, v3]\l\
 // revert\l\
-// [ReturnLabel[1], JUNK, JUNK]\l\
+// [ReturnLabel[1], JUNK]\l\
 // \l\
-// OUT: [ReturnLabel[1], JUNK, JUNK]\l\
+// OUT: [ReturnLabel[1], JUNK]\l\
 // "];
 // Block1_1Exit [label="Terminated"];
 // Block1_1 -> Block1_1Exit;

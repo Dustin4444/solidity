@@ -16,12 +16,12 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
-#include <test/libyul/SSAControlFlowGraphTest.h>
+#include <test/libyul/ssa/ControlFlowGraphTest.h>
+
 #include <test/libyul/Common.h>
 #include <test/Common.h>
 
 #include <libyul/backends/evm/ssa/SSACFGBuilder.h>
-#include <libyul/backends/evm/StackHelpers.h>
 
 #include <libyul/AsmAnalysis.h>
 #include <libyul/Object.h>
@@ -43,15 +43,15 @@ using namespace solidity;
 using namespace solidity::util;
 using namespace solidity::langutil;
 using namespace solidity::yul;
-using namespace solidity::yul::test;
+using namespace solidity::yul::test::ssa;
 using namespace solidity::frontend;
 using namespace solidity::frontend::test;
 
-std::unique_ptr<TestCase> SSAControlFlowGraphTest::create(TestCase::Config const& _config) {
-	return std::make_unique<SSAControlFlowGraphTest>(_config.filename);
+std::unique_ptr<TestCase> ControlFlowGraphTest::create(Config const& _config) {
+	return std::make_unique<ControlFlowGraphTest>(_config.filename);
 }
 
-SSAControlFlowGraphTest::SSAControlFlowGraphTest(std::string const& _filename): TestCase(_filename)
+ControlFlowGraphTest::ControlFlowGraphTest(std::string const& _filename): TestCase(_filename)
 {
 	m_source = m_reader.source();
 	auto dialectName = m_reader.stringSetting("dialect", "evm");
@@ -59,7 +59,7 @@ SSAControlFlowGraphTest::SSAControlFlowGraphTest(std::string const& _filename): 
 	m_expectation = m_reader.simpleExpectations();
 }
 
-TestCase::TestResult SSAControlFlowGraphTest::run(std::ostream& _stream, std::string const& _linePrefix, bool const _formatted)
+TestCase::TestResult ControlFlowGraphTest::run(std::ostream& _stream, std::string const& _linePrefix, bool const _formatted)
 {
 	YulStack yulStack = parseYul(m_source);
 	solUnimplementedAssert(yulStack.parserResult()->subObjects.empty(), "Tests with subobjects not supported.");
@@ -70,13 +70,16 @@ TestCase::TestResult SSAControlFlowGraphTest::run(std::ostream& _stream, std::st
 		return TestResult::FatalError;
 	}
 
-	std::unique_ptr<ssa::ControlFlow> controlFlow = ssa::SSACFGBuilder::build(
+	auto const* evmDialect = dynamic_cast<EVMDialect const*>(&yulStack.dialect());
+	yulAssert(evmDialect);
+
+	std::unique_ptr<yul::ssa::ControlFlow> controlFlow = yul::ssa::SSACFGBuilder::build(
 		*yulStack.parserResult()->analysisInfo,
-		yulStack.dialect(),
+		*evmDialect,
 		yulStack.parserResult()->code()->root(),
 		true
 	);
-	ssa::ControlFlowLiveness liveness(*controlFlow);
+	yul::ssa::ControlFlowLiveness liveness(*controlFlow);
 	m_obtainedResult = controlFlow->toDot(&liveness);
 
 	auto result = checkResult(_stream, _linePrefix, _formatted);

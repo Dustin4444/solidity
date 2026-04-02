@@ -24,6 +24,8 @@
 #include <libyul/backends/evm/ssa/SSACFGDebugInfo.h>
 #include <libyul/backends/evm/ssa/SSACFGTypes.h>
 
+#include <libyul/backends/evm/EVMDialect.h>
+
 #include <libyul/AST.h>
 #include <libyul/AsmAnalysisInfo.h>
 #include <libyul/Dialect.h>
@@ -32,7 +34,7 @@
 
 #include <libsolutil/Numeric.h>
 
-#include <range/v3/view/map.hpp>
+#include <concepts>
 #include <deque>
 #include <functional>
 #include <list>
@@ -47,7 +49,11 @@ class SSACFG
 public:
 	using DebugInfo = SSACFGDebugInfo;
 
-	explicit SSACFG(std::unique_ptr<DebugInfo> _debugInfo = std::make_unique<DebugInfo>()):
+	explicit SSACFG(
+		EVMDialect const& _evmVersion,
+		std::unique_ptr<DebugInfo> _debugInfo = nullptr
+	):
+		evmDialect(_evmVersion),
 		debugInfo(std::move(_debugInfo))
 	{}
 
@@ -74,6 +80,15 @@ public:
 	};
 	struct LiteralAssignment {};
 
+	/// Upsilon records a phi pre-image at a block exit.
+	/// Upsilon(value, phi) means: the value flowing into `phi` from this block is `value`.
+	/// Lives in the predecessor block; the corresponding Phi lives in the successor.
+	struct Upsilon
+	{
+		ValueId value;  ///< pre-image value for the phi
+		ValueId phi;    ///< target phi
+	};
+
 	struct Operation {
 		std::vector<ValueId> outputs{};
 		std::variant<BuiltinCall, Call, LiteralAssignment> kind;
@@ -97,11 +112,15 @@ public:
 			std::vector<ValueId> returnValues;
 		};
 		struct Terminated {};
-		std::set<BlockId> entries;
-		std::set<ValueId> phis;
+		std::vector<BlockId> entries;
+		std::vector<ValueId> phis;
 		std::vector<OperationId> operations;
+		/// Upsilon assignments placed at the block exit (before the terminator).
+		/// They record the phi pre-images for successor blocks.
+		std::vector<Upsilon> upsilons;
 		std::variant<MainExit, Jump, ConditionalJump, FunctionReturn, Terminated> exit = MainExit{};
-		template<typename Callable>
+
+		template<std::invocable<BlockId> Callable>
 		void forEachExit(Callable&& _callable) const
 		{
 			if (auto* jump = std::get_if<Jump>(&exit))
@@ -137,7 +156,7 @@ public:
 	BlockId makeBlock(langutil::DebugData::ConstPtr _debugData)
 	{
 		BlockId blockId { static_cast<BlockId::ValueType>(m_blocks.size()) };
-		m_blocks.emplace_back(BasicBlock{{}, {}, {}, BasicBlock::Terminated{}});
+		m_blocks.emplace_back(BasicBlock{{}, {}, {}, {}, BasicBlock::Terminated{}});
 		if (debugInfo)
 			debugInfo->setBlockDebugData(blockId, std::move(_debugData));
 		return blockId;
@@ -169,12 +188,11 @@ public:
 	};
 	struct PhiValue {
 		BlockId block;
-		std::vector<ValueId> arguments;
 	};
 	struct UnreachableValue {};
 	ValueId newPhi(BlockId const _definingBlock)
 	{
-		m_phis.emplace_back(PhiValue{_definingBlock, std::vector<ValueId>{}});
+		m_phis.emplace_back(PhiValue{_definingBlock});
 		auto const value = m_phis.size() - 1;
 		yulAssert(value < std::numeric_limits<ValueId::ValueType>::max());
 		auto const id = ValueId::makePhi(static_cast<ValueId::ValueType>(value));
@@ -220,14 +238,6 @@ public:
 		return literalId;
 	}
 
-	size_t phiArgumentIndex(BlockId const _source, BlockId const _target) const
-	{
-		auto const& targetBlock = block(_target);
-		auto idx = util::findOffset(targetBlock.entries, _source);
-		yulAssert(idx, fmt::format("Target block {} not found as entry in one of the exits of the current block {}.", _target.value, _source.value));
-		return *idx;
-	}
-
 	std::string toDot(
 		bool _includeDiGraphDefinition=true,
 		std::optional<size_t> _functionIndex=std::nullopt,
@@ -262,6 +272,7 @@ private:
 	std::vector<VariableValue> m_variables;
 	std::optional<ValueId> m_unreachableValue;
 public:
+	EVMDialect const& evmDialect;
 	std::unique_ptr<DebugInfo> debugInfo;
 	BlockId entry = BlockId{0};
 	std::set<BlockId> exits;

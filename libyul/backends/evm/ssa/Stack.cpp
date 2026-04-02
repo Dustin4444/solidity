@@ -18,6 +18,8 @@
 
 #include <libyul/backends/evm/ssa/Stack.h>
 
+#include <range/v3/view/transform.hpp>
+
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 

@@ -26,15 +26,15 @@
 // pair\l\
 // [v0, v1, FunctionCallReturnLabel[1], v2, v3]\l\
 // \l\
-// [JUNK, v1, v2, v3, v2]\l\
+// [JUNK, v1, v3, v2]\l\
 // add\l\
-// [JUNK, v1, v2, v4]\l\
+// [JUNK, v1, v4]\l\
 // \l\
-// [JUNK, v1, JUNK, v4, v1]\l\
+// [JUNK, v4, v1]\l\
 // sstore\l\
-// [JUNK, v1, JUNK]\l\
+// [JUNK]\l\
 // \l\
-// OUT: [JUNK, v1, JUNK]\l\
+// OUT: [JUNK]\l\
 // "];
 // Block0_0Exit [label="MainExit"];
 // Block0_0 -> Block0_0Exit;

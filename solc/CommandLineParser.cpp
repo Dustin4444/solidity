@@ -191,19 +191,18 @@ void CommandLineParser::checkExperimental(std::vector<std::string> const& _optio
 		);
 	}
 
-	if (m_args.contains(g_strEVMVersion))
+	if (!m_args.contains(g_strExperimental) && m_args.contains(g_strEVMVersion))
 	{
 		std::string versionOptionStr = m_args[g_strEVMVersion].as<std::string>();
 		std::optional<langutil::EVMVersion> versionOption = langutil::EVMVersion::fromString(versionOptionStr);
 
 		if (versionOption.has_value() && versionOption->isExperimental())
-			// TODO: Cover with test when the Amsterdam version is introduced
 			solThrow(
 				CommandLineValidationError,
 				fmt::format(
 					"EVM version '{}' is experimental and can only be selected in experimental mode. "
-					"To enable experimental mode, use the --{} flag",
-					m_options.output.evmVersion.name(),
+					"To enable experimental mode, use the --{} flag.",
+					versionOption->name(),
 					g_strExperimental
 				)
 			);

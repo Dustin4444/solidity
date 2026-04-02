@@ -48,13 +48,12 @@ void ConditionalSimplifier::operator()(Switch& _switch)
 		if (_case.value)
 		{
 			(*this)(*_case.value);
-			_case.body.statements.insert(_case.body.statements.begin(),
-				Assignment{
-					_case.body.debugData,
-					{Identifier{_case.body.debugData, expr}},
-					std::make_unique<Expression>(*_case.value)
-				}
-			);
+			auto assignment = Statement{Assignment{
+				_case.body.debugData,
+				{Identifier{_case.body.debugData, expr}},
+				std::make_unique<Expression>(*_case.value)
+			}};
+			_case.body.statements.insert(_case.body.statements.begin(), std::move(assignment));
 		}
 		(*this)(_case.body);
 	}

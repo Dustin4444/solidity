@@ -1181,7 +1181,10 @@ BOOST_AUTO_TEST_CASE(evm_version)
 	Json result;
 	for (auto const& version: EVMVersion::allVersions())
 	{
-		result = compile(inputForVersion(fmt::format("\"evmVersion\": \"{}\",", version.name())));
+		if (version.isExperimental())
+			result = compile(inputForVersion(fmt::format("\"evmVersion\": \"{}\", \"experimental\": {},", version.name(), "true")));
+		else
+			result = compile(inputForVersion(fmt::format("\"evmVersion\": \"{}\",", version.name())));
 		BOOST_CHECK(result["contracts"]["fileA"]["A"]["metadata"].get<std::string>().find(fmt::format("\"evmVersion\":\"{}\"", version.name())) != std::string::npos);
 	}
 	// test default

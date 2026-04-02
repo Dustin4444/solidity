@@ -41,9 +41,9 @@
 // Block0_0Exit:0 -> Block0_3 [style="solid"];
 // Block0_0Exit:1 -> Block0_2 [style="solid"];
 // Block0_2 [label="\
-// IN: [v0]\l\
+// IN: [JUNK]\l\
 // \l\
-// OUT: [v0]\l\
+// OUT: [JUNK]\l\
 // "];
 // Block0_2 -> Block0_2Exit [arrowhead=none];
 // Block0_2Exit [label="Jump" shape=oval];
@@ -62,13 +62,13 @@
 // Block0_3Exit:0 -> Block0_5 [style="solid"];
 // Block0_3Exit:1 -> Block0_4 [style="solid"];
 // Block0_1 [label="\
-// IN: [JUNK, phi0]\l\
+// IN: [phi0]\l\
 // \l\
-// [JUNK, phi0, lit6]\l\
+// [phi0, lit6]\l\
 // sstore\l\
-// [JUNK]\l\
+// []\l\
 // \l\
-// OUT: [JUNK]\l\
+// OUT: []\l\
 // "];
 // Block0_1Exit [label="MainExit"];
 // Block0_1 -> Block0_1Exit;

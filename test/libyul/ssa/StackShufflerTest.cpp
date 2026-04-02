@@ -166,15 +166,20 @@ struct ShuffleTestInput
 {
 	std::optional<TestStack::Data> initial;
 	std::optional<TestStack::Data> targetStackTop;
-	std::optional<Liveness> targetStackTailSet;
+	Liveness targetStackTailSet{};
 	std::optional<size_t> targetStackSize;
 
 	bool valid() const
 	{
-		return initial.has_value() &&
+		bool const fullySpecified =
+			initial.has_value() &&
 			targetStackTop.has_value() &&
-			targetStackTailSet.has_value() &&
 			targetStackSize.has_value();
+		bool const exactMode =
+			initial.has_value() &&
+			targetStackTop.has_value() &&
+			!targetStackSize.has_value();
+		return fullySpecified || exactMode;
 	}
 
 	static ShuffleTestInput parse(std::string_view _source)
@@ -222,6 +227,15 @@ struct ShuffleTestInput
 					throw std::runtime_error(fmt::format("Couldn't parse targetStackSize: {}", value));
 			}
 
+		}
+
+		if (result.valid() && !result.targetStackSize)
+		{
+			yulAssert(
+				result.targetStackTailSet.empty(),
+				"Can only infer target stack size if targetStackTailSet is empty / unset."
+			);
+			result.targetStackSize = result.targetStackTop->size();
 		}
 		return result;
 	}
@@ -399,7 +413,10 @@ Where <slot> is one of:
   lit<N>  - literal
   JUNK    - junk slot
 
-Lines starting with // are comments. Comments at the end of lines are supported, too.)";
+Lines starting with // are comments. Comments at the end of lines are supported, too.
+The targetStackTailSet defaults to empty.
+The targetStackSize defaults to the size of targetStackTop if targetStackTailSet is empty, otherwise it must be
+explicitly provided.)";
 		util::AnsiColorized out(_stream, _formatted, {util::formatting::BOLD, util::formatting::RED});
 		out	<< _linePrefix << fmt::format("Error parsing source. Expected format:") << '\n';
 
@@ -418,13 +435,13 @@ Lines starting with // are comments. Comments at the end of lines are supported,
 	auto stackData = *testConfig.initial;
 	std::ostringstream oss;
 	{
-		TraceRecorder trace(oss, *testConfig.targetStackTop, *testConfig.targetStackTailSet, *testConfig.targetStackSize);
+		TraceRecorder trace(oss, *testConfig.targetStackTop, testConfig.targetStackTailSet, *testConfig.targetStackSize);
 		trace.record("(initial)", *testConfig.initial);
 		TestStack stack(stackData, {.hook = [&](std::string const& op){ trace.record(op, stackData); }});
 		StackShuffler<StackManipulationCallbacks>::shuffle(
 			stack,
 			*testConfig.targetStackTop,
-			*testConfig.targetStackTailSet,
+			testConfig.targetStackTailSet,
 			*testConfig.targetStackSize
 		);
 	}
@@ -433,7 +450,7 @@ Lines starting with // are comments. Comments at the end of lines are supported,
 		yulAssert(*testConfig.targetStackSize >= testConfig.targetStackTop->size());
 		auto const tailSize = *testConfig.targetStackSize - testConfig.targetStackTop->size();
 		yulAssert(stackData.size() == *testConfig.targetStackSize);
-		for (const auto& valueID: *testConfig.targetStackTailSet | ranges::views::keys)
+		for (const auto& valueID: testConfig.targetStackTailSet | ranges::views::keys)
 		{
 			auto const findIt = ranges::find(
 				stackData.begin(),

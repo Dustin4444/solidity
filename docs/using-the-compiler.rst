@@ -360,7 +360,8 @@ Input Description
         // Version of the EVM to compile for (optional).
         // Affects type checking and code generation. Can be homestead,
         // tangerineWhistle, spuriousDragon, byzantium, constantinople,
-        // petersburg, istanbul, berlin, london, paris, shanghai, cancun, prague or osaka (default).
+        // petersburg, istanbul, berlin, london, paris, shanghai, cancun,
+        // prague, osaka (default), or @future (experimental).
         "evmVersion": "osaka",
         // EVM Object Format version to compile for (optional, experimental).
         // Currently the only valid value is 1. If not specified, legacy non-EOF bytecode will be generated.

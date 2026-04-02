@@ -20,6 +20,8 @@
 
 #include <libyul/backends/evm/ssa/StackShuffler.h>
 
+#include <libevmasm/GasMeter.h>
+
 #include <range/v3/numeric/accumulate.hpp>
 #include <range/v3/view/iota.hpp>
 #include <range/v3/view/zip.hpp>
@@ -29,6 +31,42 @@
 #include <fmt/ranges.h>
 
 using namespace solidity::yul::ssa;
+
+void GasAccumulatingCallbacks::swap(StackDepth _depth)
+{
+	opGas += evmasm::GasMeter::swapGas(_depth.value, cfg.evmDialect.evmVersion());
+}
+
+void GasAccumulatingCallbacks::dup(StackDepth _depth)
+{
+	opGas += evmasm::GasMeter::dupGas(_depth.value, cfg.evmDialect.evmVersion());
+}
+
+void GasAccumulatingCallbacks::push(StackSlot const& _slot)
+{
+	if (_slot.isLiteralValueID())
+	{
+		auto const size = numberEncodingSize(cfg.literalInfo(_slot.valueID()).value);
+		opGas += evmasm::GasMeter::runGas(evmasm::pushInstruction(size), cfg.evmDialect.evmVersion());
+	}
+	else if (_slot.isJunk())
+	{
+		auto const op = cfg.evmDialect.evmVersion().hasPush0() ? evmasm::Instruction::PUSH0 : evmasm::Instruction::CODESIZE;
+		opGas += evmasm::GasMeter::runGas(op, cfg.evmDialect.evmVersion());
+	}
+	else
+	{
+		yulAssert(_slot.isFunctionCallReturnLabel(), "we can only push literals, junk, and function call return labels");
+		// this is a jump dest, we don't really know yet how big it is going to be, just assume that it fits into
+		// a 2-byte number
+		opGas += evmasm::GasMeter::runGas(evmasm::Instruction::PUSH2, cfg.evmDialect.evmVersion());
+	}
+}
+
+void GasAccumulatingCallbacks::pop()
+{
+	opGas += evmasm::GasMeter::runGas(evmasm::Instruction::POP, cfg.evmDialect.evmVersion());
+}
 
 StackData solidity::yul::ssa::stackPreImage(StackData _stack, PhiInverse const& _phiInverse)
 {
@@ -67,8 +105,8 @@ std::size_t solidity::yul::ssa::findOptimalTargetSize
 	auto const evaluateCost = [&](std::size_t const _targetSize) -> std::size_t
 	{
 		data = _stackData;
-		Stack<CountingInstructionsCallbacks> countOpsStack(data, {});
-		StackShuffler<CountingInstructionsCallbacks>::shuffle(countOpsStack, _targetArgs, _targetLiveOut, _targetSize);
+		Stack<OpsCountingCallbacks> countOpsStack(data, {});
+		StackShuffler<OpsCountingCallbacks>::shuffle(countOpsStack, _targetArgs, _targetLiveOut, _targetSize);
 		yulAssert(countOpsStack.size() == _targetSize);
 		return countOpsStack.callbacks().numOps;
 	};
@@ -87,7 +125,7 @@ std::size_t solidity::yul::ssa::findOptimalTargetSize
 		{
 			--size;
 			auto const cost = evaluateCost(size);
-			if (cost < bestCost)
+			if (cost <= bestCost)
 			{
 				bestCost = cost;
 				result = size;

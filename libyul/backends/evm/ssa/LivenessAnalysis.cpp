@@ -201,19 +201,12 @@ void LivenessAnalysis::runDagDfs()
 
 		// live <- PhiUses(B)
 		LivenessData live{};
-		block.forEachExit(
-			[&](SSACFG::BlockId const& _successor)
-			{
-				for (auto const& phi: m_cfg.block(_successor).phis)
-				{
-					auto const& info = m_cfg.phiInfo(phi);
-					auto const& argIndex = m_cfg.phiArgumentIndex(blockId, _successor);
-					yulAssert(argIndex < info.arguments.size());
-					auto const& arg = info.arguments.at(argIndex);
-					if (!arg.isLiteral())
-						live.insert(arg);
-				}
-			});
+		for (auto const& upsilon: block.upsilons)
+		{
+			yulAssert(!upsilon.value.isUnreachable());
+			if (!upsilon.value.isLiteral())
+				live.insert(upsilon.value);
+		}
 
 		// for each S \in succs(B) s.t. (B, S) not a back edge: live <- live \cup (LiveIn(S) - PhiDefs(S))
 		block.forEachExit(

@@ -115,10 +115,18 @@ Json toJson(SSACFG const& _cfg, SSACFG::BlockId _blockId, LivenessAnalysis const
 			| ranges::to<Json::array_t>();
 		for (auto const& phi: block.phis)
 		{
-			auto const& phiInfo = _cfg.phiInfo(phi);
+			// Reconstruct phi arguments from upsilon nodes in predecessor blocks.
+			std::vector<SSACFG::ValueId> phiArgs;
+			for (auto const& entryId: block.entries)
+				for (auto const& upsilon: _cfg.block(entryId).upsilons)
+					if (upsilon.phi == phi)
+					{
+						phiArgs.push_back(upsilon.value);
+						break;
+					}
 			Json phiJson = Json::object();
 			phiJson["op"] = "PhiFunction";
-			phiJson["in"] = toJson(_cfg, phiInfo.arguments);
+			phiJson["in"] = toJson(_cfg, phiArgs);
 			phiJson["out"] = toJson(_cfg, std::vector{phi});
 			blockJson["instructions"].push_back(phiJson);
 		}

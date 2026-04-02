@@ -31,8 +31,8 @@ struct BlockLayout
 	StackData stackIn;
 	// stack layout required to execute the i-th operation in the block
 	std::vector<StackData> operationIn;
-	// stack after the block was executed
-	StackData stackOut;
+	// stack layout required to handle the exit of the block
+	StackData exitIn;
 };
 
 /// For each (reachable) block in the SSACFG one block layout

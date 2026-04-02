@@ -18,6 +18,7 @@
 
 #include <libyul/backends/evm/ssa/ControlFlow.h>
 
+#include <range/v3/view/transform.hpp>
 #include <range/v3/range/conversion.hpp>
 
 using namespace solidity::yul::ssa;

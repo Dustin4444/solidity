@@ -22,14 +22,14 @@
 
 #include <memory>
 
-namespace solidity::yul::test
+namespace solidity::yul::test::ssa
 {
 
-class SSAControlFlowGraphTest: public solidity::frontend::test::TestCase
+class ControlFlowGraphTest: public solidity::frontend::test::TestCase
 {
 public:
 	static std::unique_ptr<TestCase> create(Config const& _config);
-	explicit SSAControlFlowGraphTest(std::string const& _filename);
+	explicit ControlFlowGraphTest(std::string const& _filename);
 	TestResult run(std::ostream& _stream, std::string const& _linePrefix = "", bool const _formatted = false) override;
 };
 

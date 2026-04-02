@@ -41,8 +41,9 @@ DEFAULT_EVM_VALUES=(
     shanghai
     cancun
     osaka
+    @future
 )
-EVMS_WITH_EOF=(osaka)
+EVMS_WITH_EOF=(osaka @future)
 
 # Deserialize the EVM_VALUES array if it was provided as argument or
 # set EVM_VALUES to the default values.
@@ -72,7 +73,6 @@ do
             if (( EOF_VERSION > 0 )) && [[ ! " ${EVMS_WITH_EOF[*]} " == *" $EVM "* ]]; then
                 continue
             fi
-
             ENFORCE_GAS_ARGS=""
             [ "${EVM}" = "${DEFAULT_EVM}" ] && ENFORCE_GAS_ARGS="--enforce-gas-cost"
             # Run SMTChecker tests only when OPTIMIZE == 0

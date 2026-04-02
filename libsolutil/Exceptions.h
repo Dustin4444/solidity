@@ -22,14 +22,45 @@
 
 #include <boost/exception/exception.hpp>
 #include <boost/exception/info.hpp>
-#include <boost/exception/info_tuple.hpp>
 #include <boost/exception/diagnostic_information.hpp>
 
 #include <exception>
 #include <string>
 
+#if defined(_MSC_VER)
+#define SOL_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define SOL_NOINLINE __attribute__((noinline))
+#else
+#define SOL_NOINLINE
+#endif
+
 namespace solidity::util
 {
+
+// error information to be added to exceptions
+using errinfo_comment = boost::error_info<struct tag_comment, std::string>;
+
+namespace detail
+{
+/// Helper that performs the actual exception throw out-of-line, keeping call sites small.
+template <typename ExceptionType, typename Description>
+[[noreturn]] SOL_NOINLINE void solThrowImpl(
+	Description&& _description,
+	char const* _function,
+	char const* _file,
+	int const _line
+)
+{
+	::boost::throw_exception(
+		ExceptionType() <<
+		::solidity::util::errinfo_comment(std::forward<Description>(_description)) <<
+		::boost::throw_function(_function) <<
+		::boost::throw_file(_file) <<
+		::boost::throw_line(_line)
+	);
+}
+}
 
 /// Base class for all exceptions.
 struct Exception: virtual std::exception, virtual boost::exception
@@ -51,13 +82,7 @@ struct Exception: virtual std::exception, virtual boost::exception
 /// @param _exceptionType The type of the exception to throw (not an instance).
 /// @param _description The message that describes the error.
 #define solThrow(_exceptionType, _description) \
-	::boost::throw_exception( \
-		_exceptionType() << \
-		::solidity::util::errinfo_comment((_description)) << \
-		::boost::throw_function(ETH_FUNC) << \
-		::boost::throw_file(__FILE__) << \
-		::boost::throw_line(__LINE__) \
-	)
+	::solidity::util::detail::solThrowImpl<_exceptionType>((_description), ETH_FUNC, __FILE__, __LINE__)
 
 /// Throws an exception if condition is not met with a given description and extra information about the location the
 /// exception was thrown from.
@@ -65,7 +90,7 @@ struct Exception: virtual std::exception, virtual boost::exception
 /// @param _exceptionType The type of the exception to throw (not an instance).
 /// @param _description The message that describes the error.
 #define solRequire(_condition, _exceptionType, _description) \
-	if (!(_condition)) \
+	if (!(_condition)) [[unlikely]] \
 		solThrow(_exceptionType, (_description))
 
 /// Defines an exception type that's meant to signal a specific condition and be caught rather than
@@ -82,8 +107,5 @@ DEV_SIMPLE_EXCEPTION(NotAFile);
 DEV_SIMPLE_EXCEPTION(DataTooLong);
 DEV_SIMPLE_EXCEPTION(StringTooLong);
 DEV_SIMPLE_EXCEPTION(InvalidType);
-
-// error information to be added to exceptions
-using errinfo_comment = boost::error_info<struct tag_comment, std::string>;
 
 }

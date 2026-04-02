@@ -45,7 +45,6 @@ add_executable(isoltest
 	../libsolidity/SMTCheckerTest.cpp
 	../libyul/Common.cpp
 	../libyul/ControlFlowGraphTest.cpp
-	../libyul/SSAControlFlowGraphTest.cpp
 	../libyul/ControlFlowSideEffectsTest.cpp
 	../libyul/EVMCodeTransformTest.cpp
 	../libyul/FunctionSideEffects.cpp
@@ -56,6 +55,8 @@ add_executable(isoltest
 	../libyul/YulOptimizerTest.cpp
 	../libyul/YulOptimizerTestCommon.cpp
 	../libyul/YulInterpreterTest.cpp
+	../libyul/ssa/ControlFlowGraphTest.cpp
+	../libyul/ssa/ControlFlowGraphTest.h
 	../libyul/ssa/StackLayoutGeneratorTest.cpp
 	../libyul/ssa/StackLayoutGeneratorTest.h
 	../libyul/ssa/StackShufflerTest.cpp

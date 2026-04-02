@@ -38,19 +38,37 @@ private:
 	std::vector<std::string> m_errors;
 };
 
-struct CountingInstructionsCallbacks
+struct OpsCountingCallbacks
 {
 	std::size_t numOps = 0;
-	void swap(StackDepth) { ++numOps; }
-	void dup(StackDepth) { ++numOps; }
-	void push(StackSlot const&) { ++numOps; }
-	void pop() { ++numOps; }
+
+	void swap(StackDepth) {numOps++;}
+	void dup(StackDepth) {numOps++;}
+	void push(StackSlot const&) {numOps++;}
+	void pop() {numOps++;}
+};
+
+struct GasAccumulatingCallbacks
+{
+	SSACFG const& cfg;
+	std::size_t opGas = 0;
+
+	void swap(StackDepth _depth);
+	void dup(StackDepth _depth);
+	void push(StackSlot const& _slot);
+	void pop();
 };
 
 /// Transform stack data by replacing all its phi variables with their respective preimages.
 StackData stackPreImage(StackData _stack, PhiInverse const& _phiInverse);
 
-std::size_t findOptimalTargetSize(StackData const& _stackData, StackData const& _targetArgs, LivenessAnalysis::LivenessData const& _targetLiveOut, bool _canIntroduceJunk, bool _hasFunctionReturnLabel);
+std::size_t findOptimalTargetSize(
+	StackData const& _stackData,
+	StackData const& _targetArgs,
+	LivenessAnalysis::LivenessData const& _targetLiveOut,
+	bool _canIntroduceJunk,
+	bool _hasFunctionReturnLabel
+);
 
 CallSites gatherCallSites(SSACFG const& _cfg);
 

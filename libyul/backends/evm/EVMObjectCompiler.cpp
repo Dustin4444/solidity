@@ -91,7 +91,7 @@ void EVMObjectCompiler::run(Object const& _object, bool _optimize, bool _viaSSAC
 		{
 			std::unique_ptr<ssa::ControlFlow> controlFlow = ssa::SSACFGBuilder::build(
 				*_object.analysisInfo,
-				*_object.dialect(),
+				*evmDialect,
 				_object.code()->root(),
 				false
 			);

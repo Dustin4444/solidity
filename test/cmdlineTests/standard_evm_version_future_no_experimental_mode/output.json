@@ -1,0 +1,11 @@
+{
+    "errors": [
+        {
+            "component": "general",
+            "formattedMessage": "EVM version '@future' is experimental and can only be used with the 'settings.experimental' option enabled.",
+            "message": "EVM version '@future' is experimental and can only be used with the 'settings.experimental' option enabled.",
+            "severity": "error",
+            "type": "JSONError"
+        }
+    ]
+}

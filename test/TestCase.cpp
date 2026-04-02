@@ -106,7 +106,7 @@ void EVMVersionRestrictedTestCase::processEVMVersionSetting()
 	std::string comparator;
 	size_t versionBegin = 0;
 	for (auto character: versionString)
-		if (!isalpha(character, std::locale::classic()))
+		if (!isalpha(character, std::locale::classic()) && character != '@')
 		{
 			comparator += character;
 			versionBegin++;

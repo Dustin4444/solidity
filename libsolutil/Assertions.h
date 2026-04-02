@@ -72,7 +72,7 @@ namespace solidity::util
 #define assertThrowWithDefaultDescription(_condition, _exceptionType, _description, _defaultDescription) \
 	do \
 	{ \
-		if (!(_condition)) \
+		if (!(_condition)) [[unlikely]] \
 			solThrow( \
 				_exceptionType, \
 				::solidity::util::stringOrDefault((_description), (_defaultDescription)) \

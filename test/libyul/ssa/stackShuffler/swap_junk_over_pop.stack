@@ -1,7 +1,6 @@
 // here, the algorithm should prefer a swap of junk into tail over pop and dup
 initial: [v0, JUNK, v2]
 targetStackTop: [lit2, v2, v0]
-targetStackTailSet: {}
 targetStackSize: 4
 // ----
 //             |      0 |      1      2      3

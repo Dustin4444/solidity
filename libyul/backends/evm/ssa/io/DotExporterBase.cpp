@@ -21,6 +21,8 @@
 #include <libsolutil/Numeric.h>
 #include <libsolutil/Visitor.h>
 
+#include <range/v3/view/transform.hpp>
+
 #include <fmt/ranges.h>
 
 #include <deque>

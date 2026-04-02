@@ -159,8 +159,6 @@ set(libyul_sources
     libyul/ObjectCompilerTest.h
     libyul/ObjectParser.cpp
     libyul/Parser.cpp
-    libyul/SSAControlFlowGraphTest.cpp
-    libyul/SSAControlFlowGraphTest.h
     libyul/StackLayoutGeneratorTest.cpp
     libyul/StackLayoutGeneratorTest.h
     libyul/StackShufflingTest.cpp
@@ -173,6 +171,8 @@ set(libyul_sources
     libyul/YulOptimizerTest.h
     libyul/YulOptimizerTestCommon.cpp
     libyul/YulOptimizerTestCommon.h
+    libyul/ssa/ControlFlowGraphTest.cpp
+    libyul/ssa/ControlFlowGraphTest.h
     libyul/ssa/StackLayoutGeneratorTest.cpp
     libyul/ssa/StackLayoutGeneratorTest.h
     libyul/ssa/StackShufflerTest.cpp

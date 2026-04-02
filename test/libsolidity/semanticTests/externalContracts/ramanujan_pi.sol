@@ -31,6 +31,9 @@ contract test {
         ret = prb_scale(1).div(ret);
     }
 }
+// ====
+// compileViaSSACFG: true
+// experimental: true
 // ----
 // constructor()
 // gas irOptimized: 77816
@@ -39,6 +42,8 @@ contract test {
 // gas legacy code: 523600
 // gas legacyOptimized: 82667
 // gas legacyOptimized code: 369200
+// gas ssaCFGOptimized: 77956
+// gas ssaCFGOptimized code: 313400
 // prb_pi() -> 3141592656369545286
 // gas irOptimized: 55036
 // gas legacy: 100657
