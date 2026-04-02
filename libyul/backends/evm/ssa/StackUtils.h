@@ -21,6 +21,8 @@
 #include <libyul/backends/evm/ssa/PhiInverse.h>
 #include <libyul/backends/evm/ssa/Stack.h>
 
+#include <libsolutil/logging.h>
+
 #include <string>
 #include <vector>
 
@@ -41,16 +43,38 @@ private:
 struct OpsCountingCallbacks
 {
 	std::size_t numOps = 0;
+	Logger const* logger = nullptr;
 
-	void swap(StackDepth) {numOps++;}
-	void dup(StackDepth) {numOps++;}
-	void push(StackSlot const&) {numOps++;}
-	void pop() {numOps++;}
+	void swap(StackDepth _depth)
+	{
+		++numOps;
+		if (logger)
+			logger->debug("SWAP{} ", _depth.value);
+	}
+	void dup(StackDepth _depth)
+	{
+		++numOps;
+		if (logger)
+			logger->debug("DUP{} ", _depth.value);
+	}
+	void push(StackSlot const& _slot)
+	{
+		++numOps;
+		if (logger)
+			logger->debug("PUSH({}) ", slotToString(_slot));
+	}
+	void pop()
+	{
+		++numOps;
+		if (logger)
+			logger->debug("POP ");
+	}
 };
 
 struct GasAccumulatingCallbacks
 {
 	SSACFG const& cfg;
+	Logger const* logger = nullptr;
 	std::size_t opGas = 0;
 
 	void swap(StackDepth _depth);

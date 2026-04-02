@@ -26,6 +26,7 @@
 
 #include <libevmasm/Instruction.h>
 
+
 namespace solidity::yul
 {
 struct BuiltinContext;
@@ -35,53 +36,10 @@ namespace solidity::yul::ssa
 
 struct AssemblyCallbacks
 {
-	void swap(StackDepth const _depth)
-	{
-		assembly->appendInstruction(evmasm::swapInstruction(static_cast<unsigned>(_depth.value)));
-	}
-
-	void pop()
-	{
-		assembly->appendInstruction(evmasm::Instruction::POP);
-	}
-
-	void push(StackSlot const& _slot)
-	{
-		switch (_slot.kind())
-		{
-		case StackSlot::Kind::ValueID:
-		{
-			auto const id = _slot.valueID();
-			yulAssert(id.isLiteral(), fmt::format("Tried bringing up v{}", id.value()));
-			assembly->appendConstant(cfg->literalInfo(id).value);
-			return;
-		}
-		case StackSlot::Kind::Junk:
-		{
-			if (assembly->evmVersion().hasPush0())
-				assembly->appendConstant(0);
-			else
-				assembly->appendInstruction(evmasm::Instruction::CODESIZE);
-			return;
-		}
-		case StackSlot::Kind::FunctionCallReturnLabel:
-		{
-			auto const& call = callSites->functionCall(_slot.functionCallReturnLabel());
-			yulAssert(returnLabels->count(&call), "FunctionCallReturnLabel not pre-registered before shuffle.");
-			assembly->appendLabelReference(returnLabels->at(&call));
-			return;
-		}
-		case StackSlot::Kind::FunctionReturnLabel:
-		{
-			yulAssert(false, "Cannot produce function return label.");
-		}
-		}
-	}
-
-	void dup(StackDepth const _depth)
-	{
-		assembly->appendInstruction(evmasm::dupInstruction(static_cast<unsigned>(_depth.value)));
-	}
+	void swap(StackDepth _depth);
+	void pop();
+	void push(StackSlot const& _slot);
+	void dup(StackDepth _depth);
 
 	SSACFG const* cfg{};
 	AbstractAssembly* assembly{};
