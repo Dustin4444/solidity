@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <tools/yulASTComparator/ScopeBimap.h>
+#include <tools/yuldiff/ScopeBimap.h>
 
 #include <libyul/Dialect.h>
 #include <libyul/Object.h>

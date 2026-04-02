@@ -210,9 +210,9 @@ set(yul_phaser_sources
 detect_stray_source_files("${yul_phaser_sources}" "yulPhaser/")
 
 set(yul_ast_comparator_sources
-    yulASTComparator/ASTComparator.cpp
+    yuldiff/ASTComparator.cpp
 )
-detect_stray_source_files("${yul_ast_comparator_sources}" "yulASTComparator/")
+detect_stray_source_files("${yul_ast_comparator_sources}" "yuldiff/")
 
 add_executable(soltest ${sources}
     ${contracts_sources}
@@ -226,7 +226,7 @@ add_executable(soltest ${sources}
     ${yul_phaser_sources}
     ${yul_ast_comparator_sources}
 )
-target_link_libraries(soltest PRIVATE solcli libsolc yul solidity smtutil solutil phaser libYulASTComparator Boost::boost yulInterpreter evmasm Boost::filesystem Boost::program_options Boost::unit_test_framework evmc)
+target_link_libraries(soltest PRIVATE solcli libsolc yul solidity smtutil solutil phaser libyuldiff Boost::boost yulInterpreter evmasm Boost::filesystem Boost::program_options Boost::unit_test_framework evmc)
 
 
 # Special compilation flag for Visual Studio (version 2019 at least affected)

@@ -19,12 +19,12 @@
 /// Compares two Yul object trees structurally, treating variable and user-defined function names as equivalent
 /// if they correspond 1:1 (tracked via a scoped bidirectional map). Prints a diff at the first point of divergence.
 
-#include <tools/yulASTComparator/ASTComparator.h>
+#include <tools/yuldiff/ASTComparator.h>
 
 #include <libyul/AST.h>
+#include <libyul/Dialect.h>
 #include <libyul/Object.h>
 #include <libyul/ObjectParser.h>
-#include <libyul/Dialect.h>
 #include <libyul/backends/evm/EVMDialect.h>
 
 #include <libsolutil/CommonIO.h>

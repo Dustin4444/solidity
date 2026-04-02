@@ -16,7 +16,7 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
-#include <tools/yulASTComparator/ASTComparator.h>
+#include <tools/yuldiff/ASTComparator.h>
 
 #include <libyul/AST.h>
 
