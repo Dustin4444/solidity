@@ -112,11 +112,30 @@ Firstly, whenever relevant we ONLY use latest EVM version.
   compiled with `FUZZER_MODE_SSACFG`). Compares unoptimized legacy codegen
   vs optimized SSA CFG codegen — tests the newer SSA-based code generation
   backend against the legacy stack-based one.
+- `yul_proto_ossfuzz_evmone_single_pass` (from `yulProtoFuzzerEvmone.cpp`,
+  compiled with `FUZZER_MODE_SINGLE_PASS`). Tests individual Yul optimizer
+  passes in isolation. Run A applies only the hard-coded prerequisite passes
+  (Disambiguator + `hgfo`) with an empty optimizer sequence; Run B applies the
+  same prerequisites plus a single target optimizer pass. Both use legacy
+  codegen with `optimizeStackAllocation` off, so the only semantic difference
+  is the one target pass. The target pass is selected at runtime via the
+  `FUZZER_PASS` environment variable — a single character abbreviation (e.g.
+  `c` for CommonSubexpressionEliminator, `S` for UnusedStoreEliminator). Run
+  without `FUZZER_PASS` set to see all valid abbreviations. Usage:
+  ```bash
+  # Run multiple passes in parallel (one process per pass):
+  for pass in c S L M s r D; do
+    FUZZER_PASS=$pass ./build/test/tools/ossfuzz/yul_proto_ossfuzz_evmone_single_pass \
+      -max_len=2048 -jobs=1 corpus_$pass/ &
+  done
+  ```
+
 - `yul_proto_ossfuzz_evmone_check_stack_alloc` (from
   `yulProtoFuzzerEvmone.cpp`, compiled with `FUZZER_MODE_CHECK_STACK_ALLOC`).
   Compares optimized Yul with `optimizeStackAllocation` off vs on (both legacy
   codegen). Catches miscompilations introduced by the stack-reuse
   code-generation pass.
+
 - `sol_proto_ossfuzz_nondiff` (from `solProtoFuzzer.cpp`). Generates random
   Solidity via the Protobuf schema `solProto.proto`, producing code with
   functions that return known constants. Compiles with minimal optimizer
