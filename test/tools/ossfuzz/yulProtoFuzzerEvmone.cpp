@@ -22,10 +22,16 @@
  * on evmone, executes with the same calldata, and compares output, logs, and
  * storage — similar to sol_proto_ossfuzz_evmone but for Yul.
  *
- * Two modes (controlled by compile definition):
+ * Modes (controlled by compile definition):
  * - Default (yul_proto_ossfuzz_evmone): unoptimized vs optimized, both legacy codegen
  * - FUZZER_MODE_SSACFG (yul_proto_ossfuzz_evmone_ssacfg): unoptimized legacy vs
  *   optimized SSA CFG codegen
+ * - FUZZER_MODE_CHECK_STACK_ALLOC (yul_proto_ossfuzz_evmone_check_stack_alloc):
+ *   optimized without vs with stack allocation
+ * - FUZZER_MODE_SINGLE_PASS (yul_proto_ossfuzz_evmone_single_pass): prerequisite
+ *   passes only vs prerequisite + single optimizer pass. The target pass is
+ *   selected at runtime via the FUZZER_PASS environment variable (a single
+ *   character abbreviation, e.g. FUZZER_PASS=c for CommonSubexpressionEliminator).
  */
 
 #include <test/tools/ossfuzz/yulProto.pb.h>
@@ -39,6 +45,8 @@
 
 #include <libsolidity/interface/OptimiserSettings.h>
 
+#include <libyul/optimiser/Suite.h>
+
 #include <liblangutil/DebugInfoSelection.h>
 #include <liblangutil/EVMVersion.h>
 
@@ -47,6 +55,7 @@
 #include <src/libfuzzer/libfuzzer_macro.h>
 
 #include <fstream>
+#include <iostream>
 #include <cstring>
 #include <map>
 #include <unordered_map>
@@ -67,6 +76,8 @@ static evmc::VM evmone = evmc::VM{evmc_create_evmone()};
 /// - FUZZER_MODE_SSACFG: unoptimized (legacy) vs optimized (SSA CFG codegen)
 /// - FUZZER_MODE_CHECK_STACK_ALLOC: optimized with optimizeStackAllocation off
 ///   vs optimized with optimizeStackAllocation on (both legacy codegen)
+/// - FUZZER_MODE_SINGLE_PASS: prerequisite passes only vs prerequisite + single
+///   optimizer pass (both legacy codegen). Pass selected via FUZZER_PASS env var.
 #ifdef FUZZER_MODE_SSACFG
 static constexpr bool s_modeSSACFG = true;
 #else
@@ -77,6 +88,12 @@ static constexpr bool s_modeSSACFG = false;
 static constexpr bool s_modeCheckStackAlloc = true;
 #else
 static constexpr bool s_modeCheckStackAlloc = false;
+#endif
+
+#ifdef FUZZER_MODE_SINGLE_PASS
+static constexpr bool s_modeSinglePass = true;
+#else
+static constexpr bool s_modeSinglePass = false;
 #endif
 
 /// Gas limit for EVM execution — bounds runtime and memory usage
@@ -345,6 +362,36 @@ RunResult runYulOnce(
 	return RunResult{std::move(callResult), subCallOOG, std::move(logs), std::move(storage), std::move(transientStorage)};
 }
 
+/// Returns the single-pass optimizer abbreviation from the FUZZER_PASS env var.
+/// Validates it against the known pass abbreviations. Caches the result.
+/// Aborts with a message if the env var is missing or invalid.
+std::string getSinglePassAbbreviation()
+{
+	static std::string cached = []() -> std::string {
+		char const* env = getenv("FUZZER_PASS");
+		if (!env || strlen(env) != 1)
+		{
+			std::cerr << "FUZZER_MODE_SINGLE_PASS requires FUZZER_PASS env var set to a single "
+				"optimizer step abbreviation character.\nValid abbreviations:\n";
+			for (auto const& [abbr, name] : yul::OptimiserSuite::stepAbbreviationToNameMap())
+				std::cerr << "  " << abbr << " = " << name << "\n";
+			abort();
+		}
+		char abbr = env[0];
+		auto const& map = yul::OptimiserSuite::stepAbbreviationToNameMap();
+		if (map.find(abbr) == map.end())
+		{
+			std::cerr << "FUZZER_PASS='" << abbr << "' is not a valid optimizer step abbreviation.\n"
+				"Valid abbreviations:\n";
+			for (auto const& [a, name] : map)
+				std::cerr << "  " << a << " = " << name << "\n";
+			abort();
+		}
+		return std::string(1, abbr);
+	}();
+	return cached;
+}
+
 } // anonymous namespace
 
 DEFINE_PROTO_FUZZER(Program const& _input)
@@ -389,7 +436,18 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 
 	// --- Run A ---
 	OptimiserSettings settingsA = OptimiserSettings::full();
-	if (s_modeCheckStackAlloc)
+	if (s_modeSinglePass)
+	{
+		// Single-pass mode: Run A uses the optimizer with an empty sequence.
+		// OptimiserSuite::run() will still run the hard-coded prerequisite passes
+		// (Disambiguator + hgfo) and post-processing (StackCompressor, NameSimplifier,
+		// etc.), but no user-specified optimization steps.
+		settingsA.runYulOptimiser = true;
+		settingsA.optimizeStackAllocation = false;
+		settingsA.yulOptimiserSteps = "";
+		settingsA.yulOptimiserCleanupSteps = "";
+	}
+	else if (s_modeCheckStackAlloc)
 	{
 		// Check stack alloc mode: Run A is optimized but with stack allocation off.
 		settingsA.runYulOptimiser = true;
@@ -403,7 +461,7 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	}
 
 	// Use custom optimizer sequence if provided in proto (for both modes that optimize)
-	if (settingsA.runYulOptimiser && _input.optimiser_seq_size() > 0)
+	if (!s_modeSinglePass && settingsA.runYulOptimiser && _input.optimiser_seq_size() > 0)
 	{
 		settingsA.yulOptimiserSteps = optimizerSeq;
 		settingsA.yulOptimiserCleanupSteps = optimizerCleanupSeq;
@@ -416,20 +474,34 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		runA.result.status_code != EVMC_REVERT)
 		return;
 
-	// --- Run B: optimized (with stack allocation on) ---
+	// --- Run B ---
 	OptimiserSettings settingsB = OptimiserSettings::full();
-	settingsB.runYulOptimiser = true;
-	settingsB.optimizeStackAllocation = true;
+	if (s_modeSinglePass)
+	{
+		// Single-pass mode: Run B uses the optimizer with only the target pass.
+		// Same prerequisites and post-processing as Run A, but with the single
+		// target pass added. The only semantic difference is that one pass.
+		std::string passAbbr = getSinglePassAbbreviation();
+		settingsB.runYulOptimiser = true;
+		settingsB.optimizeStackAllocation = false;
+		settingsB.yulOptimiserSteps = passAbbr;
+		settingsB.yulOptimiserCleanupSteps = "";
+	}
+	else
+	{
+		settingsB.runYulOptimiser = true;
+		settingsB.optimizeStackAllocation = true;
+	}
 
 	// Use custom optimizer sequence if provided in proto
-	if (_input.optimiser_seq_size() > 0)
+	if (!s_modeSinglePass && _input.optimiser_seq_size() > 0)
 	{
 		settingsB.yulOptimiserSteps = optimizerSeq;
 		settingsB.yulOptimiserCleanupSteps = optimizerCleanupSeq;
 	}
 
 	// In SSACFG mode: run B uses the SSA CFG codegen backend.
-	// In default / check-stack-alloc mode: run B uses legacy codegen.
+	// In default / check-stack-alloc / single-pass mode: run B uses legacy codegen.
 	auto runB = runYulOnce(version, yul_source, settingsB, calldata, /*viaSSACFG=*/s_modeSSACFG, isObject);
 
 	// Skip comparison if either run hit gas-related or serious errors
@@ -445,7 +517,10 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 		YulEvmoneUtility::seriousCallError(runB.result.status_code))
 		return;
 
-	std::string const modeLabel = s_modeCheckStackAlloc
+	std::string const modeLabel = s_modeSinglePass
+		? "Yul evmone fuzzer (single pass '" + getSinglePassAbbreviation() + "'): "
+		  "prerequisites only vs prerequisites + pass"
+		: s_modeCheckStackAlloc
 		? "Yul evmone fuzzer (check stack alloc): optimized without vs with stack allocation"
 		: s_modeSSACFG
 		? "Yul evmone fuzzer (SSACFG mode): unoptimized legacy vs optimized SSACFG"
