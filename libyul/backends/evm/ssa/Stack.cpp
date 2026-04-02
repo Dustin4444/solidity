@@ -18,6 +18,8 @@
 
 #include <libyul/backends/evm/ssa/Stack.h>
 
+#include "libsolutil/logging.h"
+
 #include <range/v3/view/transform.hpp>
 
 #include <fmt/format.h>
@@ -48,6 +50,26 @@ std::string stackToString(StackData const& _stackData)
 		"[{}]",
 		fmt::join(_stackData | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot); }), ", ")
 	);
+}
+void NoOpStackManipulationCallbacks::swap(StackDepth _depth) const
+{
+	if (logger)
+		logger->debug("SWAP{} ", _depth.value);
+}
+void NoOpStackManipulationCallbacks::dup(StackDepth _depth) const
+{
+	if (logger)
+		logger->debug("DUP{} ", _depth.value);
+}
+void NoOpStackManipulationCallbacks::push(StackSlot const& _slot) const
+{
+	if (logger)
+		logger->debug("PUSH({}) ", slotToString(_slot));
+}
+void NoOpStackManipulationCallbacks::pop() const
+{
+	if (logger)
+		logger->debug("POP ");
 }
 
 }

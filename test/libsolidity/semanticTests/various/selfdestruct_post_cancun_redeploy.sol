@@ -89,6 +89,8 @@ contract D {
 // gas legacy code: 533800
 // gas legacyOptimized: 131436
 // gas legacyOptimized code: 276600
+// gas ssaCFGOptimized: 132199
+// gas ssaCFGOptimized code: 284000
 // exists() -> false
 // test_deploy_and_terminate() ->
 // ~ emit Deployed(address,bytes32) from 0x137aa4dfc0911524504fcd4d98501f179bc13b4a: 0x7e6580007e709ac52945fae182c61131d42634e8, 0x1234000000000000000000000000000000000000000000000000000000000000
@@ -98,6 +100,8 @@ contract D {
 // gas legacy code: 20800
 // gas legacyOptimized: 96043
 // gas legacyOptimized code: 20800
+// gas ssaCFGOptimized: 96420
+// gas ssaCFGOptimized code: 20800
 // exists() -> false
 // deploy_create2() ->
 // ~ emit Deployed(address,bytes32) from 0x137aa4dfc0911524504fcd4d98501f179bc13b4a: 0x7e6580007e709ac52945fae182c61131d42634e8, 0x1234000000000000000000000000000000000000000000000000000000000000
@@ -110,3 +114,4 @@ contract D {
 // gas irOptimized: 96903654
 // gas legacy: 96903658
 // gas legacyOptimized: 96903639
+// gas ssaCFGOptimized: 96903647

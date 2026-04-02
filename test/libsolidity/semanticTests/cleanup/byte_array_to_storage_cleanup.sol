@@ -34,6 +34,8 @@ contract C {
 // gas legacy code: 608200
 // gas legacyOptimized: 85196
 // gas legacyOptimized code: 394800
+// gas ssaCFGOptimized: 82066
+// gas ssaCFGOptimized code: 358600
 // h() -> 0x20, 0x40, 0x00, 0
 // ~ emit ev(uint256[],uint256): 0x40, 0x21, 0x02, 0x00, 0x00
 // g() -> 0x20, 0x40, 0, 0x00

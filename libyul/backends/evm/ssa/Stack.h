@@ -27,6 +27,10 @@
 #include <cstdint>
 #include <type_traits>
 
+namespace solidity
+{
+class Logger;
+}
 namespace solidity::yul
 {
 
@@ -172,10 +176,12 @@ concept StackManipulationCallbackConcept = requires(
 
 struct NoOpStackManipulationCallbacks
 {
-	static void swap(StackDepth) {}
-	static void dup(StackDepth) {}
-	static void push(StackSlot const&) {}
-	static void pop() {}
+	Logger const* logger = nullptr;
+	void swap(StackDepth _depth) const;
+	void dup(StackDepth _depth) const;
+	void push(StackSlot const& _slot) const;
+	void pop() const;
+	void stackTooDeep(StackData _depth) const;
 };
 static_assert(StackManipulationCallbackConcept<NoOpStackManipulationCallbacks>);
 

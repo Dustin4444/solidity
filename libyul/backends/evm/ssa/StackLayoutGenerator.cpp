@@ -218,7 +218,8 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 			for (std::size_t j = 0; j < stackInProposals.size(); ++j)
 			{
 				auto proposalCopy = proposals[j];
-				Stack<GasAccumulatingCallbacks> stack(proposalCopy, {.cfg = m_cfg});
+				Logger const* shufflerLogger = logShuffler().should_log(LogLevel::debug) ? &logShuffler() : nullptr;
+				Stack<GasAccumulatingCallbacks> stack(proposalCopy, {.cfg = m_cfg, .logger = shufflerLogger});
 				StackShuffler<GasAccumulatingCallbacks>::shuffle(
 					stack,
 					proposals[i],
@@ -311,6 +312,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 			opLiveOutWithoutOutputs,
 			targetSize
 		);
+		logShuffler().debug("\n");
 
 		blockLayout.operationIn.push_back(currentStackData);
 		for (std::size_t i = 0; i < requiredStackTop.size(); ++i)
