@@ -2060,6 +2060,18 @@ void ProtoConverter::visit(Program const& _x)
 	{
 	case Program::kBlock:
 		m_output << "{\n";
+		// memoryguard(0x10000) tells the optimizer that user code only accesses
+		// memory in [0, 0x10000) or [ptr, ∞), so the optimizer may use the range
+		// [0x10000, ptr) for its own purposes (e.g. stack-to-memory spills via
+		// StackLimitEvader). All memory operations generated below are bounded to
+		// [0, s_maxMemory) == [0, 0x10000) via mod, satisfying this promise.
+		//
+		// We discard the return value via pop() because memoryguard is semantically
+		// an identity function whose return value is modified by the optimizer:
+		// StackLimitEvader rewrites memoryguard(N) to memoryguard(N + 32*slots).
+		// Using the return value (e.g. as an mstore address) would make the
+		// program's behaviour optimizer-dependent. pop() avoids this while still
+		// allowing the optimizer to discover the memoryguard call in the AST.
 		m_output << "pop(memoryguard(0x10000))\n";
 		m_output << "sstore(mload(mod(calldataload(0), " << std::to_string(s_maxMemory - 32) << ")), 1)\n";
 		visit(_x.block());
