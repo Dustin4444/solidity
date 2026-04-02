@@ -31,12 +31,15 @@
 
 #include <boost/program_options.hpp>
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
 #include <cstring>
 #include <map>
 #include <unordered_map>
+
+namespace fs = std::filesystem;
 
 using namespace solidity::test::fuzzer;
 using namespace solidity::test;
@@ -540,13 +543,27 @@ static void writeToFile(std::string const& _path, std::string const& _content)
 	std::cout << "  Written: " << _path << std::endl;
 }
 
+/// Create an auto-named output directory "sol_debug_output-K" where K is the
+/// smallest non-negative integer such that the directory doesn't already exist.
+static std::string createOutputDir()
+{
+	for (int k = 0; ; ++k)
+	{
+		std::string dir = "sol_debug_output-" + std::to_string(k);
+		if (!fs::exists(dir))
+		{
+			fs::create_directory(dir);
+			return dir;
+		}
+	}
+}
+
 int main(int argc, char* argv[])
 {
 	po::options_description desc("sol_debug_runner - reproduce fuzzer compile/deploy/execute");
 	desc.add_options()
 		("help,h", "Show help")
 		("input-file", po::value<std::string>(), "Solidity source file")
-		("output-dir", po::value<std::string>()->default_value(""), "Directory to write output files (optional)")
 		("via-ir", po::value<bool>()->default_value(true), "Initial viaIR setting (default: true)")
 		("calldata", po::value<std::string>()->default_value(""), "Extra calldata in hex (e.g. \"a0ffba\"), appended after method selector")
 		("quiet,q", "Quiet mode: only print one-line summary, for use by delta debuggers")
@@ -570,7 +587,7 @@ int main(int argc, char* argv[])
 
 	if (vm.count("help") || !vm.count("input-file"))
 	{
-		std::cout << "Usage: sol_debug_runner <file.sol> [--output-dir <dir>] [--via-ir true|false] [--calldata <hex>] [--quiet]" << std::endl;
+		std::cout << "Usage: sol_debug_runner <file.sol> [--via-ir true|false] [--calldata <hex>] [--quiet]" << std::endl;
 		std::cout << desc << std::endl;
 		std::cout << std::endl;
 		std::cout << "Exit codes:" << std::endl;
@@ -582,7 +599,6 @@ int main(int argc, char* argv[])
 	}
 
 	std::string inputFile = vm["input-file"].as<std::string>();
-	std::string outputDir = vm["output-dir"].as<std::string>();
 	bool viaIR = vm["via-ir"].as<bool>();
 	std::string extraCalldataHex = vm["calldata"].as<std::string>();
 	bool quiet = vm.count("quiet") > 0;
@@ -596,6 +612,16 @@ int main(int argc, char* argv[])
 		return 2;
 	}
 	std::string solSource{std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>()};
+
+	// Auto-create output directory and copy input file into it
+	std::string outputDir;
+	if (!quiet)
+	{
+		outputDir = createOutputDir();
+		fs::copy_file(inputFile, outputDir + "/" + fs::path(inputFile).filename().string(),
+			fs::copy_options::overwrite_existing);
+		std::cout << "Output directory: " << outputDir << std::endl;
+	}
 
 	if (!quiet)
 	{
@@ -847,20 +873,17 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		// Write output files if requested
-		if (!outputDir.empty())
+		// Write output files (outputDir is always set in non-quiet mode)
+		std::cout << "Writing output files to: " << outputDir << std::endl;
+		for (size_t i = 0; i < configs.size(); i++)
 		{
-			std::cout << "Writing output files to: " << outputDir << std::endl;
-			for (size_t i = 0; i < configs.size(); i++)
+			std::string prefix = outputDir + "/" + configs[i].label;
+			if (!results[i].compilationFailed)
 			{
-				std::string prefix = outputDir + "/" + configs[i].label;
-				if (!results[i].compilationFailed)
-				{
-					writeToFile(prefix + ".bytecode.hex", toHexString(results[i].bytecode));
-					std::ostringstream logStream;
-					printRunResult(configs[i].label, results[i], logStream);
-					writeToFile(prefix + ".log", logStream.str());
-				}
+				writeToFile(prefix + ".bytecode.hex", toHexString(results[i].bytecode));
+				std::ostringstream logStream;
+				printRunResult(configs[i].label, results[i], logStream);
+				writeToFile(prefix + ".log", logStream.str());
 			}
 		}
 	}
