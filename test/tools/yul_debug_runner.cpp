@@ -37,12 +37,15 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
 #include <cstring>
 #include <map>
 #include <unordered_map>
+
+namespace fs = std::filesystem;
 
 using namespace solidity::test::fuzzer;
 using namespace solidity::test;
@@ -210,6 +213,21 @@ static void writeToFile(std::string const& _path, std::string const& _content)
 	}
 	f << _content;
 	std::cout << "  Written: " << _path << std::endl;
+}
+
+/// Create an auto-named output directory "yul_debug_output-K" where K is the
+/// smallest non-negative integer such that the directory doesn't already exist.
+static std::string createOutputDir()
+{
+	for (int k = 0; ; ++k)
+	{
+		std::string dir = "yul_debug_output-" + std::to_string(k);
+		if (!fs::exists(dir))
+		{
+			fs::create_directory(dir);
+			return dir;
+		}
+	}
 }
 
 static RunResult runYulOnce(
@@ -544,7 +562,6 @@ int main(int argc, char* argv[])
 	desc.add_options()
 		("help,h", "Show help")
 		("input-file", po::value<std::string>(), "Yul source file")
-		("output-dir", po::value<std::string>()->default_value(""), "Directory to write output files (optional)")
 		("calldata", po::value<std::string>()->default_value(""), "Calldata in hex (e.g. \"a0ffba\"), passed to deployed contract")
 		("optimizer-sequence", po::value<std::string>()->default_value(""), "Custom Yul optimizer step sequence (e.g. from fuzzer protobuf)")
 		("optimizer-cleanup-sequence", po::value<std::string>()->default_value(""), "Custom Yul optimizer cleanup step sequence")
@@ -569,7 +586,7 @@ int main(int argc, char* argv[])
 
 	if (vm.count("help") || !vm.count("input-file"))
 	{
-		std::cout << "Usage: yul_debug_runner <file.yul> [--output-dir <dir>] [--calldata <hex>] [--quiet]" << std::endl;
+		std::cout << "Usage: yul_debug_runner <file.yul> [--calldata <hex>] [--quiet]" << std::endl;
 		std::cout << desc << std::endl;
 		std::cout << std::endl;
 		std::cout << "Exit codes:" << std::endl;
@@ -581,7 +598,6 @@ int main(int argc, char* argv[])
 	}
 
 	std::string inputFile = vm["input-file"].as<std::string>();
-	std::string outputDir = vm["output-dir"].as<std::string>();
 	std::string calldataHex = vm["calldata"].as<std::string>();
 	std::string optimizerSequence = vm["optimizer-sequence"].as<std::string>();
 	std::string optimizerCleanupSequence = vm["optimizer-cleanup-sequence"].as<std::string>();
@@ -596,6 +612,16 @@ int main(int argc, char* argv[])
 		return 2;
 	}
 	std::string yulSource{std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>()};
+
+	// Auto-create output directory and copy input file into it
+	std::string outputDir;
+	if (!quiet)
+	{
+		outputDir = createOutputDir();
+		fs::copy_file(inputFile, outputDir + "/" + fs::path(inputFile).filename().string(),
+			fs::copy_options::overwrite_existing);
+		std::cout << "Output directory: " << outputDir << std::endl;
+	}
 
 	// Parse calldata
 	bytes calldata;
@@ -951,20 +977,17 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		// Write output files if requested
-		if (!outputDir.empty())
+		// Write output files (outputDir is always set in non-quiet mode)
+		std::cout << "Writing output files to: " << outputDir << std::endl;
+		for (size_t i = 0; i < configs.size(); i++)
 		{
-			std::cout << "Writing output files to: " << outputDir << std::endl;
-			for (size_t i = 0; i < configs.size(); i++)
+			std::string prefix = outputDir + "/" + configs[i].label;
+			if (!results[i].compilationFailed)
 			{
-				std::string prefix = outputDir + "/" + configs[i].label;
-				if (!results[i].compilationFailed)
-				{
-					writeToFile(prefix + ".bytecode.hex", toHexString(results[i].bytecode));
-					std::ostringstream logStream;
-					printRunResult(configs[i].label, results[i], logStream);
-					writeToFile(prefix + ".log", logStream.str());
-				}
+				writeToFile(prefix + ".bytecode.hex", toHexString(results[i].bytecode));
+				std::ostringstream logStream;
+				printRunResult(configs[i].label, results[i], logStream);
+				writeToFile(prefix + ".log", logStream.str());
 			}
 		}
 	}
