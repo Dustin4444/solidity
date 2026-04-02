@@ -27,6 +27,8 @@
 #include <libyul/ObjectParser.h>
 #include <libyul/backends/evm/EVMDialect.h>
 
+#include <libsmtutil/Exceptions.h>
+
 #include <libsolutil/CommonIO.h>
 
 #include <liblangutil/CharStream.h>
@@ -60,46 +62,73 @@ static std::shared_ptr<Object> parseYulFile(std::string_view const _path)
 
 int main(int argc, char* argv[])
 {
-	if (argc != 3)
+	try
 	{
-		std::cerr << "Usage: yulASTComparator <file1.yul> <file2.yul>\n";
-		return EXIT_FAILURE;
-	}
-
-	auto objA = parseYulFile(argv[1]);
-	auto objB = parseYulFile(argv[2]);
-
-	if (!objA || !objB)
-	{
-		std::cerr << "Aborting due to parse errors.\n";
-		return EXIT_FAILURE;
-	}
-
-	Dialect const* dialect = objA->dialect();
-	if (!dialect)
-	{
-		std::cerr << "No dialect available.\n";
-		return EXIT_FAILURE;
-	}
-
-	tools::cmpast::ASTComparator cmp(*dialect);
-	auto const result = cmp.compareObjects(*objA, *objB);
-	if (result)
-	{
-		std::cout << "EQUIVALENT\n";
-		return EXIT_SUCCESS;
-	}
-	else
-	{
-		auto const& mm = result.mismatch();
-		std::cout << "MISMATCH\n";
-		std::cout << "  at:     " << mm.path << "\n";
-		std::cout << "  reason: " << mm.reason << "\n";
-		if (!mm.lhs.empty())
+		if (argc != 3)
 		{
-			std::cout << "\n  --- LHS ---\n" << mm.lhs << "\n";
-			std::cout << "\n  --- RHS ---\n" << mm.rhs << "\n";
+			std::cerr << "Usage: yulASTComparator <file1.yul> <file2.yul>\n";
+			return EXIT_FAILURE;
 		}
-		return EXIT_FAILURE;
+
+		auto objA = parseYulFile(argv[1]);
+		auto objB = parseYulFile(argv[2]);
+
+		if (!objA || !objB)
+		{
+			std::cerr << "Aborting due to parse errors.\n";
+			return EXIT_FAILURE;
+		}
+
+		Dialect const* dialect = objA->dialect();
+		if (!dialect)
+		{
+			std::cerr << "No dialect available.\n";
+			return EXIT_FAILURE;
+		}
+
+		tools::cmpast::ASTComparator cmp(*dialect);
+		auto const result = cmp.compareObjects(*objA, *objB);
+		if (result)
+		{
+			std::cout << "EQUIVALENT\n";
+			return EXIT_SUCCESS;
+		}
+		else
+		{
+			auto const& mm = result.mismatch();
+			std::cout << "MISMATCH\n";
+			std::cout << "  at:     " << mm.path << "\n";
+			std::cout << "  reason: " << mm.reason << "\n";
+			if (!mm.lhs.empty())
+			{
+				std::cout << "\n  --- LHS ---\n" << mm.lhs << "\n";
+				std::cout << "\n  --- RHS ---\n" << mm.rhs << "\n";
+			}
+			return EXIT_FAILURE;
+		}
+	}
+	catch (smtutil::SMTLogicError const& _exception)
+	{
+		std::cerr << "SMT logic error:" << std::endl;
+		std::cerr << boost::diagnostic_information(_exception);
+		return 2;
+	}
+	catch (InternalCompilerError const& _exception)
+	{
+		std::cerr << "Internal compiler error:" << std::endl;
+		std::cerr << boost::diagnostic_information(_exception);
+		return 2;
+	}
+	catch (YulAssertion const& _exception)
+	{
+		std::cerr << "Yul assertion failed:" << std::endl;
+		std::cerr << boost::diagnostic_information(_exception);
+		return 2;
+	}
+	catch (...)
+	{
+		std::cerr << "Uncaught exception:" << std::endl;
+		std::cerr << boost::current_exception_diagnostic_information() << std::endl;
+		return 2;
 	}
 }
