@@ -18,10 +18,10 @@ contract C {
 // test_boundary_check(uint256,uint256): 256, 256 -> FAILURE, hex"4e487b71", 0x32
 // gas irOptimized: 147246
 // gas legacy: 133632
-// gas legacyOptimized: 114353
+// gas legacyOptimized: 114341
 // test_boundary_check(uint256,uint256): 256, 255 -> 0
 // gas irOptimized: 149422
 // gas legacy: 135948
-// gas legacyOptimized: 116532
+// gas legacyOptimized: 116520
 // test_boundary_check(uint256,uint256): 256, 0xFFFF -> FAILURE, hex"4e487b71", 0x32
 // test_boundary_check(uint256,uint256): 256, 2 -> 0

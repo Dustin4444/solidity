@@ -23,7 +23,7 @@ contract C {
 // g(uint256): 70 ->
 // gas irOptimized: 181778
 // gas legacy: 175192
-// gas legacyOptimized: 175005
+// gas legacyOptimized: 174993
 // l() -> 70
 // a(uint256): 69 -> left(69)
 // f() ->

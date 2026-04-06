@@ -45,11 +45,11 @@ contract D {
 // gas irOptimized code: 221000
 // gas legacy: 149480
 // gas legacy code: 501200
-// gas legacyOptimized: 125846
-// gas legacyOptimized code: 203400
+// gas legacyOptimized: 125584
+// gas legacyOptimized code: 200200
 // destroy() ->
 // createAndDestroy() ->
 // gas legacy: 67048
 // gas legacy code: 92600
-// gas legacyOptimized: 65677
-// gas legacyOptimized code: 39400
+// gas legacyOptimized: 65647
+// gas legacyOptimized code: 37800

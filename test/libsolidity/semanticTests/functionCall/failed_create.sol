@@ -21,8 +21,8 @@ contract C {
 // gas irOptimized code: 81800
 // gas legacy: 64468
 // gas legacy code: 145400
-// gas legacyOptimized: 60443
-// gas legacyOptimized code: 91200
+// gas legacyOptimized: 60301
+// gas legacyOptimized code: 89200
 // f(uint256): 20 ->
 // x() -> 1
 // f(uint256): 20 -> FAILURE
@@ -30,7 +30,7 @@ contract C {
 // stack(uint256): 1023 -> FAILURE
 // gas irOptimized: 298110
 // gas legacy: 527207
-// gas legacyOptimized: 353607
+// gas legacyOptimized: 348438
 // x() -> 1
 // stack(uint256): 10 ->
 // x() -> 2

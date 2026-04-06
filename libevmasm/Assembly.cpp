@@ -29,6 +29,7 @@
 #include <libevmasm/JumpdestRemover.h>
 #include <libevmasm/BlockDeduplicator.h>
 #include <libevmasm/ConstantOptimiser.h>
+#include <libevmasm/TrivialBlockRemover.h>
 
 #include <liblangutil/CharStream.h>
 #include <liblangutil/Exceptions.h>
@@ -932,6 +933,16 @@ std::map<u256, u256> const& Assembly::optimiseInternal(
 					count++;
 				}
 			}
+
+		if (_settings.runInliner && !m_eofVersion.has_value())
+		{
+			for (auto& codeSection: m_codeSections)
+			{
+				TrivialBlockRemover trivialBlockRemover{codeSection.items};
+				if (trivialBlockRemover.optimise(_tagsReferencedFromOutside))
+					count++;
+			}
+		}
 
 		// TODO: investigate for EOF
 		if (_settings.runCSE && !m_eofVersion.has_value())

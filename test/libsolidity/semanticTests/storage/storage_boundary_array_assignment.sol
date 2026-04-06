@@ -19,7 +19,7 @@ contract C {
 // assignArray(uint256[10]): 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ->
 // gas irOptimized: 245236
 // gas legacy: 249351
-// gas legacyOptimized: 245365
+// gas legacyOptimized: 245353
 // x() -> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 // assignArray(uint256[10]): 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 ->
 // x() -> 10, 20, 30, 40, 50, 60, 70, 80, 90, 100

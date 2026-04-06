@@ -119,7 +119,7 @@ contract C {
 // gas legacy: 120738
 // gas legacyOptimized: 112505
 // copyFromBoundary()
-// gas irOptimized: 994579
+// gas irOptimized: 994459
 // gas legacy: 1023407
 // gas legacyOptimized: 994746
 // canaryValue() -> 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
@@ -145,7 +145,7 @@ contract C {
 // gas legacy: 120738
 // gas legacyOptimized: 112505
 // copyToBoundary()
-// gas irOptimized: 282623
+// gas irOptimized: 282503
 // gas legacy: 311362
 // gas legacyOptimized: 282712
 // canaryValue() -> 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff

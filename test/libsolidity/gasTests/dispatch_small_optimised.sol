@@ -6,16 +6,16 @@ contract Small {
 }
 // ====
 // EVMVersion: =current
+// bytecodeFormat: legacy
 // optimize: true
 // optimize-runs: 2
-// bytecodeFormat: legacy
 // ----
 // creation:
-//   codeDepositCost: 58200
-//   executionCost: 109
-//   totalCost: 58309
+//   codeDepositCost: 56200
+//   executionCost: 103
+//   totalCost: 56303
 // external:
 //   fallback: 117
 //   a(): 2259
-//   b(uint256): 4582
-//   f1(uint256): 46716
+//   b(uint256): 4570
+//   f1(uint256): 46704

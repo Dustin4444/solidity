@@ -45,6 +45,8 @@ set(sources
 	SimplificationRules.cpp
 	SimplificationRules.h
 	SubAssemblyID.h
+	TrivialBlockRemover.cpp
+	TrivialBlockRemover.h
 )
 
 add_library(evmasm ${sources})

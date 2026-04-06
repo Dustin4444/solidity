@@ -36,15 +36,15 @@ contract test {
 // experimental: true
 // ----
 // constructor()
-// gas irOptimized: 77816
-// gas irOptimized code: 307600
+// gas irOptimized: 77490
+// gas irOptimized code: 303600
 // gas legacy: 92110
 // gas legacy code: 523600
-// gas legacyOptimized: 82667
-// gas legacyOptimized code: 369200
-// gas ssaCFGOptimized: 77956
-// gas ssaCFGOptimized code: 313400
+// gas legacyOptimized: 82451
+// gas legacyOptimized code: 366200
+// gas ssaCFGOptimized: 77636
+// gas ssaCFGOptimized code: 309400
 // prb_pi() -> 3141592656369545286
-// gas irOptimized: 55036
+// gas irOptimized: 54796
 // gas legacy: 100657
-// gas legacyOptimized: 74311
+// gas legacyOptimized: 74083

@@ -51,51 +51,51 @@ contract test {
 // experimental: true
 // ----
 // constructor()
-// gas irOptimized: 170626
-// gas irOptimized code: 1577400
+// gas irOptimized: 170466
+// gas irOptimized code: 1575400
 // gas legacy: 195206
 // gas legacy code: 1999000
-// gas legacyOptimized: 168857
-// gas legacyOptimized code: 1556200
+// gas legacyOptimized: 167975
+// gas legacyOptimized code: 1545200
 // gas ssaCFGOptimized: 167611
 // gas ssaCFGOptimized code: 1544800
 // div(uint256,uint256): 3141592653589793238, 88714123 -> 35412542528203691288251815328
 // gas irOptimized: 21912
 // gas legacy: 22475
-// gas legacyOptimized: 21998
+// gas legacyOptimized: 21986
 // exp(uint256): 3141592653589793238 -> 23140692632779268978
 // gas irOptimized: 24334
 // gas legacy: 25026
-// gas legacyOptimized: 24253
+// gas legacyOptimized: 24241
 // exp2(uint256): 3141592653589793238 -> 8824977827076287620
 // gas irOptimized: 24115
 // gas legacy: 24738
-// gas legacyOptimized: 24058
+// gas legacyOptimized: 24046
 // gm(uint256,uint256): 3141592653589793238, 88714123 -> 16694419339601
 // gas irOptimized: 22786
 // gas legacy: 23244
-// gas legacyOptimized: 22727
+// gas legacyOptimized: 22715
 // log10(uint256): 3141592653589793238 -> 0x44fe4fc084a52b8a
 // gas irOptimized: 30079
 // gas legacy: 32808
-// gas legacyOptimized: 29912
+// gas legacyOptimized: 29900
 // log2(uint256): 3141592653589793238 -> 1651496129472318782
 // gas irOptimized: 28107
 // gas legacy: 30900
-// gas legacyOptimized: 27994
+// gas legacyOptimized: 27982
 // mul(uint256,uint256): 3141592653589793238, 88714123 -> 278703637
 // gas irOptimized: 21988
 // gas legacy: 22581
-// gas legacyOptimized: 22089
+// gas legacyOptimized: 22077
 // pow(uint256,uint256): 3141592653589793238, 5 -> 306019684785281453040
 // gas irOptimized: 22316
 // gas legacy: 23196
-// gas legacyOptimized: 22652
+// gas legacyOptimized: 22640
 // sqrt(uint256): 3141592653589793238 -> 1772453850905516027
 // gas irOptimized: 22481
 // gas legacy: 22803
-// gas legacyOptimized: 22439
+// gas legacyOptimized: 22427
 // benchmark(uint256): 3141592653589793238 -> 998882724338592125, 1000000000000000000, 1000000000000000000
-// gas irOptimized: 33961
+// gas irOptimized: 33937
 // gas legacy: 34006
-// gas legacyOptimized: 32724
+// gas legacyOptimized: 32688

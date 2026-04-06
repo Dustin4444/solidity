@@ -35,6 +35,6 @@ contract C {
 // f_storage(uint256[],uint256[2]): 0x20, 1, 2 -> 0x20, 0x60, 0x20, 1, 2
 // gas irOptimized: 111356
 // gas legacy: 113826
-// gas legacyOptimized: 111724
+// gas legacyOptimized: 111712
 // f_storage(uint256[],uint256[2]): 0x40, 1, 2, 5, 6 -> 0x20, 0x80, 0x20, 2, 5, 6
 // f_storage(uint256[],uint256[2]): 0x40, 1, 2, 5 -> FAILURE

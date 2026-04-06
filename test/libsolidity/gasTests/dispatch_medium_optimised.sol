@@ -12,21 +12,20 @@ contract Medium {
 // ====
 // EVMVersion: =current
 // bytecodeFormat: legacy
-// ====
 // optimize: true
 // optimize-runs: 2
 // ----
 // creation:
-//   codeDepositCost: 126000
-//   executionCost: 169
-//   totalCost: 126169
+//   codeDepositCost: 118000
+//   executionCost: 163
+//   totalCost: 118163
 // external:
 //   a(): 2281
-//   b(uint256): 4692
-//   f1(uint256): 46782
-//   f2(uint256): 24725
-//   f3(uint256): 24769
-//   g0(uint256): 361
-//   g7(uint256): 24635
-//   g8(uint256): 24613
-//   g9(uint256): 24569
+//   b(uint256): 4680
+//   f1(uint256): 46770
+//   f2(uint256): 24713
+//   f3(uint256): 24757
+//   g0(uint256): 349
+//   g7(uint256): 24623
+//   g8(uint256): 24601
+//   g9(uint256): 24557
