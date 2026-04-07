@@ -124,9 +124,13 @@ Firstly, whenever relevant we ONLY use latest EVM version.
   without `FUZZER_PASS` set to see all valid abbreviations. Usage:
   ```bash
   # Run multiple passes in parallel (one process per pass):
+  DIR=`pwd`
   for pass in c S L M s r D; do
+    mkdir -p my_corpus_$pass
+    tmux new-window -t "0" -c "$DIR" -n "fuzz-$i"
+    tmux send-keys -t "$SESSION:$i" "$CMD" Enter
     FUZZER_PASS=$pass ./build/test/tools/ossfuzz/yul_proto_ossfuzz_evmone_single_pass \
-      -max_len=2048 -jobs=1 corpus_$pass/ &
+      my_corpus_$pass/ &
   done
   ```
 
