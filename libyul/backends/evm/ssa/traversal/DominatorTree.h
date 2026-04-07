@@ -27,7 +27,7 @@ namespace solidity::yul::ssa::traversal
 
 class ForwardTopologicalSort;
 
-/// Computes the dominator tree of an SSACFG using the Lengauer-Tarjan algorithm
+/// Computes the dominator tree of an SSACFG using the Semi-NCA algorithm
 class DominatorTree
 {
 public:

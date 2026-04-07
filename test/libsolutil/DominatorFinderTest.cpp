@@ -249,7 +249,7 @@ struct SSACFGDominatorAdapter
 
 		std::vector<std::vector<SSACFG::BlockId::ValueType>> successors(_test.vertices.size());
 		for (auto const& [from, to]: _test.edgesById)
-			successors[from].push_back(to);
+			successors[from].push_back(static_cast<SSACFG::BlockId::ValueType>(to));
 
 		for (std::size_t i = 0; i < _test.vertices.size(); ++i)
 		{
@@ -309,7 +309,7 @@ struct SSACFGDominatorAdapter
 };
 
 /// Sort children in a dominator tree map for order-independent comparison.
-std::map<TestVertexId, std::vector<TestVertexId>> sortedTree(std::map<TestVertexId, std::vector<TestVertexId>> _tree)
+static std::map<TestVertexId, std::vector<TestVertexId>> sortedTree(std::map<TestVertexId, std::vector<TestVertexId>> _tree)
 {
 	for (auto& children: _tree | ranges::views::values)
 		ranges::sort(children);

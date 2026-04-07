@@ -70,14 +70,12 @@ DominatorTree::DominatorTree(ForwardTopologicalSort const& _sort)
 		}
 	}
 
-	// --- Lengauer-Tarjan algorithm ---
+	// --- Semi-NCA algorithm (Georgiadis & Tarjan, JGAA 2004) ---
 	// All arrays are indexed by DFS index (0 = entry).
 
 	std::vector semi = ranges::views::iota(0u, numConnectedBlocks) | ranges::to<std::vector<std::size_t>>();
 	std::vector label = semi;
-	std::vector idom(numConnectedBlocks, NONE);
 	std::vector forestAncestor(numConnectedBlocks, NONE);
-	std::vector<std::vector<std::size_t>> bucket(numConnectedBlocks);
 
 	auto eval = [&](std::size_t v) -> std::size_t {
 		if (forestAncestor[v] == NONE)
@@ -86,17 +84,9 @@ DominatorTree::DominatorTree(ForwardTopologicalSort const& _sort)
 		return label[v];
 	};
 
-	// Process vertices in reverse DFS preorder (innermost first), skipping entry.
+	// Phase 1: compute semidominators in reverse DFS preorder.
 	for (std::size_t w = numConnectedBlocks - 1; w >= 1; --w)
 	{
-		// Step 3 (optimized: process bucket[w] before step 2, see Georgiadis & Tarjan, JGAA 2004).
-		for (std::size_t const v: bucket[w])
-		{
-			std::size_t u = eval(v);
-			idom[v] = semi[u] < semi[v] ? u : w;
-		}
-
-		// Step 2: compute semidominator of w.
 		for (auto const& predBlock: cfg.block({preOrder[w]}).entries)
 		{
 			auto const predDfsIdx = _sort.preOrderIndexOf(predBlock.value);
@@ -107,19 +97,20 @@ DominatorTree::DominatorTree(ForwardTopologicalSort const& _sort)
 					semi[w] = semi[u];
 			}
 		}
-		bucket[semi[w]].push_back(w);
 		forestAncestor[w] = parent[w];
 	}
 
-	// Handle nodes whose semidominator is the entry (bucket[0]).
-	for (std::size_t const v: bucket[0])
-		idom[v] = 0;
-
-	// Step 4: propagate immediate dominators.
-	idom[0] = 0;
+	// Phase 2: compute immediate dominators.
+	// For each node in preorder, walk from its DFS-tree parent up toward the root (via
+	// already-computed idoms) until reaching a node at or above its semidominator.
+	std::vector<std::size_t> idom(numConnectedBlocks, 0);
 	for (std::size_t w = 1; w < numConnectedBlocks; ++w)
-		if (idom[w] != semi[w])
-			idom[w] = idom[idom[w]];
+	{
+		std::size_t runner = parent[w];
+		while (runner > semi[w])
+			runner = idom[runner];
+		idom[w] = runner;
+	}
 
 	// Convert idom from DFS index space to block ID space.
 	for (std::size_t i = 0; i < numConnectedBlocks; ++i)
