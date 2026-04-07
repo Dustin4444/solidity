@@ -32,6 +32,8 @@
 
 #include <fmt/format.h>
 
+#include <cstdlib>
+
 using namespace solidity::langutil;
 using namespace solidity::yul;
 
@@ -1167,6 +1169,36 @@ void CommandLineParser::processArgs()
 	}
 
 	m_options.formatting.withErrorIds = m_args.count(g_strErrorIds);
+
+	if (m_args.contains(g_strLogLevel))
+	{
+		std::string levelStr = m_args[g_strLogLevel].as<std::string>();
+		auto level = parseLogLevel(levelStr);
+		if (!level)
+			solThrow(
+				CommandLineValidationError,
+				"Invalid option for --" + g_strLogLevel + ": " + levelStr +
+				". Valid options: trace, debug, info, warn, error, off."
+			);
+		m_options.logLevel = *level;
+	}
+	// Check if env VAR is defined
+	else if(char const* levelValue = std::getenv("SOLC_LOG_LEVEL"))
+	{
+		if (levelValue)
+		{
+			std::string logLevelStr = std::string(levelValue);
+			auto level = parseLogLevel(logLevelStr);
+			if (!level.has_value())
+				solThrow(
+					CommandLineValidationError,
+					"Invalid option for ENV VAR SOLC_LOG_LEVEL: " + logLevelStr +
+					". Valid options: trace, debug, info, warn, error, off."
+				);
+
+			m_options.logLevel = *level;
+		}
+	}
 
 	if (m_args.count(g_strRevertStrings))
 	{
