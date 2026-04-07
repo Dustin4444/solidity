@@ -56,6 +56,8 @@ struct RunResult
 	std::vector<evmc::MockedHost::log_record> logs;
 	std::map<evmc::address, StorageMap> storage;
 	std::map<evmc::address, TransientStorageMap> transientStorage;
+	/// Contract creation order: addresses in the order they were deployed (CREATE/CREATE2).
+	std::vector<evmc::address> contractCreationOrder;
 };
 
 /// Gas limit for EVM execution — low enough to keep fuzzing fast,
@@ -125,7 +127,9 @@ static RunResult runOnce(
 		if (!account.transient_storage.empty())
 			transientStorage[addr] = account.transient_storage;
 
-	return RunResult{std::move(result), subCallOOG, std::move(logs), std::move(storage), std::move(transientStorage)};
+	std::vector<evmc::address> contractCreationOrder = hostContext.m_contractCreationOrder;
+
+	return RunResult{std::move(result), subCallOOG, std::move(logs), std::move(storage), std::move(transientStorage), std::move(contractCreationOrder)};
 }
 
 /// Compare two log records for equality (ignoring creator address,
@@ -214,34 +218,57 @@ static bool transientStorageEqual(
 	return true;
 }
 
-/// Compare storage maps for equality (comparing current values only).
-/// Ignores account addresses because different bytecodes (optimized vs
-/// non-optimized) produce different CREATE/CREATE2 addresses. Instead,
-/// compares accounts positionally (by sorted address order).
-/// Slots with value zero are filtered out (equivalent to unwritten).
-static bool storageEqual(
-	std::map<evmc::address, StorageMap> const& _a,
-	std::map<evmc::address, StorageMap> const& _b
+/// Build a map from creation-order index to non-zero storage content.
+/// Accounts not found in creationOrder (e.g. precompiles, sender) are
+/// assigned indices starting after the last creation-order entry.
+static std::map<size_t, StorageMap> normalizeStorageByCreationOrder(
+	std::map<evmc::address, StorageMap> const& _storage,
+	std::vector<evmc::address> const& _creationOrder
 )
 {
-	auto filtA = filterZeroStorage(_a);
-	auto filtB = filterZeroStorage(_b);
-	if (filtA.size() != filtB.size())
-		return false;
-	auto itA = filtA.begin();
-	auto itB = filtB.begin();
-	for (; itA != filtA.end(); ++itA, ++itB)
+	auto filtered = filterZeroStorage(_storage);
+	std::map<size_t, StorageMap> result;
+	size_t unknownIdx = _creationOrder.size();
+	for (auto const& [addr, storageMap] : filtered)
 	{
-		auto const& storageA = itA->second;
-		auto const& storageB = itB->second;
+		auto it = std::find(_creationOrder.begin(), _creationOrder.end(), addr);
+		size_t idx = (it != _creationOrder.end())
+			? static_cast<size_t>(std::distance(_creationOrder.begin(), it))
+			: unknownIdx++;
+		result[idx] = storageMap;
+	}
+	return result;
+}
+
+/// Compare storage maps for equality (comparing current values only).
+/// Accounts are matched by CONTRACT CREATION ORDER (not by address), so that
+/// different bytecodes producing different CREATE/CREATE2 addresses don't cause
+/// false positives. Slots with value zero are filtered out (equivalent to unwritten).
+static bool storageEqual(
+	std::map<evmc::address, StorageMap> const& _a,
+	std::vector<evmc::address> const& _creationOrderA,
+	std::map<evmc::address, StorageMap> const& _b,
+	std::vector<evmc::address> const& _creationOrderB
+)
+{
+	auto normA = normalizeStorageByCreationOrder(_a, _creationOrderA);
+	auto normB = normalizeStorageByCreationOrder(_b, _creationOrderB);
+	if (normA.size() != normB.size())
+		return false;
+	for (auto const& [idx, storageA] : normA)
+	{
+		auto jt = normB.find(idx);
+		if (jt == normB.end())
+			return false;
+		auto const& storageB = jt->second;
 		if (storageA.size() != storageB.size())
 			return false;
 		for (auto const& [key, valA] : storageA)
 		{
-			auto jt = storageB.find(key);
-			if (jt == storageB.end())
+			auto kt = storageB.find(key);
+			if (kt == storageB.end())
 				return false;
-			if (valA.current != jt->second.current)
+			if (valA.current != kt->second.current)
 				return false;
 		}
 	}
@@ -415,7 +442,7 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 				modeLabel + ": logs differ"
 			);
 			solAssert(
-				storageEqual(runA.storage, runB.storage),
+				storageEqual(runA.storage, runA.contractCreationOrder, runB.storage, runB.contractCreationOrder),
 				modeLabel + ": storage differs"
 			);
 			solAssert(

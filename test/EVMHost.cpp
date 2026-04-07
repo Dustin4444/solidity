@@ -182,6 +182,7 @@ void EVMHost::reset()
 	// Clear EIP-2929 account access indicator
 	recorded_account_accesses.clear();
 	m_newlyCreatedAccounts.clear();
+	m_contractCreationOrder.clear();
 	m_totalCodeDepositGas = 0;
 	m_subCallOutOfGas = false;
 
@@ -226,6 +227,7 @@ void EVMHost::newTransactionFrame()
 			// Otherwise, the previous behavior (pre-Cancun) is maintained.
 			accounts.erase(address);
 	m_newlyCreatedAccounts.clear();
+	m_contractCreationOrder.clear();
 	m_totalCodeDepositGas = 0;
 	recorded_selfdestructs.clear();
 }
@@ -395,9 +397,12 @@ evmc::Result EVMHost::call(evmc_message const& _message) noexcept
 
 	auto& destination = accounts[message.recipient];
 	if (message.kind == EVMC_CREATE || message.kind == EVMC_CREATE2 || message.kind == EVMC_EOFCREATE)
+	{
 		// Mark account as created if it is a CREATE or CREATE2 call
 		// TODO: Should we roll changes back on failure like we do for `accounts`?
 		m_newlyCreatedAccounts.emplace(message.recipient);
+		m_contractCreationOrder.push_back(message.recipient);
+	}
 
 	if (value != 0 && message.kind != EVMC_DELEGATECALL && message.kind != EVMC_CALLCODE)
 	{

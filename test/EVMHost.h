@@ -32,7 +32,8 @@
 
 #include <boost/filesystem.hpp>
 
-#include<unordered_set>
+#include <unordered_set>
+#include <vector>
 
 namespace solidity::test
 {
@@ -106,6 +107,11 @@ public:
 	/// Useful for differential testing: when this is set, log/output differences
 	/// across optimization levels are expected (gas consumption varies).
 	bool m_subCallOutOfGas = false;
+
+	/// Ordered list of contract addresses in the order they were created (via CREATE/CREATE2).
+	/// Used for semantic storage comparison: different bytecodes produce different CREATE2 addresses,
+	/// so we compare storage by creation index rather than by sorted address.
+	std::vector<evmc::address> m_contractCreationOrder;
 
 private:
 	/// Transfer value between accounts. Checks for sufficient balance.
