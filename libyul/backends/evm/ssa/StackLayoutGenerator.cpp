@@ -23,6 +23,8 @@
 #include <libyul/backends/evm/ssa/StackShuffler.h>
 #include <libyul/backends/evm/ssa/StackUtils.h>
 
+#include <libsolutil/Visitor.h>
+
 #include <range/v3/algorithm/count.hpp>
 #include <range/v3/algorithm/replace.hpp>
 #include <range/v3/view/transform.hpp>
@@ -85,7 +87,7 @@ void handlePhiFunctions(StackData& _stackData, PhiInverse const& _phiInverse, Li
 	}
 }
 
-using StackType = Stack<CountingInstructionsCallbacks>;
+using StackType = Stack<>;
 
 void declareJunk(StackType& _stack, LivenessAnalysis::LivenessData const& _live)
 {
@@ -243,8 +245,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 	SSACFG::BasicBlock const& block = m_cfg.block(_blockId);
 
 	StackData currentStackData = blockLayout.stackIn;
-	Logger const* shufflerLogger = logShuffler().should_log(LogLevel::debug) ? &logShuffler() : nullptr;
-	StackType stack(currentStackData, {.logger = shufflerLogger});
+	StackType stack(currentStackData, {});
 	bool const junkCanBeAdded = m_junkAdmittingBlocksFinder->allowsAdditionOfJunk(_blockId);
 
 	SOL_LOG(log(), debug, "\tBlock {} (junk={}, stackIn={})\n", _blockId, junkCanBeAdded, stackToString(currentStackData));
