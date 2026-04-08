@@ -482,7 +482,7 @@ Stack layout for main graph
 			shuffled to: []
 			result:      [v0]
 		mstore: [v0] -> [v0, lit0]
-			shuffling:   PUSH(lit0) 
+			shuffling:   
 			shuffled to: [v0, lit0]
 			result:      []
 		calldatasize: [] -> []
@@ -490,28 +490,28 @@ Stack layout for main graph
 			shuffled to: []
 			result:      [v1]
 		lt: [v1] -> [lit1, v1]
-			shuffling:   PUSH(lit1) SWAP1 
+			shuffling:   
 			shuffled to: [lit1, v1]
 			result:      [v2]
 		iszero: [v2] -> [v2]
 			shuffling:   
 			shuffled to: [v2]
 			result:      [v3]
-		stack out = [v3]
+		stack out = []
 	Block 1 (junk=false, stackIn=[])
 		calldataload: [] -> [lit2]
-			shuffling:   PUSH(lit2) 
+			shuffling:   
 			shuffled to: [lit2]
 			result:      [v4]
 		shift_right_unsigned: [v4] -> [FunctionCallReturnLabel[0], v4]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) SWAP1 
+			shuffling:   
 			shuffled to: [FunctionCallReturnLabel[0], v4]
 			result:      [v5]
 		eq: [v5] -> [lit3, v5]
-			shuffling:   PUSH(lit3) SWAP1 
+			shuffling:   
 			shuffled to: [lit3, v5]
 			result:      [v6]
-		stack out = [v6]
+		stack out = []
 	Block 4 (junk=true, stackIn=[])
 		external_fun_f: [] -> []
 			shuffling:   
@@ -582,10 +582,10 @@ Code transform for main
 Stack layout for shift_right_unsigned
 	Block 0 (junk=false, stackIn=[ReturnLabel[1], v0])
 		shr: [ReturnLabel[1], v0] -> [v0, lit1]
-			shuffling:   PUSH(lit1) 
+			shuffling:   
 			shuffled to: [ReturnLabel[1], v0, lit1]
 			result:      [ReturnLabel[1], v1]
-SWAP1 		stack out = [v1, ReturnLabel[1]]
+		stack out = [v1, ReturnLabel[1]]
 Code transform for shift_right_unsigned
 	Generating for Block 0 with label 41
 		shr: [ReturnLabel[1], v0] -> [ReturnLabel[1], v0, lit1]
@@ -595,10 +595,10 @@ Code transform for shift_right_unsigned
 Stack layout for allocate_unbounded
 	Block 0 (junk=false, stackIn=[ReturnLabel[2]])
 		mload: [ReturnLabel[2]] -> [lit1]
-			shuffling:   PUSH(lit1) 
+			shuffling:   
 			shuffled to: [ReturnLabel[2], lit1]
 			result:      [ReturnLabel[2], v0]
-SWAP1 		stack out = [v0, ReturnLabel[2]]
+		stack out = [v0, ReturnLabel[2]]
 Code transform for allocate_unbounded
 	Generating for Block 0 with label 43
 		mload: [ReturnLabel[2]] -> [ReturnLabel[2], lit1]
@@ -608,7 +608,7 @@ Code transform for allocate_unbounded
 Stack layout for revert_error_ca66f745a3ce8ff40e2ccaf1ad45db7774001b90d25810abd9040049be7bf4bb
 	Block 0 (junk=true, stackIn=[])
 		revert: [] -> [lit0, lit0]
-			shuffling:   PUSH(lit0) DUP1 
+			shuffling:   
 			shuffled to: [lit0, lit0]
 			result:      []
 		stack out = []
@@ -621,7 +621,7 @@ Code transform for revert_error_ca66f745a3ce8ff40e2ccaf1ad45db7774001b90d25810ab
 Stack layout for revert_error_dbdddcbe895c83990c08b3492a0e83918d802a52331272ac6fdb6a7c4aea3b1b
 	Block 0 (junk=true, stackIn=[])
 		revert: [] -> [lit0, lit0]
-			shuffling:   PUSH(lit0) DUP1 
+			shuffling:   
 			shuffled to: [lit0, lit0]
 			result:      []
 		stack out = []
@@ -633,28 +633,28 @@ Code transform for revert_error_dbdddcbe895c83990c08b3492a0e83918d802a52331272ac
 			shuffling: 
 Stack layout for cleanup_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[5], v0])
-SWAP1 		stack out = [v0, ReturnLabel[5]]
+		stack out = [v0, ReturnLabel[5]]
 Code transform for cleanup_uint256
 	Generating for Block 0 with label 51
 			shuffling: SWAP1 
 Stack layout for validator_revert_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[6], v0])
 		cleanup_uint256: [ReturnLabel[6], v0] -> [FunctionCallReturnLabel[0], v0]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) DUP2 
+			shuffling:   
 			shuffled to: [ReturnLabel[6], v0, FunctionCallReturnLabel[0], v0]
 			result:      [ReturnLabel[6], v0, v1]
 		eq: [ReturnLabel[6], v0, v1] -> [v1, v0]
-			shuffling:   SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[6], v1, v0]
 			result:      [ReturnLabel[6], v2]
 		iszero: [ReturnLabel[6], v2] -> [v2]
 			shuffling:   
 			shuffled to: [ReturnLabel[6], v2]
 			result:      [ReturnLabel[6], v3]
-		stack out = [ReturnLabel[6], v3]
+		stack out = [ReturnLabel[6]]
 	Block 1 (junk=true, stackIn=[ReturnLabel[6]])
 		revert: [ReturnLabel[6]] -> [lit0, lit0]
-			shuffling:   PUSH(lit0) DUP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[6], lit0, lit0]
 			result:      [ReturnLabel[6]]
 		stack out = [ReturnLabel[6]]
@@ -688,10 +688,10 @@ Stack layout for abi_decode_uint256
 			shuffled to: [ReturnLabel[7], JUNK, v0]
 			result:      [ReturnLabel[7], JUNK, v2]
 		validator_revert_uint256: [ReturnLabel[7], JUNK, v2] -> [FunctionCallReturnLabel[0], v2]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) DUP2 
+			shuffling:   
 			shuffled to: [ReturnLabel[7], JUNK, v2, FunctionCallReturnLabel[0], v2]
 			result:      [ReturnLabel[7], JUNK, v2]
-SWAP2 SWAP1 POP 		stack out = [v2, ReturnLabel[7]]
+		stack out = [v2, ReturnLabel[7]]
 Code transform for abi_decode_uint256
 	Generating for Block 0 with label 59
 		calldataload: [ReturnLabel[7], v1, v0] -> [ReturnLabel[7], JUNK, v0]
@@ -704,15 +704,15 @@ Code transform for abi_decode_uint256
 Stack layout for abi_decode_tuple_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[8], v1, v0])
 		sub: [ReturnLabel[8], v1, v0] -> [v0, v1]
-			shuffling:   DUP1 DUP3 
+			shuffling:   
 			shuffled to: [ReturnLabel[8], v1, v0, v0, v1]
 			result:      [ReturnLabel[8], v1, v0, v2]
 		slt: [ReturnLabel[8], v1, v0, v2] -> [lit1, v2]
-			shuffling:   PUSH(lit1) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[8], v1, v0, lit1, v2]
 			result:      [ReturnLabel[8], v1, v0, v3]
-		stack out = [ReturnLabel[8], v1, v0, v3]
-	Block 1 (junk=true, stackIn=[ReturnLabel[8], v1, v0])
+		stack out = [ReturnLabel[8], v1, v0]
+	Block 1 (junk=true, stackIn=[ReturnLabel[8], JUNK, JUNK])
 		revert_error_dbdddcbe895c83990c08b3492a0e83918d802a52331272ac6fdb6a7c4aea3b1b: [ReturnLabel[8], JUNK, JUNK] -> []
 			shuffling:   
 			shuffled to: [ReturnLabel[8], JUNK, JUNK]
@@ -720,14 +720,14 @@ Stack layout for abi_decode_tuple_uint256
 		stack out = [ReturnLabel[8], JUNK, JUNK]
 	Block 2 (junk=false, stackIn=[ReturnLabel[8], v1, v0])
 		add: [ReturnLabel[8], v1, v0] -> [lit0, v0]
-			shuffling:   PUSH(lit0) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[8], v1, lit0, v0]
 			result:      [ReturnLabel[8], v1, v4]
 		abi_decode_uint256: [ReturnLabel[8], v1, v4] -> [FunctionCallReturnLabel[0], v1, v4]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) SWAP2 SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[8], FunctionCallReturnLabel[0], v1, v4]
 			result:      [ReturnLabel[8], v5]
-SWAP1 		stack out = [v5, ReturnLabel[8]]
+		stack out = [v5, ReturnLabel[8]]
 Code transform for abi_decode_tuple_uint256
 	Generating for Block 0 with label 62
 		sub: [ReturnLabel[8], v1, v0] -> [ReturnLabel[8], v1, v0, v0, v1]
@@ -755,11 +755,11 @@ Code transform for abi_decode_tuple_uint256
 Stack layout for abi_encode_uint256_to_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[9], v1, v0])
 		cleanup_uint256: [ReturnLabel[9], v1, v0] -> [FunctionCallReturnLabel[0], v0]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[9], v1, FunctionCallReturnLabel[0], v0]
 			result:      [ReturnLabel[9], v1, v2]
 		mstore: [ReturnLabel[9], v1, v2] -> [v2, v1]
-			shuffling:   SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[9], v2, v1]
 			result:      [ReturnLabel[9]]
 		stack out = [ReturnLabel[9]]
@@ -775,18 +775,18 @@ Code transform for abi_encode_uint256_to_uint256
 Stack layout for abi_encode_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[10], v1, v0])
 		add: [ReturnLabel[10], v1, v0] -> [lit1, v0]
-			shuffling:   PUSH(lit1) DUP2 
+			shuffling:   
 			shuffled to: [ReturnLabel[10], v1, v0, lit1, v0]
 			result:      [ReturnLabel[10], v1, v0, v2]
 		add: [ReturnLabel[10], v1, v0, v2] -> [lit0, v0]
-			shuffling:   SWAP1 PUSH(lit0) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[10], v1, v2, lit0, v0]
 			result:      [ReturnLabel[10], v1, v2, v3]
 		abi_encode_uint256_to_uint256: [ReturnLabel[10], v1, v2, v3] -> [FunctionCallReturnLabel[0], v3, v1]
-			shuffling:   SWAP1 SWAP2 PUSH(FunctionCallReturnLabel[0]) SWAP2 SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[10], v2, FunctionCallReturnLabel[0], v3, v1]
 			result:      [ReturnLabel[10], v2]
-SWAP1 		stack out = [v2, ReturnLabel[10]]
+		stack out = [v2, ReturnLabel[10]]
 Code transform for abi_encode_uint256
 	Generating for Block 0 with label 71
 		add: [ReturnLabel[10], v1, v0] -> [ReturnLabel[10], v1, v0, lit1, v0]
@@ -805,7 +805,7 @@ Stack layout for external_fun_f
 			shuffling:   
 			shuffled to: []
 			result:      [v0]
-		stack out = [v0]
+		stack out = []
 	Block 1 (junk=true, stackIn=[])
 		revert_error_ca66f745a3ce8ff40e2ccaf1ad45db7774001b90d25810abd9040049be7bf4bb: [] -> []
 			shuffling:   
@@ -818,30 +818,30 @@ Stack layout for external_fun_f
 			shuffled to: []
 			result:      [v1]
 		abi_decode_tuple_uint256: [v1] -> [FunctionCallReturnLabel[0], v1, lit0]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) DUP2 PUSH(lit0) 
-			shuffled to: [v1, FunctionCallReturnLabel[0], v1, lit0]
-			result:      [v1, v2]
-		fun_f: [JUNK, v2] -> [FunctionCallReturnLabel[1], v2]
-			shuffling:   PUSH(FunctionCallReturnLabel[1]) DUP2 
-			shuffled to: [JUNK, v2, FunctionCallReturnLabel[1], v2]
-			result:      [JUNK, v2, v3]
-		allocate_unbounded: [JUNK, JUNK, v3] -> [FunctionCallReturnLabel[2]]
-			shuffling:   PUSH(FunctionCallReturnLabel[2]) 
-			shuffled to: [JUNK, JUNK, v3, FunctionCallReturnLabel[2]]
-			result:      [JUNK, JUNK, v3, v4]
-		abi_encode_uint256: [JUNK, JUNK, v3, v4] -> [FunctionCallReturnLabel[3], v3, v4]
-			shuffling:   PUSH(FunctionCallReturnLabel[3]) DUP3 DUP3 
-			shuffled to: [JUNK, JUNK, v3, v4, FunctionCallReturnLabel[3], v3, v4]
-			result:      [JUNK, JUNK, v3, v4, v5]
-		sub: [JUNK, JUNK, JUNK, v4, v5] -> [v4, v5]
-			shuffling:   DUP2 DUP2 
-			shuffled to: [JUNK, JUNK, JUNK, v4, v5, v4, v5]
-			result:      [JUNK, JUNK, JUNK, v4, v5, v6]
-		return: [JUNK, JUNK, JUNK, v4, JUNK, v6] -> [v6, v4]
-			shuffling:   DUP3 
-			shuffled to: [JUNK, JUNK, JUNK, v4, JUNK, v6, v4]
-			result:      [JUNK, JUNK, JUNK, v4, JUNK]
-		stack out = [JUNK, JUNK, JUNK, v4, JUNK]
+			shuffling:   
+			shuffled to: [FunctionCallReturnLabel[0], v1, lit0]
+			result:      [v2]
+		fun_f: [v2] -> [FunctionCallReturnLabel[1], v2]
+			shuffling:   
+			shuffled to: [FunctionCallReturnLabel[1], v2]
+			result:      [v3]
+		allocate_unbounded: [v3] -> [FunctionCallReturnLabel[2]]
+			shuffling:   
+			shuffled to: [v3, FunctionCallReturnLabel[2]]
+			result:      [v3, v4]
+		abi_encode_uint256: [v3, v4] -> [FunctionCallReturnLabel[3], v3, v4]
+			shuffling:   
+			shuffled to: [v3, v4, FunctionCallReturnLabel[3], v3, v4]
+			result:      [v3, v4, v5]
+		sub: [JUNK, v4, v5] -> [v4, v5]
+			shuffling:   
+			shuffled to: [JUNK, v4, v4, v5]
+			result:      [JUNK, v4, v6]
+		return: [JUNK, v4, v6] -> [v6, v4]
+			shuffling:   
+			shuffled to: [JUNK, v6, v4]
+			result:      [JUNK]
+		stack out = [JUNK]
 Code transform for external_fun_f
 	Generating for Block 0 with label 74
 		callvalue: [] -> []
@@ -854,24 +854,24 @@ Code transform for external_fun_f
 		calldatasize: [] -> []
 			shuffling: 
 			Builtin call: calldatasize: [] -> [v1]
-		abi_decode_tuple_uint256: [v1] -> [v1, FunctionCallReturnLabel[0], v1, lit0]
-			shuffling: PUSH(FunctionCallReturnLabel[0]) DUP2 PUSH(lit0) 
-			Call: abi_decode_tuple_uint256 (label=8): [v1, FunctionCallReturnLabel[0], v1, lit0], returnLabel: 80 -> [v1, v2]
-		fun_f: [v1, v2] -> [JUNK, v2, FunctionCallReturnLabel[1], v2]
-			shuffling: PUSH(FunctionCallReturnLabel[1]) DUP2 
-			Call: fun_f (label=31): [v1, v2, FunctionCallReturnLabel[1], v2], returnLabel: 81 -> [v1, v2, v3]
-		allocate_unbounded: [v1, v2, v3] -> [JUNK, JUNK, v3, FunctionCallReturnLabel[2]]
+		abi_decode_tuple_uint256: [v1] -> [FunctionCallReturnLabel[0], v1, lit0]
+			shuffling: PUSH(FunctionCallReturnLabel[0]) SWAP1 PUSH(lit0) 
+			Call: abi_decode_tuple_uint256 (label=8): [FunctionCallReturnLabel[0], v1, lit0], returnLabel: 80 -> [v2]
+		fun_f: [v2] -> [FunctionCallReturnLabel[1], v2]
+			shuffling: PUSH(FunctionCallReturnLabel[1]) SWAP1 
+			Call: fun_f (label=31): [FunctionCallReturnLabel[1], v2], returnLabel: 81 -> [v3]
+		allocate_unbounded: [v3] -> [v3, FunctionCallReturnLabel[2]]
 			shuffling: PUSH(FunctionCallReturnLabel[2]) 
-			Call: allocate_unbounded (label=2): [v1, v2, v3, FunctionCallReturnLabel[2]], returnLabel: 82 -> [v1, v2, v3, v4]
-		abi_encode_uint256: [v1, v2, v3, v4] -> [JUNK, JUNK, v3, v4, FunctionCallReturnLabel[3], v3, v4]
+			Call: allocate_unbounded (label=2): [v3, FunctionCallReturnLabel[2]], returnLabel: 82 -> [v3, v4]
+		abi_encode_uint256: [v3, v4] -> [v3, v4, FunctionCallReturnLabel[3], v3, v4]
 			shuffling: PUSH(FunctionCallReturnLabel[3]) DUP3 DUP3 
-			Call: abi_encode_uint256 (label=10): [v1, v2, v3, v4, FunctionCallReturnLabel[3], v3, v4], returnLabel: 83 -> [v1, v2, v3, v4, v5]
-		sub: [v1, v2, v3, v4, v5] -> [JUNK, JUNK, JUNK, v4, v5, v4, v5]
-			shuffling: DUP2 DUP2 
-			Builtin call: sub: [v1, v2, v3, v4, v5, v4, v5] -> [v1, v2, v3, v4, v5, v6]
-		return: [v1, v2, v3, v4, v5, v6] -> [JUNK, JUNK, JUNK, v4, JUNK, v6, v4]
-			shuffling: DUP3 
-			Builtin call: return: [v1, v2, v3, v4, v5, v6, v4] -> [v1, v2, v3, v4, v5]
+			Call: abi_encode_uint256 (label=10): [v3, v4, FunctionCallReturnLabel[3], v3, v4], returnLabel: 83 -> [v3, v4, v5]
+		sub: [v3, v4, v5] -> [JUNK, v4, v4, v5]
+			shuffling: DUP2 SWAP1 
+			Builtin call: sub: [v3, v4, v4, v5] -> [v3, v4, v6]
+		return: [v3, v4, v6] -> [JUNK, v6, v4]
+			shuffling: SWAP1 
+			Builtin call: return: [v3, v6, v4] -> [v3]
 			shuffling: 
 	Generating for Block 1 with label 75
 		revert_error_ca66f745a3ce8ff40e2ccaf1ad45db7774001b90d25810abd9040049be7bf4bb: [] -> []
@@ -881,7 +881,7 @@ Code transform for external_fun_f
 Stack layout for revert_error_42b3090547df1d2001c96683413b8cf91c1b902ef5e3cb8d9f6f304cf7446f74
 	Block 0 (junk=true, stackIn=[])
 		revert: [] -> [lit0, lit0]
-			shuffling:   PUSH(lit0) DUP1 
+			shuffling:   
 			shuffled to: [lit0, lit0]
 			result:      []
 		stack out = []
@@ -893,37 +893,37 @@ Code transform for revert_error_42b3090547df1d2001c96683413b8cf91c1b902ef5e3cb8d
 			shuffling: 
 Stack layout for zero_value_for_split_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[13]])
-PUSH(lit0) SWAP1 		stack out = [lit0, ReturnLabel[13]]
+		stack out = [lit0, ReturnLabel[13]]
 Code transform for zero_value_for_split_uint256
 	Generating for Block 0 with label 87
 			shuffling: PUSH(lit0) SWAP1 
 Stack layout for cleanup_rational_by
 	Block 0 (junk=false, stackIn=[ReturnLabel[14], v0])
-SWAP1 		stack out = [v0, ReturnLabel[14]]
+		stack out = [v0, ReturnLabel[14]]
 Code transform for cleanup_rational_by
 	Generating for Block 0 with label 89
 			shuffling: SWAP1 
 Stack layout for identity
 	Block 0 (junk=false, stackIn=[ReturnLabel[15], v0])
-SWAP1 		stack out = [v0, ReturnLabel[15]]
+		stack out = [v0, ReturnLabel[15]]
 Code transform for identity
 	Generating for Block 0 with label 91
 			shuffling: SWAP1 
 Stack layout for convert_rational_by_to_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[16], v0])
 		cleanup_rational_by: [ReturnLabel[16], v0] -> [FunctionCallReturnLabel[0], v0]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[16], FunctionCallReturnLabel[0], v0]
 			result:      [ReturnLabel[16], v1]
 		identity: [ReturnLabel[16], v1] -> [FunctionCallReturnLabel[1], v1]
-			shuffling:   PUSH(FunctionCallReturnLabel[1]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[16], FunctionCallReturnLabel[1], v1]
 			result:      [ReturnLabel[16], v2]
 		cleanup_uint256: [ReturnLabel[16], v2] -> [FunctionCallReturnLabel[2], v2]
-			shuffling:   PUSH(FunctionCallReturnLabel[2]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[16], FunctionCallReturnLabel[2], v2]
 			result:      [ReturnLabel[16], v3]
-SWAP1 		stack out = [v3, ReturnLabel[16]]
+		stack out = [v3, ReturnLabel[16]]
 Code transform for convert_rational_by_to_uint256
 	Generating for Block 0 with label 93
 		cleanup_rational_by: [ReturnLabel[16], v0] -> [ReturnLabel[16], FunctionCallReturnLabel[0], v0]
@@ -939,10 +939,10 @@ Code transform for convert_rational_by_to_uint256
 Stack layout for shift_left
 	Block 0 (junk=false, stackIn=[ReturnLabel[17], v0])
 		shl: [ReturnLabel[17], v0] -> [v0, lit0]
-			shuffling:   PUSH(lit0) 
+			shuffling:   
 			shuffled to: [ReturnLabel[17], v0, lit0]
 			result:      [ReturnLabel[17], v1]
-SWAP1 		stack out = [v1, ReturnLabel[17]]
+		stack out = [v1, ReturnLabel[17]]
 Code transform for shift_left
 	Generating for Block 0 with label 98
 		shl: [ReturnLabel[17], v0] -> [ReturnLabel[17], v0, lit0]
@@ -952,30 +952,30 @@ Code transform for shift_left
 Stack layout for update_byte_slice_shift
 	Block 0 (junk=false, stackIn=[ReturnLabel[18], v1, v0])
 		not: [ReturnLabel[18], v1, v0] -> [lit0]
-			shuffling:   PUSH(lit0) 
+			shuffling:   
 			shuffled to: [ReturnLabel[18], v1, v0, lit0]
 			result:      [ReturnLabel[18], v1, v0, v2]
 		shift_left: [ReturnLabel[18], v1, v0, v2] -> [FunctionCallReturnLabel[0], v1]
-			shuffling:   SWAP2 PUSH(FunctionCallReturnLabel[0]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[18], v2, v0, FunctionCallReturnLabel[0], v1]
 			result:      [ReturnLabel[18], v2, v0, v3]
 		not: [ReturnLabel[18], v2, v0, v3] -> [v2]
-			shuffling:   DUP3 
+			shuffling:   
 			shuffled to: [ReturnLabel[18], v2, v0, v3, v2]
 			result:      [ReturnLabel[18], v2, v0, v3, v4]
 		and: [ReturnLabel[18], v2, v0, v3, v4] -> [v4, v0]
-			shuffling:   SWAP1 SWAP2 
+			shuffling:   
 			shuffled to: [ReturnLabel[18], v2, v3, v4, v0]
 			result:      [ReturnLabel[18], v2, v3, v5]
 		and: [ReturnLabel[18], v2, v3, v5] -> [v2, v3]
-			shuffling:   SWAP2 SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[18], v5, v2, v3]
 			result:      [ReturnLabel[18], v5, v6]
 		or: [ReturnLabel[18], v5, v6] -> [v6, v5]
-			shuffling:   SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[18], v6, v5]
 			result:      [ReturnLabel[18], v7]
-SWAP1 		stack out = [v7, ReturnLabel[18]]
+		stack out = [v7, ReturnLabel[18]]
 Code transform for update_byte_slice_shift
 	Generating for Block 0 with label 100
 		not: [ReturnLabel[18], v1, v0] -> [ReturnLabel[18], v1, v0, lit0]
@@ -1000,18 +1000,18 @@ Code transform for update_byte_slice_shift
 Stack layout for convert_uint256_to_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[19], v0])
 		cleanup_uint256: [ReturnLabel[19], v0] -> [FunctionCallReturnLabel[0], v0]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[19], FunctionCallReturnLabel[0], v0]
 			result:      [ReturnLabel[19], v1]
 		identity: [ReturnLabel[19], v1] -> [FunctionCallReturnLabel[1], v1]
-			shuffling:   PUSH(FunctionCallReturnLabel[1]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[19], FunctionCallReturnLabel[1], v1]
 			result:      [ReturnLabel[19], v2]
 		cleanup_uint256: [ReturnLabel[19], v2] -> [FunctionCallReturnLabel[2], v2]
-			shuffling:   PUSH(FunctionCallReturnLabel[2]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[19], FunctionCallReturnLabel[2], v2]
 			result:      [ReturnLabel[19], v3]
-SWAP1 		stack out = [v3, ReturnLabel[19]]
+		stack out = [v3, ReturnLabel[19]]
 Code transform for convert_uint256_to_uint256
 	Generating for Block 0 with label 103
 		cleanup_uint256: [ReturnLabel[19], v0] -> [ReturnLabel[19], FunctionCallReturnLabel[0], v0]
@@ -1026,30 +1026,30 @@ Code transform for convert_uint256_to_uint256
 			shuffling: SWAP1 
 Stack layout for prepare_store_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[20], v0])
-SWAP1 		stack out = [v0, ReturnLabel[20]]
+		stack out = [v0, ReturnLabel[20]]
 Code transform for prepare_store_uint256
 	Generating for Block 0 with label 108
 			shuffling: SWAP1 
 Stack layout for update_storage_value_offset_uint256_to_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[21], v1, v0])
 		convert_uint256_to_uint256: [ReturnLabel[21], v1, v0] -> [FunctionCallReturnLabel[0], v1]
-			shuffling:   SWAP1 PUSH(FunctionCallReturnLabel[0]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[21], v0, FunctionCallReturnLabel[0], v1]
 			result:      [ReturnLabel[21], v0, v2]
 		prepare_store_uint256: [ReturnLabel[21], v0, v2] -> [FunctionCallReturnLabel[1], v2]
-			shuffling:   PUSH(FunctionCallReturnLabel[1]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[21], v0, FunctionCallReturnLabel[1], v2]
 			result:      [ReturnLabel[21], v0, v3]
 		sload: [ReturnLabel[21], v0, v3] -> [v0]
-			shuffling:   DUP2 
+			shuffling:   
 			shuffled to: [ReturnLabel[21], v0, v3, v0]
 			result:      [ReturnLabel[21], v0, v3, v4]
 		update_byte_slice_shift: [ReturnLabel[21], v0, v3, v4] -> [FunctionCallReturnLabel[2], v3, v4]
-			shuffling:   PUSH(FunctionCallReturnLabel[2]) SWAP2 SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[21], v0, FunctionCallReturnLabel[2], v3, v4]
 			result:      [ReturnLabel[21], v0, v5]
 		sstore: [ReturnLabel[21], v0, v5] -> [v5, v0]
-			shuffling:   SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[21], v5, v0]
 			result:      [ReturnLabel[21]]
 		stack out = [ReturnLabel[21]]
@@ -1073,25 +1073,25 @@ Code transform for update_storage_value_offset_uint256_to_uint256
 			shuffling: 
 Stack layout for cleanup_t_rational_by
 	Block 0 (junk=false, stackIn=[ReturnLabel[22], v0])
-SWAP1 		stack out = [v0, ReturnLabel[22]]
+		stack out = [v0, ReturnLabel[22]]
 Code transform for cleanup_t_rational_by
 	Generating for Block 0 with label 115
 			shuffling: SWAP1 
 Stack layout for convert_t_rational_by_to_t_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[23], v0])
 		cleanup_t_rational_by: [ReturnLabel[23], v0] -> [FunctionCallReturnLabel[0], v0]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[23], FunctionCallReturnLabel[0], v0]
 			result:      [ReturnLabel[23], v1]
 		identity: [ReturnLabel[23], v1] -> [FunctionCallReturnLabel[1], v1]
-			shuffling:   PUSH(FunctionCallReturnLabel[1]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[23], FunctionCallReturnLabel[1], v1]
 			result:      [ReturnLabel[23], v2]
 		cleanup_uint256: [ReturnLabel[23], v2] -> [FunctionCallReturnLabel[2], v2]
-			shuffling:   PUSH(FunctionCallReturnLabel[2]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[23], FunctionCallReturnLabel[2], v2]
 			result:      [ReturnLabel[23], v3]
-SWAP1 		stack out = [v3, ReturnLabel[23]]
+		stack out = [v3, ReturnLabel[23]]
 Code transform for convert_t_rational_by_to_t_uint256
 	Generating for Block 0 with label 117
 		cleanup_t_rational_by: [ReturnLabel[23], v0] -> [ReturnLabel[23], FunctionCallReturnLabel[0], v0]
@@ -1107,14 +1107,14 @@ Code transform for convert_t_rational_by_to_t_uint256
 Stack layout for increment_wrapping_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[24], v0])
 		add: [ReturnLabel[24], v0] -> [lit1, v0]
-			shuffling:   PUSH(lit1) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[24], lit1, v0]
 			result:      [ReturnLabel[24], v1]
 		cleanup_uint256: [ReturnLabel[24], v1] -> [FunctionCallReturnLabel[0], v1]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[24], FunctionCallReturnLabel[0], v1]
 			result:      [ReturnLabel[24], v2]
-SWAP1 		stack out = [v2, ReturnLabel[24]]
+		stack out = [v2, ReturnLabel[24]]
 Code transform for increment_wrapping_uint256
 	Generating for Block 0 with label 122
 		add: [ReturnLabel[24], v0] -> [ReturnLabel[24], lit1, v0]
@@ -1127,10 +1127,10 @@ Code transform for increment_wrapping_uint256
 Stack layout for shift_right_0_unsigned
 	Block 0 (junk=false, stackIn=[ReturnLabel[25], v0])
 		shr: [ReturnLabel[25], v0] -> [v0, lit0]
-			shuffling:   PUSH(lit0) 
+			shuffling:   
 			shuffled to: [ReturnLabel[25], v0, lit0]
 			result:      [ReturnLabel[25], v1]
-SWAP1 		stack out = [v1, ReturnLabel[25]]
+		stack out = [v1, ReturnLabel[25]]
 Code transform for shift_right_0_unsigned
 	Generating for Block 0 with label 125
 		shr: [ReturnLabel[25], v0] -> [ReturnLabel[25], v0, lit0]
@@ -1139,21 +1139,21 @@ Code transform for shift_right_0_unsigned
 			shuffling: SWAP1 
 Stack layout for cleanup_from_storage_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[26], v0])
-SWAP1 		stack out = [v0, ReturnLabel[26]]
+		stack out = [v0, ReturnLabel[26]]
 Code transform for cleanup_from_storage_uint256
 	Generating for Block 0 with label 127
 			shuffling: SWAP1 
 Stack layout for extract_from_storage_value_offset_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[27], v0])
 		shift_right_0_unsigned: [ReturnLabel[27], v0] -> [FunctionCallReturnLabel[0], v0]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[27], FunctionCallReturnLabel[0], v0]
 			result:      [ReturnLabel[27], v1]
 		cleanup_from_storage_uint256: [ReturnLabel[27], v1] -> [FunctionCallReturnLabel[1], v1]
-			shuffling:   PUSH(FunctionCallReturnLabel[1]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[27], FunctionCallReturnLabel[1], v1]
 			result:      [ReturnLabel[27], v2]
-SWAP1 		stack out = [v2, ReturnLabel[27]]
+		stack out = [v2, ReturnLabel[27]]
 Code transform for extract_from_storage_value_offset_uint256
 	Generating for Block 0 with label 129
 		shift_right_0_unsigned: [ReturnLabel[27], v0] -> [ReturnLabel[27], FunctionCallReturnLabel[0], v0]
@@ -1170,10 +1170,10 @@ Stack layout for read_from_storage_split_offset_uint256
 			shuffled to: [ReturnLabel[28], v0]
 			result:      [ReturnLabel[28], v1]
 		extract_from_storage_value_offset_uint256: [ReturnLabel[28], v1] -> [FunctionCallReturnLabel[0], v1]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[28], FunctionCallReturnLabel[0], v1]
 			result:      [ReturnLabel[28], v2]
-SWAP1 		stack out = [v2, ReturnLabel[28]]
+		stack out = [v2, ReturnLabel[28]]
 Code transform for read_from_storage_split_offset_uint256
 	Generating for Block 0 with label 133
 		sload: [ReturnLabel[28], v0] -> [ReturnLabel[28], v0]
@@ -1186,19 +1186,19 @@ Code transform for read_from_storage_split_offset_uint256
 Stack layout for panic_error_0x11
 	Block 0 (junk=true, stackIn=[])
 		shl: [] -> [lit0, lit1]
-			shuffling:   PUSH(lit0) PUSH(lit1) 
+			shuffling:   
 			shuffled to: [lit0, lit1]
 			result:      [v0]
 		mstore: [v0] -> [v0, lit2]
-			shuffling:   PUSH(lit2) 
+			shuffling:   
 			shuffled to: [v0, lit2]
 			result:      []
 		mstore: [] -> [lit3, lit4]
-			shuffling:   PUSH(lit3) PUSH(lit4) 
+			shuffling:   
 			shuffled to: [lit3, lit4]
 			result:      []
 		revert: [] -> [lit5, lit2]
-			shuffling:   PUSH(lit5) PUSH(lit2) 
+			shuffling:   
 			shuffled to: [lit5, lit2]
 			result:      []
 		stack out = []
@@ -1220,50 +1220,50 @@ Code transform for panic_error_0x11
 Stack layout for checked_mul_uint256
 	Block 0 (junk=false, stackIn=[ReturnLabel[30], v1, v0])
 		cleanup_uint256: [ReturnLabel[30], v1, v0] -> [FunctionCallReturnLabel[0], v0]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[30], v1, FunctionCallReturnLabel[0], v0]
 			result:      [ReturnLabel[30], v1, v2]
 		cleanup_uint256: [ReturnLabel[30], v1, v2] -> [FunctionCallReturnLabel[1], v1]
-			shuffling:   SWAP1 PUSH(FunctionCallReturnLabel[1]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[30], v2, FunctionCallReturnLabel[1], v1]
 			result:      [ReturnLabel[30], v2, v3]
 		mul: [ReturnLabel[30], v2, v3] -> [v3, v2]
-			shuffling:   DUP1 DUP3 
+			shuffling:   
 			shuffled to: [ReturnLabel[30], v2, v3, v3, v2]
 			result:      [ReturnLabel[30], v2, v3, v4]
 		cleanup_uint256: [ReturnLabel[30], v2, v3, v4] -> [FunctionCallReturnLabel[2], v4]
-			shuffling:   PUSH(FunctionCallReturnLabel[2]) SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[30], v2, v3, FunctionCallReturnLabel[2], v4]
 			result:      [ReturnLabel[30], v2, v3, v5]
 		div: [ReturnLabel[30], v2, v3, v5] -> [v2, v5]
-			shuffling:   DUP3 DUP2 
+			shuffling:   
 			shuffled to: [ReturnLabel[30], v2, v3, v5, v2, v5]
 			result:      [ReturnLabel[30], v2, v3, v5, v6]
 		eq: [ReturnLabel[30], v2, v3, v5, v6] -> [v6, v3]
-			shuffling:   SWAP1 SWAP2 
+			shuffling:   
 			shuffled to: [ReturnLabel[30], v2, v5, v6, v3]
 			result:      [ReturnLabel[30], v2, v5, v7]
 		iszero: [ReturnLabel[30], v2, v5, v7] -> [v2]
-			shuffling:   SWAP2 
+			shuffling:   
 			shuffled to: [ReturnLabel[30], v7, v5, v2]
 			result:      [ReturnLabel[30], v7, v5, v8]
 		or: [ReturnLabel[30], v7, v5, v8] -> [v7, v8]
-			shuffling:   SWAP1 SWAP2 SWAP1 
+			shuffling:   
 			shuffled to: [ReturnLabel[30], v5, v7, v8]
 			result:      [ReturnLabel[30], v5, v9]
 		iszero: [ReturnLabel[30], v5, v9] -> [v9]
 			shuffling:   
 			shuffled to: [ReturnLabel[30], v5, v9]
 			result:      [ReturnLabel[30], v5, v10]
-		stack out = [ReturnLabel[30], v5, v10]
-	Block 1 (junk=true, stackIn=[ReturnLabel[30], v5])
+		stack out = [ReturnLabel[30], v5]
+	Block 1 (junk=true, stackIn=[ReturnLabel[30], JUNK])
 		panic_error_0x11: [ReturnLabel[30], JUNK] -> []
 			shuffling:   
 			shuffled to: [ReturnLabel[30], JUNK]
 			result:      [ReturnLabel[30], JUNK]
 		stack out = [ReturnLabel[30], JUNK]
 	Block 2 (junk=false, stackIn=[ReturnLabel[30], v5])
-SWAP1 		stack out = [v5, ReturnLabel[30]]
+		stack out = [v5, ReturnLabel[30]]
 Code transform for checked_mul_uint256
 	Generating for Block 0 with label 139
 		cleanup_uint256: [ReturnLabel[30], v1, v0] -> [ReturnLabel[30], v1, FunctionCallReturnLabel[0], v0]
@@ -1306,72 +1306,72 @@ Code transform for checked_mul_uint256
 Stack layout for fun_f
 	Block 0 (junk=false, stackIn=[ReturnLabel[31], v0])
 		zero_value_for_split_uint256: [ReturnLabel[31], v0] -> [FunctionCallReturnLabel[0]]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) 
+			shuffling:   
 			shuffled to: [ReturnLabel[31], v0, FunctionCallReturnLabel[0]]
 			result:      [ReturnLabel[31], v0, v1]
 		convert_rational_by_to_uint256: [ReturnLabel[31], v0, JUNK] -> [FunctionCallReturnLabel[1], lit1]
-			shuffling:   PUSH(FunctionCallReturnLabel[1]) PUSH(lit1) 
+			shuffling:   
 			shuffled to: [ReturnLabel[31], v0, JUNK, FunctionCallReturnLabel[1], lit1]
 			result:      [ReturnLabel[31], v0, JUNK, v2]
 		update_storage_value_offset_uint256_to_uint256: [ReturnLabel[31], v0, JUNK, v2] -> [FunctionCallReturnLabel[2], v2, lit0]
-			shuffling:   PUSH(FunctionCallReturnLabel[2]) SWAP1 PUSH(lit0) 
+			shuffling:   
 			shuffled to: [ReturnLabel[31], v0, JUNK, FunctionCallReturnLabel[2], v2, lit0]
 			result:      [ReturnLabel[31], v0, JUNK]
 		convert_t_rational_by_to_t_uint256: [ReturnLabel[31], v0, JUNK] -> [FunctionCallReturnLabel[3], lit0]
-			shuffling:   PUSH(FunctionCallReturnLabel[3]) PUSH(lit0) 
+			shuffling:   
 			shuffled to: [ReturnLabel[31], v0, JUNK, FunctionCallReturnLabel[3], lit0]
 			result:      [ReturnLabel[31], v0, JUNK, v3]
 		stack out = [ReturnLabel[31], v0, JUNK, v3]
-	Block 2 (junk=false, stackIn=[ReturnLabel[31], v0, JUNK, JUNK, phi0])
-		cleanup_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0] -> [FunctionCallReturnLabel[4], v0]
-			shuffling:   PUSH(FunctionCallReturnLabel[4]) DUP5 
-			shuffled to: [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[4], v0]
-			result:      [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4]
-		cleanup_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4] -> [FunctionCallReturnLabel[5], phi0]
-			shuffling:   PUSH(FunctionCallReturnLabel[5]) DUP3 
-			shuffled to: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4, FunctionCallReturnLabel[5], phi0]
-			result:      [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4, v5]
-		lt: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4, v5] -> [v4, v5]
+	Block 2 (junk=false, stackIn=[ReturnLabel[31], v0, JUNK, phi0])
+		cleanup_uint256: [ReturnLabel[31], v0, JUNK, phi0] -> [FunctionCallReturnLabel[4], v0]
 			shuffling:   
-			shuffled to: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4, v5]
-			result:      [ReturnLabel[31], v0, JUNK, JUNK, phi0, v6]
-		iszero: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v6] -> [v6]
+			shuffled to: [ReturnLabel[31], v0, JUNK, phi0, FunctionCallReturnLabel[4], v0]
+			result:      [ReturnLabel[31], v0, JUNK, phi0, v4]
+		cleanup_uint256: [ReturnLabel[31], v0, JUNK, phi0, v4] -> [FunctionCallReturnLabel[5], phi0]
 			shuffling:   
-			shuffled to: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v6]
-			result:      [ReturnLabel[31], v0, JUNK, JUNK, phi0, v7]
-		stack out = [ReturnLabel[31], v0, JUNK, JUNK, phi0, v7]
-	Block 5 (junk=false, stackIn=[ReturnLabel[31], v0, JUNK, JUNK, phi0])
-		stack out = [ReturnLabel[31], v0, JUNK, JUNK, phi0]
-	Block 6 (junk=false, stackIn=[ReturnLabel[31], v0, JUNK, JUNK, phi0])
-		read_from_storage_split_offset_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0] -> [FunctionCallReturnLabel[6], lit0]
-			shuffling:   PUSH(FunctionCallReturnLabel[6]) PUSH(lit0) 
-			shuffled to: [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[6], lit0]
-			result:      [ReturnLabel[31], v0, JUNK, JUNK, phi0, v8]
-		read_from_storage_split_offset_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v8] -> [FunctionCallReturnLabel[7], lit0]
-			shuffling:   PUSH(FunctionCallReturnLabel[7]) PUSH(lit0) 
-			shuffled to: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v8, FunctionCallReturnLabel[7], lit0]
-			result:      [ReturnLabel[31], v0, JUNK, JUNK, phi0, v8, v9]
-		checked_mul_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v8, v9] -> [FunctionCallReturnLabel[8], v9, v8]
-			shuffling:   PUSH(FunctionCallReturnLabel[8]) SWAP2 
-			shuffled to: [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[8], v9, v8]
-			result:      [ReturnLabel[31], v0, JUNK, JUNK, phi0, v10]
-		update_storage_value_offset_uint256_to_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v10] -> [FunctionCallReturnLabel[9], v10, lit0]
-			shuffling:   PUSH(FunctionCallReturnLabel[9]) SWAP1 PUSH(lit0) 
-			shuffled to: [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[9], v10, lit0]
-			result:      [ReturnLabel[31], v0, JUNK, JUNK, phi0]
-		stack out = [ReturnLabel[31], v0, JUNK, JUNK, phi0]
-	Block 4 (junk=false, stackIn=[ReturnLabel[31], v0, JUNK, JUNK, phi0])
-		read_from_storage_split_offset_uint256: [ReturnLabel[31], JUNK, JUNK, JUNK, JUNK] -> [FunctionCallReturnLabel[11], lit0]
-			shuffling:   PUSH(FunctionCallReturnLabel[11]) PUSH(lit0) 
-			shuffled to: [ReturnLabel[31], JUNK, JUNK, JUNK, JUNK, FunctionCallReturnLabel[11], lit0]
-			result:      [ReturnLabel[31], JUNK, JUNK, JUNK, JUNK, v12]
-SWAP5 SWAP4 POP POP POP POP 		stack out = [v12, ReturnLabel[31]]
-	Block 3 (junk=false, stackIn=[ReturnLabel[31], v0, JUNK, JUNK, phi0])
-		increment_wrapping_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0] -> [FunctionCallReturnLabel[10], phi0]
-			shuffling:   PUSH(FunctionCallReturnLabel[10]) SWAP1 
-			shuffled to: [ReturnLabel[31], v0, JUNK, JUNK, FunctionCallReturnLabel[10], phi0]
-			result:      [ReturnLabel[31], v0, JUNK, JUNK, v11]
-		stack out = [ReturnLabel[31], v0, JUNK, JUNK, v11]
+			shuffled to: [ReturnLabel[31], v0, JUNK, phi0, v4, FunctionCallReturnLabel[5], phi0]
+			result:      [ReturnLabel[31], v0, JUNK, phi0, v4, v5]
+		lt: [ReturnLabel[31], v0, JUNK, phi0, v4, v5] -> [v4, v5]
+			shuffling:   
+			shuffled to: [ReturnLabel[31], v0, JUNK, phi0, v4, v5]
+			result:      [ReturnLabel[31], v0, JUNK, phi0, v6]
+		iszero: [ReturnLabel[31], v0, JUNK, phi0, v6] -> [v6]
+			shuffling:   
+			shuffled to: [ReturnLabel[31], v0, JUNK, phi0, v6]
+			result:      [ReturnLabel[31], v0, JUNK, phi0, v7]
+		stack out = [ReturnLabel[31], v0, JUNK, phi0]
+	Block 5 (junk=false, stackIn=[ReturnLabel[31], JUNK, JUNK, JUNK])
+		stack out = [ReturnLabel[31], JUNK, JUNK, JUNK]
+	Block 6 (junk=false, stackIn=[ReturnLabel[31], v0, JUNK, phi0])
+		read_from_storage_split_offset_uint256: [ReturnLabel[31], v0, JUNK, phi0] -> [FunctionCallReturnLabel[6], lit0]
+			shuffling:   
+			shuffled to: [ReturnLabel[31], v0, JUNK, phi0, FunctionCallReturnLabel[6], lit0]
+			result:      [ReturnLabel[31], v0, JUNK, phi0, v8]
+		read_from_storage_split_offset_uint256: [ReturnLabel[31], v0, JUNK, phi0, v8] -> [FunctionCallReturnLabel[7], lit0]
+			shuffling:   
+			shuffled to: [ReturnLabel[31], v0, JUNK, phi0, v8, FunctionCallReturnLabel[7], lit0]
+			result:      [ReturnLabel[31], v0, JUNK, phi0, v8, v9]
+		checked_mul_uint256: [ReturnLabel[31], v0, JUNK, phi0, v8, v9] -> [FunctionCallReturnLabel[8], v9, v8]
+			shuffling:   
+			shuffled to: [ReturnLabel[31], v0, JUNK, phi0, FunctionCallReturnLabel[8], v9, v8]
+			result:      [ReturnLabel[31], v0, JUNK, phi0, v10]
+		update_storage_value_offset_uint256_to_uint256: [ReturnLabel[31], v0, JUNK, phi0, v10] -> [FunctionCallReturnLabel[9], v10, lit0]
+			shuffling:   
+			shuffled to: [ReturnLabel[31], v0, JUNK, phi0, FunctionCallReturnLabel[9], v10, lit0]
+			result:      [ReturnLabel[31], v0, JUNK, phi0]
+		stack out = [ReturnLabel[31], v0, JUNK, phi0]
+	Block 4 (junk=false, stackIn=[ReturnLabel[31], JUNK, JUNK, JUNK])
+		read_from_storage_split_offset_uint256: [ReturnLabel[31], JUNK, JUNK, JUNK] -> [FunctionCallReturnLabel[11], lit0]
+			shuffling:   
+			shuffled to: [ReturnLabel[31], JUNK, JUNK, JUNK, FunctionCallReturnLabel[11], lit0]
+			result:      [ReturnLabel[31], JUNK, JUNK, JUNK, v12]
+		stack out = [v12, ReturnLabel[31]]
+	Block 3 (junk=false, stackIn=[ReturnLabel[31], v0, JUNK, phi0])
+		increment_wrapping_uint256: [ReturnLabel[31], v0, JUNK, phi0] -> [FunctionCallReturnLabel[10], phi0]
+			shuffling:   
+			shuffled to: [ReturnLabel[31], v0, JUNK, FunctionCallReturnLabel[10], phi0]
+			result:      [ReturnLabel[31], v0, JUNK, v11]
+		stack out = [ReturnLabel[31], v0, JUNK, v11]
 Code transform for fun_f
 	Generating for Block 0 with label 147
 		zero_value_for_split_uint256: [ReturnLabel[31], v0] -> [ReturnLabel[31], v0, FunctionCallReturnLabel[0]]
@@ -1388,43 +1388,43 @@ Code transform for fun_f
 			Call: convert_t_rational_by_to_t_uint256 (label=23): [ReturnLabel[31], v0, v1, FunctionCallReturnLabel[3], lit0], returnLabel: 160 -> [ReturnLabel[31], v0, v1, v3]
 			shuffling: 
 		JUMP creating target stack for jump 0 -> 2
-			shuffling: DUP1 
+			shuffling: 
 	Generating for Block 2 with label 149
-		cleanup_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0] -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[4], v0]
-			shuffling: PUSH(FunctionCallReturnLabel[4]) DUP5 
-			Call: cleanup_uint256 (label=5): [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[4], v0], returnLabel: 161 -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4]
-		cleanup_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4] -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4, FunctionCallReturnLabel[5], phi0]
+		cleanup_uint256: [ReturnLabel[31], v0, JUNK, phi0] -> [ReturnLabel[31], v0, JUNK, phi0, FunctionCallReturnLabel[4], v0]
+			shuffling: PUSH(FunctionCallReturnLabel[4]) DUP4 
+			Call: cleanup_uint256 (label=5): [ReturnLabel[31], v0, JUNK, phi0, FunctionCallReturnLabel[4], v0], returnLabel: 161 -> [ReturnLabel[31], v0, JUNK, phi0, v4]
+		cleanup_uint256: [ReturnLabel[31], v0, JUNK, phi0, v4] -> [ReturnLabel[31], v0, JUNK, phi0, v4, FunctionCallReturnLabel[5], phi0]
 			shuffling: PUSH(FunctionCallReturnLabel[5]) DUP3 
-			Call: cleanup_uint256 (label=5): [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4, FunctionCallReturnLabel[5], phi0], returnLabel: 162 -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4, v5]
-		lt: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4, v5] -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4, v5]
+			Call: cleanup_uint256 (label=5): [ReturnLabel[31], v0, JUNK, phi0, v4, FunctionCallReturnLabel[5], phi0], returnLabel: 162 -> [ReturnLabel[31], v0, JUNK, phi0, v4, v5]
+		lt: [ReturnLabel[31], v0, JUNK, phi0, v4, v5] -> [ReturnLabel[31], v0, JUNK, phi0, v4, v5]
 			shuffling: 
-			Builtin call: lt: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v4, v5] -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, v6]
-		iszero: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v6] -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, v6]
+			Builtin call: lt: [ReturnLabel[31], v0, JUNK, phi0, v4, v5] -> [ReturnLabel[31], v0, JUNK, phi0, v6]
+		iszero: [ReturnLabel[31], v0, JUNK, phi0, v6] -> [ReturnLabel[31], v0, JUNK, phi0, v6]
 			shuffling: 
-			Builtin call: iszero: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v6] -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, v7]
+			Builtin call: iszero: [ReturnLabel[31], v0, JUNK, phi0, v6] -> [ReturnLabel[31], v0, JUNK, phi0, v7]
 			shuffling: 
-		JUMPI creating stack for zero layout (to Block 6) [ReturnLabel[31], v0, JUNK, JUNK, phi0] -> [ReturnLabel[31], v0, JUNK, JUNK, phi0]
+		JUMPI creating stack for zero layout (to Block 6) [ReturnLabel[31], v0, JUNK, phi0] -> [ReturnLabel[31], v0, JUNK, phi0]
 			shuffling: 
 	Generating for Block 6 with label 153
-		read_from_storage_split_offset_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0] -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[6], lit0]
+		read_from_storage_split_offset_uint256: [ReturnLabel[31], v0, JUNK, phi0] -> [ReturnLabel[31], v0, JUNK, phi0, FunctionCallReturnLabel[6], lit0]
 			shuffling: PUSH(FunctionCallReturnLabel[6]) PUSH(lit0) 
-			Call: read_from_storage_split_offset_uint256 (label=28): [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[6], lit0], returnLabel: 163 -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, v8]
-		read_from_storage_split_offset_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v8] -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, v8, FunctionCallReturnLabel[7], lit0]
+			Call: read_from_storage_split_offset_uint256 (label=28): [ReturnLabel[31], v0, JUNK, phi0, FunctionCallReturnLabel[6], lit0], returnLabel: 163 -> [ReturnLabel[31], v0, JUNK, phi0, v8]
+		read_from_storage_split_offset_uint256: [ReturnLabel[31], v0, JUNK, phi0, v8] -> [ReturnLabel[31], v0, JUNK, phi0, v8, FunctionCallReturnLabel[7], lit0]
 			shuffling: PUSH(FunctionCallReturnLabel[7]) PUSH(lit0) 
-			Call: read_from_storage_split_offset_uint256 (label=28): [ReturnLabel[31], v0, JUNK, JUNK, phi0, v8, FunctionCallReturnLabel[7], lit0], returnLabel: 164 -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, v8, v9]
-		checked_mul_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v8, v9] -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[8], v9, v8]
+			Call: read_from_storage_split_offset_uint256 (label=28): [ReturnLabel[31], v0, JUNK, phi0, v8, FunctionCallReturnLabel[7], lit0], returnLabel: 164 -> [ReturnLabel[31], v0, JUNK, phi0, v8, v9]
+		checked_mul_uint256: [ReturnLabel[31], v0, JUNK, phi0, v8, v9] -> [ReturnLabel[31], v0, JUNK, phi0, FunctionCallReturnLabel[8], v9, v8]
 			shuffling: PUSH(FunctionCallReturnLabel[8]) SWAP2 
-			Call: checked_mul_uint256 (label=30): [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[8], v9, v8], returnLabel: 165 -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, v10]
-		update_storage_value_offset_uint256_to_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0, v10] -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[9], v10, lit0]
+			Call: checked_mul_uint256 (label=30): [ReturnLabel[31], v0, JUNK, phi0, FunctionCallReturnLabel[8], v9, v8], returnLabel: 165 -> [ReturnLabel[31], v0, JUNK, phi0, v10]
+		update_storage_value_offset_uint256_to_uint256: [ReturnLabel[31], v0, JUNK, phi0, v10] -> [ReturnLabel[31], v0, JUNK, phi0, FunctionCallReturnLabel[9], v10, lit0]
 			shuffling: PUSH(FunctionCallReturnLabel[9]) SWAP1 PUSH(lit0) 
-			Call: update_storage_value_offset_uint256_to_uint256 (label=21): [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[9], v10, lit0], returnLabel: 166 -> [ReturnLabel[31], v0, JUNK, JUNK, phi0]
+			Call: update_storage_value_offset_uint256_to_uint256 (label=21): [ReturnLabel[31], v0, JUNK, phi0, FunctionCallReturnLabel[9], v10, lit0], returnLabel: 166 -> [ReturnLabel[31], v0, JUNK, phi0]
 			shuffling: 
 		JUMP creating target stack for jump 6 -> 3
 			shuffling: 
 	Generating for Block 3 with label 150
-		increment_wrapping_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0] -> [ReturnLabel[31], v0, JUNK, JUNK, FunctionCallReturnLabel[10], phi0]
+		increment_wrapping_uint256: [ReturnLabel[31], v0, JUNK, phi0] -> [ReturnLabel[31], v0, JUNK, FunctionCallReturnLabel[10], phi0]
 			shuffling: PUSH(FunctionCallReturnLabel[10]) SWAP1 
-			Call: increment_wrapping_uint256 (label=24): [ReturnLabel[31], v0, JUNK, JUNK, FunctionCallReturnLabel[10], phi0], returnLabel: 167 -> [ReturnLabel[31], v0, JUNK, JUNK, v11]
+			Call: increment_wrapping_uint256 (label=24): [ReturnLabel[31], v0, JUNK, FunctionCallReturnLabel[10], phi0], returnLabel: 167 -> [ReturnLabel[31], v0, JUNK, v11]
 			shuffling: 
 		JUMP creating target stack for jump 3 -> 2
 			shuffling: 
@@ -1433,10 +1433,10 @@ Code transform for fun_f
 		JUMP creating target stack for jump 5 -> 4
 			shuffling: 
 	Generating for Block 4 with label 151
-		read_from_storage_split_offset_uint256: [ReturnLabel[31], v0, JUNK, JUNK, phi0] -> [ReturnLabel[31], JUNK, JUNK, JUNK, JUNK, FunctionCallReturnLabel[11], lit0]
+		read_from_storage_split_offset_uint256: [ReturnLabel[31], JUNK, JUNK, JUNK] -> [ReturnLabel[31], JUNK, JUNK, JUNK, FunctionCallReturnLabel[11], lit0]
 			shuffling: PUSH(FunctionCallReturnLabel[11]) PUSH(lit0) 
-			Call: read_from_storage_split_offset_uint256 (label=28): [ReturnLabel[31], v0, JUNK, JUNK, phi0, FunctionCallReturnLabel[11], lit0], returnLabel: 168 -> [ReturnLabel[31], v0, JUNK, JUNK, phi0, v12]
-			shuffling: SWAP5 SWAP4 POP POP POP POP 
+			Call: read_from_storage_split_offset_uint256 (label=28): [ReturnLabel[31], JUNK, JUNK, JUNK, FunctionCallReturnLabel[11], lit0], returnLabel: 168 -> [ReturnLabel[31], JUNK, JUNK, JUNK, v12]
+			shuffling: SWAP4 SWAP3 POP POP POP 
 
 
 
@@ -1504,14 +1504,14 @@ Stack layout for main graph
 			shuffled to: []
 			result:      [v0]
 		mstore: [v0] -> [v0, lit0]
-			shuffling:   PUSH(lit0) 
+			shuffling:   
 			shuffled to: [v0, lit0]
 			result:      []
 		callvalue: [] -> []
 			shuffling:   
 			shuffled to: []
 			result:      [v1]
-		stack out = [v1]
+		stack out = []
 	Block 1 (junk=true, stackIn=[])
 		revert_error_ca66f745a3ce8ff40e2ccaf1ad45db7774001b90d25810abd9040049be7bf4bb: [] -> []
 			shuffling:   
@@ -1520,7 +1520,7 @@ Stack layout for main graph
 		stack out = []
 	Block 2 (junk=true, stackIn=[])
 		allocate_unbounded: [] -> [FunctionCallReturnLabel[0]]
-			shuffling:   PUSH(FunctionCallReturnLabel[0]) 
+			shuffling:   
 			shuffled to: [FunctionCallReturnLabel[0]]
 			result:      [v2]
 		datasize: [v2] -> []
@@ -1532,7 +1532,7 @@ Stack layout for main graph
 			shuffled to: [v2, v3]
 			result:      [v2, v3, v4]
 		codecopy: [v2, v3, v4] -> [v3, v4, v2]
-			shuffling:   DUP3 
+			shuffling:   
 			shuffled to: [v2, v3, v4, v2]
 			result:      [v2]
 		datasize: [v2] -> []
@@ -1540,10 +1540,10 @@ Stack layout for main graph
 			shuffled to: [v2]
 			result:      [v2, v5]
 		return: [v2, v5] -> [v5, v2]
-			shuffling:   DUP2 
-			shuffled to: [v2, v5, v2]
-			result:      [v2]
-		stack out = [v2]
+			shuffling:   
+			shuffled to: [v5, v2]
+			result:      []
+		stack out = []
 Code transform for main
 	Generating for Block 0 with label 3
 		memoryguard: [] -> []
@@ -1574,9 +1574,9 @@ Code transform for main
 		datasize: [v2] -> [v2]
 			shuffling: 
 			Builtin call: datasize: [v2] -> [v2, v5]
-		return: [v2, v5] -> [v2, v5, v2]
-			shuffling: DUP2 
-			Builtin call: return: [v2, v5, v2] -> [v2]
+		return: [v2, v5] -> [v5, v2]
+			shuffling: SWAP1 
+			Builtin call: return: [v5, v2] -> []
 			shuffling: 
 	Generating for Block 1 with label 4
 		revert_error_ca66f745a3ce8ff40e2ccaf1ad45db7774001b90d25810abd9040049be7bf4bb: [] -> []
@@ -1586,10 +1586,10 @@ Code transform for main
 Stack layout for allocate_unbounded
 	Block 0 (junk=false, stackIn=[ReturnLabel[1]])
 		mload: [ReturnLabel[1]] -> [lit1]
-			shuffling:   PUSH(lit1) 
+			shuffling:   
 			shuffled to: [ReturnLabel[1], lit1]
 			result:      [ReturnLabel[1], v0]
-SWAP1 		stack out = [v0, ReturnLabel[1]]
+		stack out = [v0, ReturnLabel[1]]
 Code transform for allocate_unbounded
 	Generating for Block 0 with label 9
 		mload: [ReturnLabel[1]] -> [ReturnLabel[1], lit1]
@@ -1599,7 +1599,7 @@ Code transform for allocate_unbounded
 Stack layout for revert_error_ca66f745a3ce8ff40e2ccaf1ad45db7774001b90d25810abd9040049be7bf4bb
 	Block 0 (junk=true, stackIn=[])
 		revert: [] -> [lit0, lit0]
-			shuffling:   PUSH(lit0) DUP1 
+			shuffling:   
 			shuffled to: [lit0, lit0]
 			result:      []
 		stack out = []
