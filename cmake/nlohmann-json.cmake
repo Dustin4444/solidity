@@ -1,9 +1,9 @@
-include(${SOLIDITY_SOURCE_DIR}/cmake/submodules.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/submodules.cmake)
 initialize_submodule(nlohmann-json)
 
 set(JSON_Install OFF CACHE INTERNAL "")
 add_subdirectory(
-	${SOLIDITY_SOURCE_DIR}/deps/nlohmann-json
+	${PROJECT_SOURCE_DIR}/deps/nlohmann-json
 	EXCLUDE_FROM_ALL
 )
 
