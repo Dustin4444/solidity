@@ -21,6 +21,8 @@
 #include <libyul/backends/evm/ssa/LivenessAnalysis.h>
 #include <libyul/backends/evm/ssa/Stack.h>
 
+#include <libsolutil/log/Logger.h>
+
 #include <boost/container/flat_map.hpp>
 
 #include <range/v3/view/iota.hpp>
@@ -134,6 +136,33 @@ private:
 	boost::container::flat_map<StackSlot, size_t> m_histogram;
 };
 }
+
+template<StackManipulationCallbackConcept ParentCallback>
+struct LogShufflerTraceCallbackWrapper
+{
+	void swap(StackDepth const _depth)
+	{
+		parent.swap(_depth);
+		solTraceRaw(logger, "SWAP{} ", _depth.value);
+	}
+	void dup(StackDepth const _depth)
+	{
+		parent.dup(_depth);
+		solTraceRaw(logger, "DUP{} ", _depth.value);
+	}
+	void push(StackSlot const& _slot)
+	{
+		parent.push(_slot);
+		solTraceRaw(logger, "PUSH({}) ", slotToString(_slot));
+	}
+	void pop()
+	{
+		parent.pop();
+		solTraceRaw(logger, "POP ");
+	}
+	ParentCallback parent;
+	log::Logger const& logger;
+};
 
 struct StackShufflerResult
 {
@@ -831,5 +860,33 @@ private:
 		return std::nullopt;
 	}
 };
+
+/// Runs the shuffler on @a _stack. When @a _logger is enabled for trace, each
+/// emitted stack operation is logged on a single line prefixed with
+/// @a _indentationLevel tab characters; otherwise the shuffler runs with no
+/// instrumentation (and no per-op overhead). The caller receives the raw
+/// StackShufflerResult and decides how to handle non-Admissible outcomes.
+template<StackManipulationCallbackConcept Callback, typename... ShuffleArgs>
+[[nodiscard]] StackShufflerResult traceShuffle(
+	log::Logger const& _logger,
+	std::size_t const _indentationLevel,
+	Stack<Callback>& _stack,
+	ShuffleArgs&&... _args
+)
+{
+	if (_logger.shouldLog(log::Level::trace)) [[unlikely]]
+	{
+		using Wrapped = LogShufflerTraceCallbackWrapper<Callback>;
+		solTraceRaw(_logger, "{}shuffling:   ", std::string(_indentationLevel, '\t'));
+		Stack<Wrapped> wrappedStack{_stack.mutableData(), {.parent = _stack.callbacks(), .logger = _logger}};
+		auto const result = StackShuffler<Wrapped>::shuffle(
+			wrappedStack,
+			std::forward<ShuffleArgs>(_args)...
+		);
+		solTraceRaw(_logger, "\n");
+		return result;
+	}
+	return StackShuffler<Callback>::shuffle(_stack, std::forward<ShuffleArgs>(_args)...);
+}
 
 }

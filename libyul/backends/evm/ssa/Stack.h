@@ -287,6 +287,11 @@ public:
 		return *m_data;
 	}
 
+	Data& mutableData()
+	{
+		return *m_data;
+	}
+
 	Callbacks const& callbacks() const { return m_callbacks; }
 
 	/// index scheme conversion offset -> depth
