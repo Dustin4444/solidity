@@ -45,6 +45,10 @@ set(sources
 	Visitor.h
 	Whiskers.cpp
 	Whiskers.h
+	log/Logger.cpp
+	log/Logger.h
+	log/LoggerRegistry.cpp
+	log/LoggerRegistry.h
 )
 
 add_library(solutil ${sources})
