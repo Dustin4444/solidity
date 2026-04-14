@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <libsolutil/Noinline.h>
+
 #include <liblangutil/SourceLocation.h>
 
 #include <boost/exception/exception.hpp>
@@ -26,14 +28,6 @@
 
 #include <exception>
 #include <string>
-
-#if defined(_MSC_VER)
-#define SOL_NOINLINE __declspec(noinline)
-#elif defined(__GNUC__) || defined(__clang__)
-#define SOL_NOINLINE __attribute__((noinline))
-#else
-#define SOL_NOINLINE
-#endif
 
 namespace solidity::util
 {
