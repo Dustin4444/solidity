@@ -31,6 +31,7 @@
 #include <liblangutil/EVMVersion.h>
 
 #include <libsolutil/JSON.h>
+#include <libsolutil/log/Logger.h>
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem/path.hpp>
@@ -274,6 +275,16 @@ struct CommandLineOptions
 	} modelChecker;
 
 	bool experimental = false;
+
+	struct Logging
+	{
+		bool operator==(Logging const&) const noexcept = default;
+		bool operator!=(Logging const&) const noexcept = default;
+
+		std::optional<log::Level> globalLevel;
+		std::vector<std::pair<std::string, log::Level>> categoryLevels;
+		std::optional<std::string> outputTarget;
+	} logging;
 };
 
 /// Parses the command-line arguments and produces a filled-out CommandLineOptions structure.
@@ -315,6 +326,11 @@ private:
 	/// Parses the value supplied to --combined-json.
 	/// @throws CommandLineValidationError in case of validation errors.
 	void parseCombinedJsonOption();
+
+	/// Parses --log-level, --log and --log-output and stores the result in
+	/// @a m_options.logging.
+	/// @throws CommandLineValidationError if any value is malformed.
+	void parseLoggingOptions();
 
 	/// Parses the names of the input files, remappings. Does not check if the files actually exist.
 	/// @throws CommandLineValidationError in case of validation errors.

@@ -55,6 +55,7 @@
 #include <libsolutil/CommonData.h>
 #include <libsolutil/CommonIO.h>
 #include <libsolutil/JSON.h>
+#include <libsolutil/log/LoggerRegistry.h>
 
 #include <algorithm>
 #include <fstream>
@@ -813,7 +814,34 @@ bool CommandLineInterface::parseArguments(int _argc, char const* const* _argv)
 	}
 	m_options = parser.options();
 
+	applyLoggingOptions();
+
 	return true;
+}
+
+void CommandLineInterface::applyLoggingOptions()
+{
+	auto& registry = log::LoggerRegistry::instance();
+
+	if (m_options.logging.outputTarget)
+	{
+		std::string const& target = *m_options.logging.outputTarget;
+		if (target == "stderr")
+			registry.setOutput(log::StandardStream::Stderr);
+		else if (target == "stdout")
+			registry.setOutput(log::StandardStream::Stdout);
+		else
+			solThrow(
+				CommandLineValidationError,
+				"Unknown --log-output target '" + target + "'. Expected 'stderr' or 'stdout'."
+			);
+	}
+
+	if (m_options.logging.globalLevel)
+		registry.setLevel("", *m_options.logging.globalLevel);
+
+	for (auto const& [prefix, level]: m_options.logging.categoryLevels)
+		registry.setLevel(prefix, level);
 }
 
 void CommandLineInterface::processInput()

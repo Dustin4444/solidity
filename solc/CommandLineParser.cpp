@@ -20,6 +20,8 @@
 
 #include <solc/Exceptions.h>
 
+#include <libsolutil/log/LoggerRegistry.h>
+
 #include <libyul/optimiser/Suite.h>
 
 #include <liblangutil/EVMVersion.h>
@@ -64,6 +66,9 @@ static std::string const g_strIPFS = "ipfs";
 static std::string const g_strLicense = "license";
 static std::string const g_strLibraries = "libraries";
 static std::string const g_strLink = "link";
+static std::string const g_strLog = "log";
+static std::string const g_strLogLevel = "log-level";
+static std::string const g_strLogOutput = "log-output";
 static std::string const g_strLSP = "lsp";
 static std::string const g_strMachine = "machine";
 static std::string const g_strNoCBORMetadata = "no-cbor-metadata";
@@ -942,6 +947,31 @@ General Information)").c_str(),
 	;
 	desc.add(experimentalOptions);
 
+	po::options_description loggingOptions("Logging Options");
+	loggingOptions.add_options()
+		(
+			g_strLogLevel.c_str(),
+			po::value<std::string>()->value_name("level"),
+			"Set the global default log level. One of: trace, debug, warn, off (default)."
+		)
+		(
+			g_strLog.c_str(),
+			po::value<std::vector<std::string>>()->value_name("spec")->composing(),
+			"Per-category log level overrides. Repeatable. Each value is a comma-separated "
+			"list of <prefix>=<level>, where <level> is one of trace, debug, warn, off. "
+			"Supersedes --log-level for the matching prefixes; the most specific prefix wins. "
+			"Example: --log yul.ssa=debug,yul.ssa.codetransform.shuffler=off"
+		)
+		(
+			g_strLogOutput.c_str(),
+			po::value<std::string>()->value_name("target"),
+			"Where log lines are written. Accepts 'stderr' (default) or 'stdout'. "
+			"Note: stdout carries machine-readable compiler output, so routing logs there is "
+			"intended for development use only."
+		)
+	;
+	desc.add(loggingOptions);
+
 	desc.add_options()(g_strInputFile.c_str(), po::value<std::vector<std::string>>(), "input file");
 	return desc;
 }
@@ -993,6 +1023,8 @@ void CommandLineParser::processArgs()
 
 	if (m_args.contains(g_strExperimental))
 		m_options.experimental = true;
+
+	parseLoggingOptions();
 
 	checkMutuallyExclusive({
 		g_strHelp,
@@ -1588,6 +1620,52 @@ void CommandLineParser::processArgs()
 			CommandLineValidationError,
 			"Invalid input mode for --debug-info ethdebug / --ethdebug / --ethdebug-runtime."
 		);
+}
+
+void CommandLineParser::parseLoggingOptions()
+{
+	auto parseOrThrow = [](std::string const& _optionName, std::string const& _value)
+	{
+		std::optional<log::Level> const level = log::parseLevel(_value);
+		if (!level)
+			solThrow(
+				CommandLineValidationError,
+				"Invalid value for --" + _optionName + ": " + _value + ". "
+				"Expected one of: trace, debug, warn, off."
+			);
+		return *level;
+	};
+
+	if (m_args.contains(g_strLogLevel))
+		m_options.logging.globalLevel = parseOrThrow(g_strLogLevel, m_args[g_strLogLevel].as<std::string>());
+
+	if (m_args.contains(g_strLog))
+		for (std::string const& spec: m_args[g_strLog].as<std::vector<std::string>>())
+		{
+			std::vector<std::string> entries;
+			boost::split(entries, spec, boost::is_any_of(","));
+			for (std::string const& entry: entries)
+			{
+				if (entry.empty())
+					continue;
+				auto const equalsPos = entry.find('=');
+				if (equalsPos == std::string::npos)
+					solThrow(
+						CommandLineValidationError,
+						"Invalid entry for --" + g_strLog + ": '" + entry + "'. "
+						"Expected <prefix>=<level>."
+					);
+				std::string prefix = entry.substr(0, equalsPos);
+				std::string levelText = entry.substr(equalsPos + 1);
+				m_options.logging.categoryLevels.emplace_back(
+					std::move(prefix),
+					parseOrThrow(g_strLog, levelText)
+				);
+			}
+		}
+
+	if (m_args.contains(g_strLogOutput))
+		m_options.logging.outputTarget = m_args[g_strLogOutput].as<std::string>();
 }
 
 void CommandLineParser::parseCombinedJsonOption()
