@@ -7,9 +7,8 @@ targetStackTop: [JUNK, JUNK, v56, v57, lit0, v56, lit11]
 //    (initial)|      *      *    v56    v57      *      *
 //          POP|      *      *    v56    v57      *
 //          POP|      *      *    v56    v57
-//         DUP2|      *      *    v56    v57    v56
-//    PUSH lit0|      *      *    v56    v57    v56   lit0
-//        SWAP1|      *      *    v56    v57   lit0    v56
+//    PUSH lit0|      *      *    v56    v57   lit0
+//         DUP3|      *      *    v56    v57   lit0    v56
 //   PUSH lit11|      *      *    v56    v57   lit0    v56  lit11
 //             +-------------------------------------------------
 //     (target)|      *      *    v56    v57   lit0    v56  lit11

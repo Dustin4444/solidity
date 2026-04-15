@@ -541,33 +541,81 @@ private:
 				return true;
 			}();
 
+			// stricter gate for the fast path: every misaligned prefix offset must remain swap-reachable
+			// after the grow AND after one more placement op (so the prefix can still be fixed later)
+			bool const pushKeepsDeepPrefixReachable = [&]
+			{
+				for (StackOffset p: _state.stackArgsRange())
+					if (!_state.isArgsCompatible(p, p) && depthFromNewTop(p) + 1 > ReachableStackDepth)
+						return false;
+				return true;
+			}();
+
+			// fast path: if the arg the target wants at the new top is under-supplied, place it directly there.
+			// Skip when growing would push a misaligned prefix offset out of swap range for subsequent fixups;
+			// otherwise we'd push and then immediately shrink back, oscillating
+			if (pushKeepsDeepPrefixReachable)
+			{
+				// the slot we're about to create lives at the current stack size (i.e. the post-grow top)
+				StackOffset const targetOffset{_stack.size()};
+				Slot const& targetArg = _state.targetArg(targetOffset);
+				if (
+					!targetArg.isJunk() &&
+					(
+						_state.count(targetArg) < _state.targetMinCount(targetArg) ||
+						_state.countInArgs(targetArg) < _state.targetArgsCount(targetArg)
+					)
+				)
+				{
+					// prefer duping an existing copy over generating a fresh one
+					if (auto sourceDepth = _stack.findSlotDepth(targetArg))
+					{
+						if (_stack.dupReachable(*sourceDepth))
+						{
+							_stack.dup(*sourceDepth);
+							return {ShuffleHelperResult::Status::StackModified};
+						}
+						// existing copy is out of dup range; if we also can't regenerate it, bail
+						if (!_stack.canBeFreelyGenerated(targetArg))
+							return {ShuffleHelperResult::Status::StackTooDeep, targetArg};
+					}
+					// no reachable copy (or none at all), push a fresh instance if the slot allows it
+					if (_stack.canBeFreelyGenerated(targetArg))
+					{
+						_stack.push(targetArg);
+						return {ShuffleHelperResult::Status::StackModified};
+					}
+				}
+			}
+
 			// if we can't directly produce targetOffset, take the deepest arg that we don't have enough of and dup/push that
 			// First, prioritize duping args that are on the stack over pushing freely-generatable ones
 			for (StackOffset const offset: _state.target().argsRange())
 			{
 				Slot const& arg = _state.targetArg(offset);
-				if (!arg.isJunk() && (_state.count(arg) < _state.targetMinCount(arg) || _state.countInArgs(arg) < _state.targetArgsCount(arg)))
+				if (arg.isJunk())
+					continue;
+				if (_state.count(arg) >= _state.targetMinCount(arg) && _state.countInArgs(arg) >= _state.targetArgsCount(arg))
+					continue;
+				// If none of this arg's unfilled targets are reachable from the new top, growing for it
+				// won't help — skip and let another arg or a later step (e.g. the tail loop) handle it.
+				if (!canReachSomeUnfilledTarget(arg))
+					continue;
+				if (auto sourceDepth = _stack.findSlotDepth(arg))
 				{
-					if (auto sourceDepth = _stack.findSlotDepth(arg))
+					if (_stack.dupReachable(*sourceDepth))
 					{
-						if (_stack.dupReachable(*sourceDepth) && canReachSomeUnfilledTarget(arg))
-						{
-							_stack.dup(*sourceDepth);
-							return {ShuffleHelperResult::Status::StackModified};
-						}
-						if (!_stack.canBeFreelyGenerated(arg))
-							return {ShuffleHelperResult::Status::StackTooDeep, arg};
+						_stack.dup(*sourceDepth);
+						return {ShuffleHelperResult::Status::StackModified};
 					}
-					if (!prefixReachable)
-						continue;
-					if (!canReachSomeUnfilledTarget(arg))
-						// Pushing this arg would land it at an offset from which none of its target
-						// positions are reachable
-						continue;
-					yulAssert(_stack.canBeFreelyGenerated(arg));
-					_stack.push(arg);
-					return {ShuffleHelperResult::Status::StackModified};
+					if (!_stack.canBeFreelyGenerated(arg))
+						return {ShuffleHelperResult::Status::StackTooDeep, arg};
 				}
+				if (!prefixReachable)
+					continue;
+				yulAssert(_stack.canBeFreelyGenerated(arg));
+				_stack.push(arg);
+				return {ShuffleHelperResult::Status::StackModified};
 			}
 
 			// Try to dup the optimal slot based on liveness analysis
