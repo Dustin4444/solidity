@@ -7,17 +7,16 @@ targetStackTop: [JUNK, JUNK, v2, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK,
 //    (initial)|      *      *      *      *      *      *      *      *      *      *      *      *      *      *     v1     v2     v3
 //       SWAP14|      *      *     v3      *      *      *      *      *      *      *      *      *      *      *     v1     v2      *
 //          POP|      *      *     v3      *      *      *      *      *      *      *      *      *      *      *     v1     v2
-//    PUSH lit2|      *      *     v3      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2
-//         DUP2|      *      *     v3      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2     v2
-//    PUSH lit3|      *      *     v3      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2     v2   lit3
-//         DUP2|      *      *     v3      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2     v2   lit3     v2
-//        SWAP1|      *      *     v3      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2     v2     v2   lit3
-//          POP|      *      *     v3      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2     v2     v2
-//       SWAP16|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2     v2     v3
-//    PUSH lit1|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2     v2     v3   lit1
-//        SWAP5|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *   lit1     v2   lit2     v2     v3     v1
-//    PUSH lit3|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *   lit1     v2   lit2     v2     v3     v1   lit3
-//        SWAP2|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *   lit1     v2   lit2     v2   lit3     v1     v3
+//         DUP1|      *      *     v3      *      *      *      *      *      *      *      *      *      *      *     v1     v2     v2
+//       SWAP14|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *     v1     v2     v3
+//         DUP2|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *     v1     v2     v3     v2
+//    PUSH lit1|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *     v1     v2     v3     v2   lit1
+//        SWAP4|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *   lit1     v2     v3     v2     v1
+//    PUSH lit2|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *   lit1     v2     v3     v2     v1   lit2
+//        SWAP3|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *   lit1     v2   lit2     v2     v1     v3
+//    PUSH lit3|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *   lit1     v2   lit2     v2     v1     v3   lit3
+//        SWAP2|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *   lit1     v2   lit2     v2   lit3     v3     v1
+//        SWAP1|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *   lit1     v2   lit2     v2   lit3     v1     v3
 //             +---------------------------------------------------------------------------------------------------------------------------------------------------
 //     (target)|      *      *     v2      *      *      *      *      *      *      *      *      *      *      *   lit1     v2   lit2     v2   lit3     v1     v3
 // Status: Admissible

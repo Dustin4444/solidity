@@ -263,7 +263,6 @@ private:
 		// if there are no args, we should be done now
 		if (_state.target().args.empty())
 			return {StackShufflerResult::Status::Admissible};
-		yulAssert(_stack.size() == _state.target().size);
 
 		// check whether we are done
 		if (_state.admissible())
@@ -510,23 +509,37 @@ private:
 			if (auto result = dupDeepSlotIfRequired(_stack, _state); result.status != ShuffleHelperResult::Status::NoAction)
 				return result;
 
+			// depth of an args-region offset `_o` after the next grow, clamped from below to zero
+			auto const depthFromNewTop = [&](StackOffset _o) -> std::size_t
 			{
-				StackOffset const targetOffset{_stack.size()};
-				if (_state.count(_state.targetArg(targetOffset)) < _state.targetMinCount(_state.targetArg(targetOffset)))
+				if (_o.value >= _stack.size())
+					return 0u;
+				return _stack.offsetToDepth(_o).value + 1;
+			};
+			// duping up `_arg` only makes progress if some target args-region offset wanting `_arg` is still
+			// unfilled and reachable from the new top
+			auto const canReachSomeUnfilledTarget = [&](Slot const& _arg)
+			{
+				for (auto offset: _state.target().argsRange())
 				{
-					auto const sourceDepth = _stack.findSlotDepth(_state.targetArg(targetOffset));
-					if (!sourceDepth)
-					{
-						_stack.push(_state.targetArg(targetOffset));
-						return {ShuffleHelperResult::Status::StackModified};
-					}
-
-					if (!_stack.dupReachable(*sourceDepth))
-						return {ShuffleHelperResult::Status::StackTooDeep, _state.targetArg(targetOffset)};
-					_stack.dup(*sourceDepth);
-					return {ShuffleHelperResult::Status::StackModified};
+					if (_state.targetArg(offset) != _arg)
+						continue;
+					if (_state.isArgsCompatible(offset, offset))
+						continue;
+					if (depthFromNewTop(offset) <= ReachableStackDepth)
+						return true;
 				}
-			}
+				return false;
+			};
+			// after the grow, every misaligned args-region offset below the new top must still
+			// be swap-reachable, otherwise we'd strand it
+			bool const prefixReachable = [&]
+			{
+				for (StackOffset p: _state.stackArgsRange())
+					if (!_state.isArgsCompatible(p, p) && depthFromNewTop(p) > ReachableStackDepth)
+						return false;
+				return true;
+			}();
 
 			// if we can't directly produce targetOffset, take the deepest arg that we don't have enough of and dup/push that
 			// First, prioritize duping args that are on the stack over pushing freely-generatable ones
@@ -537,7 +550,7 @@ private:
 				{
 					if (auto sourceDepth = _stack.findSlotDepth(arg))
 					{
-						if (_stack.dupReachable(*sourceDepth))
+						if (_stack.dupReachable(*sourceDepth) && canReachSomeUnfilledTarget(arg))
 						{
 							_stack.dup(*sourceDepth);
 							return {ShuffleHelperResult::Status::StackModified};
@@ -545,6 +558,12 @@ private:
 						if (!_stack.canBeFreelyGenerated(arg))
 							return {ShuffleHelperResult::Status::StackTooDeep, arg};
 					}
+					if (!prefixReachable)
+						continue;
+					if (!canReachSomeUnfilledTarget(arg))
+						// Pushing this arg would land it at an offset from which none of its target
+						// positions are reachable
+						continue;
 					yulAssert(_stack.canBeFreelyGenerated(arg));
 					_stack.push(arg);
 					return {ShuffleHelperResult::Status::StackModified};
@@ -553,10 +572,15 @@ private:
 
 			// Try to dup the optimal slot based on liveness analysis
 			if (auto slotToDup = selectOptimalSlotToDup(_stack, _state))
+			{
 				_stack.dup(*slotToDup);
-			else
-				// If no suitable slot found, push junk
-				_stack.push(Slot::makeJunk());
+				return {ShuffleHelperResult::Status::StackModified};
+			}
+			// Growing would strand a misaligned prefix slot
+			if (!prefixReachable)
+				return {ShuffleHelperResult::Status::NoAction};
+			// If no suitable slot found, push junk
+			_stack.push(Slot::makeJunk());
 			return {ShuffleHelperResult::Status::StackModified};
 		}
 

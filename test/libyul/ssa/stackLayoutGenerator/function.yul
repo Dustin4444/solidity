@@ -81,15 +81,15 @@
 // Block3_0 [label="\
 // IN: [v0]\l\
 // \l\
-// [FunctionCallReturnLabel[0], lit0, v0]\l\
+// [v0, FunctionCallReturnLabel[0], lit0, v0]\l\
 // f\l\
-// [FunctionCallReturnLabel[0], v1]\l\
+// [v0, FunctionCallReturnLabel[0], v1]\l\
 // \l\
-// [v1]\l\
+// [JUNK, v1]\l\
 // h\l\
-// []\l\
+// [JUNK]\l\
 // \l\
-// OUT: []\l\
+// OUT: [JUNK]\l\
 // "];
 // Block3_0Exit [label="Terminated"];
 // Block3_0 -> Block3_0Exit;
