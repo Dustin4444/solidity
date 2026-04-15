@@ -42,6 +42,8 @@ class TypeChecker;
  *
  * Note: This always use "checked arithmetic" in the sense that any over- or underflow
  * results in "unknown" value.
+ * The exception are the arithmetic bit operations "~" and "<<" which are allowed to wrap around and
+ * have the bits truncated to fit the type width.
  */
 class ConstantEvaluator: private ASTConstVisitor
 {
