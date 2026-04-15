@@ -41,6 +41,11 @@ struct Target
 {
 	Target(StackData const& _args, LivenessAnalysis::LivenessData const& _liveOut, std::size_t _targetSize);
 
+	auto argsRange() const
+	{
+		return ranges::views::iota(tailSize, size) | ranges::views::transform([](auto _i) { return StackOffset{_i}; });
+	}
+
 	StackData const& args;
 	LivenessAnalysis::LivenessData const& liveOut;
 	std::size_t const size;
@@ -525,7 +530,7 @@ private:
 
 			// if we can't directly produce targetOffset, take the deepest arg that we don't have enough of and dup/push that
 			// First, prioritize duping args that are on the stack over pushing freely-generatable ones
-			for (StackOffset offset{_state.target().tailSize}; offset < _state.target().size; ++offset.value)
+			for (StackOffset const offset: _state.target().argsRange())
 			{
 				Slot const& arg = _state.targetArg(offset);
 				if (!arg.isJunk() && (_state.count(arg) < _state.targetMinCount(arg) || _state.countInArgs(arg) < _state.targetArgsCount(arg)))
@@ -792,7 +797,7 @@ private:
 	static std::optional<StackOffset> allNecessarySlotsReachableOrFinal(Stack<Callback> const& _stack, detail::State const& _state)
 	{
 		// check that args are either in position or reachable
-		for (StackOffset offset{_state.target().tailSize}; offset < _state.target().size; ++offset.value)
+		for (StackOffset const offset: _state.target().argsRange())
 		{
 			if (_state.isArgsCompatible(offset, offset))
 				continue;
