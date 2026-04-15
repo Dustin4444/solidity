@@ -9,7 +9,8 @@ targetStackSize: 12
 //          POP|   phi0     v0   lit0 |     v0   lit0     v0   lit0     v0     v0   lit0     v0
 //        DUP11|   phi0     v0   lit0 |     v0   lit0     v0   lit0     v0     v0   lit0     v0   phi0
 //        SWAP5|   phi0     v0   lit0 |     v0   lit0     v0   phi0     v0     v0   lit0     v0   lit0
-//       SWAP10|   phi0   lit0   lit0 |     v0   lit0     v0   phi0     v0     v0   lit0     v0     v0
+//          POP|   phi0     v0   lit0 |     v0   lit0     v0   phi0     v0     v0   lit0     v0
+//         DUP1|   phi0     v0   lit0 |     v0   lit0     v0   phi0     v0     v0   lit0     v0     v0
 //             +--------------------- +---------------------------------------------------------------
 //     (target)|                   {} |      *   lit0     v0   phi0     v0     v0   lit0     v0     v0
 // Status: Admissible

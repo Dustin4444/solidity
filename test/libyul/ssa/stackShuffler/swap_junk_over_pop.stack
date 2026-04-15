@@ -8,7 +8,8 @@ targetStackSize: 4
 //    (initial)|     v0 |      *     v2
 //    PUSH lit2|     v0 |      *     v2   lit2
 //        SWAP2|     v0 |   lit2     v2      *
-//        SWAP3|      * |   lit2     v2     v0
+//          POP|     v0 |   lit2     v2
+//         DUP3|     v0 |   lit2     v2     v0
 //             +------- +---------------------
 //     (target)|     {} |   lit2     v2     v0
 // Status: Admissible

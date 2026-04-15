@@ -450,23 +450,6 @@ private:
 						_stack.swap(offset);
 						return {ShuffleHelperResult::Status::StackModified};
 					}
-
-				// try swapping top with a tail slot that has what we need at top
-				for (StackOffset tailOffset: _state.stackTailRange())
-					if (
-						_stack.isValidSwapTarget(tailOffset) &&
-						_state.isArgsCompatible(tailOffset, stackTop) &&
-						(!_state.requiredInTail(_stack[tailOffset]) || _state.countInTail(_stack[tailOffset]) > 1) &&
-						// current top can safely go to tail (not needed in args, or we have excess)
-						(
-							!_state.requiredInArgs(_stack[stackTop]) ||
-							_state.countInArgs(_stack[stackTop]) > _state.targetArgsCount(_stack[stackTop])
-						)
-					)
-					{
-						_stack.swap(tailOffset);
-						return {ShuffleHelperResult::Status::StackModified};
-					}
 			}
 
 			// swap up any slot in args that is out of position and has a slot available in args that it can occupy
