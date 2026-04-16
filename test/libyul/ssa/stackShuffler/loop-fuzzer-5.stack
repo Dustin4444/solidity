@@ -1,0 +1,39 @@
+initial: [lit0, v5, v7, v0, v0, phi0, JUNK]
+targetStackTop: [v0, phi0, phi0, v0, v0, JUNK, v0, JUNK, v0, v0, v0, v0, v0, v0, phi0, lit0, v0, phi0]
+targetStackTailSet: {}
+targetStackSize: 20
+// ----
+//             |      0      1 |      2      3      4      5      6      7      8      9     10     11     12     13     14     15     16     17     18     19
+//             +-------------- +------------------------------------------------------------------------------------------------------------------------------
+//    (initial)|   lit0     v5 |     v7     v0     v0   phi0      *
+//        SWAP1|   lit0     v5 |     v7     v0     v0      *   phi0
+//        SWAP3|   lit0     v5 |     v7   phi0     v0      *     v0
+//         DUP1|   lit0     v5 |     v7   phi0     v0      *     v0     v0
+//        SWAP3|   lit0     v5 |     v7   phi0     v0      *     v0     v0
+//        SWAP5|   lit0     v5 |     v0   phi0     v0      *     v0     v7
+//        SWAP3|   lit0     v5 |     v0   phi0     v7      *     v0     v0
+//        SWAP2|   lit0     v5 |     v0   phi0     v7     v0     v0      *
+//         DUP2|   lit0     v5 |     v0   phi0     v7     v0     v0      *     v0
+//         DUP1|   lit0     v5 |     v0   phi0     v7     v0     v0      *     v0     v0
+//         DUP1|   lit0     v5 |     v0   phi0     v7     v0     v0      *     v0     v0     v0
+//         DUP1|   lit0     v5 |     v0   phi0     v7     v0     v0      *     v0     v0     v0     v0
+//         DUP1|   lit0     v5 |     v0   phi0     v7     v0     v0      *     v0     v0     v0     v0     v0
+//         DUP1|   lit0     v5 |     v0   phi0     v7     v0     v0      *     v0     v0     v0     v0     v0     v0
+//         DUP1|   lit0     v5 |     v0   phi0     v7     v0     v0      *     v0     v0     v0     v0     v0     v0     v0
+//         DUP1|   lit0     v5 |     v0   phi0     v7     v0     v0      *     v0     v0     v0     v0     v0     v0     v0     v0
+//        DUP13|   lit0     v5 |     v0   phi0     v7     v0     v0      *     v0     v0     v0     v0     v0     v0     v0     v0   phi0
+//         DUP2|   lit0     v5 |     v0   phi0     v7     v0     v0      *     v0     v0     v0     v0     v0     v0     v0     v0   phi0     v0
+//         DUP2|   lit0     v5 |     v0   phi0     v7     v0     v0      *     v0     v0     v0     v0     v0     v0     v0     v0   phi0     v0   phi0
+//       SWAP14|   lit0     v5 |     v0   phi0   phi0     v0     v0      *     v0     v0     v0     v0     v0     v0     v0     v0   phi0     v0     v7
+//         DUP3|   lit0     v5 |     v0   phi0   phi0     v0     v0      *     v0     v0     v0     v0     v0     v0     v0     v0   phi0     v0     v7   phi0
+//       SWAP10|   lit0     v5 |     v0   phi0   phi0     v0     v0      *     v0   phi0     v0     v0     v0     v0     v0     v0   phi0     v0     v7     v0
+//        SWAP1|   lit0     v5 |     v0   phi0   phi0     v0     v0      *     v0   phi0     v0     v0     v0     v0     v0     v0   phi0     v0     v0     v7
+//          POP|   lit0     v5 |     v0   phi0   phi0     v0     v0      *     v0   phi0     v0     v0     v0     v0     v0     v0   phi0     v0     v0
+//         DUP3|   lit0     v5 |     v0   phi0   phi0     v0     v0      *     v0   phi0     v0     v0     v0     v0     v0     v0   phi0     v0     v0   phi0
+//        SWAP2|   lit0     v5 |     v0   phi0   phi0     v0     v0      *     v0   phi0     v0     v0     v0     v0     v0     v0   phi0   phi0     v0     v0
+//          POP|   lit0     v5 |     v0   phi0   phi0     v0     v0      *     v0   phi0     v0     v0     v0     v0     v0     v0   phi0   phi0     v0
+//    PUSH lit0|   lit0     v5 |     v0   phi0   phi0     v0     v0      *     v0   phi0     v0     v0     v0     v0     v0     v0   phi0   phi0     v0   lit0
+//        SWAP2|   lit0     v5 |     v0   phi0   phi0     v0     v0      *     v0   phi0     v0     v0     v0     v0     v0     v0   phi0   lit0     v0   phi0
+//             +-------------- +------------------------------------------------------------------------------------------------------------------------------
+//     (target)|            {} |     v0   phi0   phi0     v0     v0      *     v0      *     v0     v0     v0     v0     v0     v0   phi0   lit0     v0   phi0
+// Status: Admissible

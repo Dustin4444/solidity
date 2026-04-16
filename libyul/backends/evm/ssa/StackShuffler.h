@@ -364,8 +364,9 @@ private:
 		{
 			// This slot needs to be moved into args and there is no tail slot of the same kind further up in the stack.
 			auto const& endangeredSlot = _stack[sourceOffset];
-			// no need to dup deep junk
-			if (endangeredSlot.isJunk())
+			// no need to dup deep freely-generatable slots (junk, literals, return labels) —
+			// they can always be re-produced with a push, so we don't have to preserve a copy.
+			if (_stack.canBeFreelyGenerated(endangeredSlot))
 				continue;
 			bool const neededInArgs = _state.targetArgsCount(endangeredSlot) > _state.countInArgs(endangeredSlot);
 			bool const needMore = _state.targetMinCount(endangeredSlot) > _state.count(endangeredSlot);
