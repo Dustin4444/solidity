@@ -565,10 +565,7 @@ private:
 		if (_stack.size() == _state.target().size)
 		{
 			for (auto const& arg: _state.target().args)
-				if (
-					!arg.isJunk() &&
-					(_state.count(arg) < _state.targetMinCount(arg) || _state.countInArgs(arg) < _state.targetArgsCount(arg))
-				)
+				if (_state.count(arg) < _state.targetMinCount(arg))
 				{
 					// we have asserted that all relevant slots are reachable or final, so the arg must either be
 					// within dup-reach or we can just push it
@@ -778,7 +775,10 @@ private:
 
 		// pop anything that isn't in position and we have more than one of
 		for (StackOffset offset: _state.stackSwapReachableRange())
-			if (_state.count(_stack[offset]) > _state.targetMinCount(_stack[offset]))
+			if (
+				_state.count(_stack[offset]) > _state.targetMinCount(_stack[offset]) &&
+				!_state.isArgsCompatible(offset, offset)
+			)
 			{
 				if (offset != stackTop && _stack[offset] != _stack[stackTop])
 					_stack.swap(offset);
