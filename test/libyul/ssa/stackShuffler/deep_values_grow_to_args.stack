@@ -9,7 +9,7 @@ targetStackTop: [JUNK, v2, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK, JUNK,
 //    PUSH lit2|      *      *      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2
 //         DUP2|      *      *      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2     v2
 //    PUSH lit3|      *      *      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2     v2   lit3
-//         DUP2|      *      *      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2     v2   lit3     v2
+//         DUP2|      *      *      *      *      *      *      *        *      *      *      *      *      *     v1     v2   lit2     v2   lit3     v2
 //    PUSH lit1|      *      *      *      *      *      *      *      *      *      *      *      *      *     v1     v2   lit2     v2   lit3     v2   lit1
 //        SWAP6|      *      *      *      *      *      *      *      *      *      *      *      *      *   lit1     v2   lit2     v2   lit3     v2     v1
 //        SWAP1|      *      *      *      *      *      *      *      *      *      *      *      *      *   lit1     v2   lit2     v2   lit3     v1     v2
