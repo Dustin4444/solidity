@@ -565,7 +565,10 @@ private:
 		if (_stack.size() == _state.target().size)
 		{
 			for (auto const& arg: _state.target().args)
-				if (_state.count(arg) < _state.targetMinCount(arg))
+				if (
+					!arg.isJunk() &&
+					(_state.count(arg) < _state.targetMinCount(arg) || _state.countInArgs(arg) < _state.targetArgsCount(arg))
+				)
 				{
 					// we have asserted that all relevant slots are reachable or final, so the arg must either be
 					// within dup-reach or we can just push it
