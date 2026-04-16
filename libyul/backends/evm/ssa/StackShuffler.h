@@ -30,6 +30,16 @@
 #include <cstddef>
 #include <optional>
 
+// Debug logging for stack-shuffler loop diagnosis. Appends a per-call trace to /tmp/shuf.log.
+// Enable by building with -DSSA_SHUFFLER_DEBUG (e.g. `cmake --build build --target soltest -- -DCMAKE_CXX_FLAGS=-DSSA_SHUFFLER_DEBUG`
+// or by adding `#define SSA_SHUFFLER_DEBUG` above this header). See .claude/skills/ssa-shuffler-loop.
+#ifdef SSA_SHUFFLER_DEBUG
+#include <cstdio>
+#define SSA_SHUFFLER_LOG(...) do { FILE* _f = std::fopen("/tmp/shuf.log", "a"); std::fprintf(_f, __VA_ARGS__); std::fclose(_f); } while (0)
+#else
+#define SSA_SHUFFLER_LOG(...) ((void)0)
+#endif
+
 namespace solidity::yul::ssa
 {
 
@@ -212,6 +222,7 @@ private:
 	/// Make a local step in stack space that should bring us closer to the target.
 	static StackShufflerResult shuffleStep(Stack<Callback>& _stack, detail::State const& _state)
 	{
+		SSA_SHUFFLER_LOG("[shuffleStep] size=%zu target=%zu\n", _stack.size(), _state.target().size);
 		// if the stack is too large, we try to shrink it
 		if (_stack.size() > _state.target().size)
 		{
@@ -407,6 +418,7 @@ private:
 	/// Tries to fix a slot in the args section of the stack
 	static ShuffleHelperResult fixArgsSlot(Stack<Callback>& _stack, detail::State const& _state)
 	{
+		SSA_SHUFFLER_LOG("[fixArgsSlot] enter size=%zu\n", _stack.size());
 		yulAssert(_stack.size() <= _state.target().size, "this method assumes that the stack isn't too large");
 		if (_stack.size() < _state.target().tailSize)
 			return {ShuffleHelperResult::Status::NoAction};
@@ -432,6 +444,7 @@ private:
 						!_state.targetArbitrary(offset)
 					)
 					{
+						SSA_SHUFFLER_LOG("FIX-TOP-SUB1 offset=%zu stackSize=%zu\n", offset.value, _stack.size());
 						_stack.swap(offset);
 						return {ShuffleHelperResult::Status::StackModified};
 					}
@@ -446,6 +459,7 @@ private:
 						_state.isArgsCompatible(stackTop, offset)
 					)
 					{
+						SSA_SHUFFLER_LOG("FIX-TOP-SUB2 offset=%zu stackSize=%zu\n", offset.value, _stack.size());
 						_stack.swap(offset);
 						return {ShuffleHelperResult::Status::StackModified};
 					}
@@ -463,6 +477,7 @@ private:
 						)
 					)
 					{
+						SSA_SHUFFLER_LOG("FIX-TOP-SUB3 tailOffset=%zu stackSize=%zu\n", tailOffset.value, _stack.size());
 						_stack.swap(tailOffset);
 						return {ShuffleHelperResult::Status::StackModified};
 					}
@@ -496,6 +511,7 @@ private:
 								// swap up slot at offset
 									_stack.swap(offset);
 							// bring slot at offset into fixed position
+							SSA_SHUFFLER_LOG("OUTER-LOOP offset=%zu targetOffset=%zu stackSize=%zu\n", offset.value, targetOffset.value, _stack.size());
 							_stack.swap(targetOffset);
 							return {ShuffleHelperResult::Status::StackModified};
 						}
@@ -603,6 +619,7 @@ private:
 	/// there yet.
 	static ShuffleHelperResult fixTailSlot(Stack<Callback>& _stack, detail::State const& _state)
 	{
+		SSA_SHUFFLER_LOG("[fixTailSlot] enter size=%zu\n", _stack.size());
 		yulAssert(_stack.size() <= _state.target().size, "this method assumes that the stack isn't exceeding target size");
 		for (StackOffset offset: _state.stackArgsRange() | ranges::views::reverse)
 		{
@@ -689,6 +706,7 @@ private:
 	/// Tries to compress the stack
 	static bool shrinkStack(Stack<Callback>& _stack, detail::State const& _state)
 	{
+		SSA_SHUFFLER_LOG("[shrinkStack] enter size=%zu\n", _stack.size());
 		yulAssert(!_stack.empty(), "Stack is empty, can't shrink");
 
 		StackOffset const stackTop{_stack.size() - 1};
@@ -805,18 +823,15 @@ private:
 		{
 			if (_state.isArgsCompatible(offset, offset))
 				continue;
+			// freely-generatable targets (junk, literals, return labels) are always reachable via push,
+			// even if an existing instance is deep in the stack
+			if (_stack.canBeFreelyGenerated(_state.targetArg(offset)))
+				continue;
 			// find first occurrence of the slot
 			std::optional<StackDepth> depth = _stack.findSlotDepth(_state.targetArg(offset));
-			if (!depth)
-			{
-				// if there is no occurrence of the slot anywhere, we must be able to freely generate it
-				yulAssert(_stack.canBeFreelyGenerated(_state.targetArg(offset)));
-			}
-			else
-			{
-				if (_stack.isBeyondSwapRange(*depth))
-					return _stack.depthToOffset(*depth);
-			}
+			yulAssert(depth);
+			if (_stack.isBeyondSwapRange(*depth))
+				return _stack.depthToOffset(*depth);
 		}
 		// distribution check: all we have to dup can be duped
 		for (StackOffset const offset: _state.stackRange())
