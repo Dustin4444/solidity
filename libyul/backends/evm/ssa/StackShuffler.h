@@ -488,7 +488,9 @@ private:
 			{
 				// when offset is already top no swap-up is needed, so it doesn't have to be a valid swap target itself
 				bool const reachable = !_stack.isBeyondSwapRange(offset);
-				bool const identical = _state.isArgsCompatible(offset, stackTop) && !_state.targetArbitrary(stackTop);
+				// If `offset` has a JUNK target the single-swap FIX-TOP-SUB1 path above cannot handle it
+				// (it excludes `targetArbitrary(offset)`), so don't skip it here either.
+				bool const identical = _state.isArgsCompatible(offset, stackTop) && !_state.targetArbitrary(stackTop) && !_state.targetArbitrary(offset);
 				if (
 					reachable &&
 					!identical && // we wouldn't just be swapping identical things

@@ -1,0 +1,40 @@
+initial: [lit0, v5, v7, v0, phi0, JUNK]
+targetStackTop: [lit0, phi0, v5, JUNK, lit0, JUNK, v0, v0, v0, v0, v0, v0, v0, phi0, v0, phi0, lit0, v0, phi0, phi0]
+targetStackTailSet: {v0}
+targetStackSize: 26
+// ----
+//             |      0      1      2      3      4      5 |      6      7      8      9     10     11     12     13     14     15     16     17     18     19     20     21     22     23     24     25
+//             +------------------------------------------ +--------------------------------------------------------------------------------------------------------------------------------------------
+//    (initial)|   lit0     v5     v7     v0   phi0      *
+//         DUP6|   lit0     v5     v7     v0   phi0      * |   lit0
+//         DUP3|   lit0     v5     v7     v0   phi0      * |   lit0   phi0
+//         DUP2|   lit0     v5     v7     v0   phi0      * |   lit0   phi0   lit0
+//         DUP1|   lit0     v5     v7     v0   phi0      * |   lit0   phi0   lit0   lit0
+//         DUP1|   lit0     v5     v7     v0   phi0      * |   lit0   phi0   lit0   lit0   lit0
+//         DUP4|   lit0     v5     v7     v0   phi0      * |   lit0   phi0   lit0   lit0   lit0   phi0
+//         DUP9|   lit0     v5     v7     v0   phi0      * |   lit0   phi0   lit0   lit0   lit0   phi0     v0
+//         DUP1|   lit0     v5     v7     v0   phi0      * |   lit0   phi0   lit0   lit0   lit0   phi0     v0     v0
+//         DUP1|   lit0     v5     v7     v0   phi0      * |   lit0   phi0   lit0   lit0   lit0   phi0     v0     v0     v0
+//         DUP1|   lit0     v5     v7     v0   phi0      * |   lit0   phi0   lit0   lit0   lit0   phi0     v0     v0     v0     v0
+//         DUP1|   lit0     v5     v7     v0   phi0      * |   lit0   phi0   lit0   lit0   lit0   phi0     v0     v0     v0     v0     v0
+//        DUP16|   lit0     v5     v7     v0   phi0      * |   lit0   phi0   lit0   lit0   lit0   phi0     v0     v0     v0     v0     v0     v5
+//        SWAP9|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   lit0   lit0   phi0     v0     v0     v0     v0     v0   lit0
+//         DUP2|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   lit0   lit0   phi0     v0     v0     v0     v0     v0   lit0     v0
+//         DUP8|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   lit0   lit0   phi0     v0     v0     v0     v0     v0   lit0     v0   phi0
+//         DUP2|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   lit0   lit0   phi0     v0     v0     v0     v0     v0   lit0     v0   phi0     v0
+//         DUP2|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   lit0   lit0   phi0     v0     v0     v0     v0     v0   lit0     v0   phi0     v0   phi0
+//         DUP1|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   lit0   lit0   phi0     v0     v0     v0     v0     v0   lit0     v0   phi0     v0   phi0   phi0
+//         DUP3|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   lit0   lit0   phi0     v0     v0     v0     v0     v0   lit0     v0   phi0     v0   phi0   phi0     v0
+//       SWAP14|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5     v0   lit0   phi0     v0     v0     v0     v0     v0   lit0     v0   phi0     v0   phi0   phi0   lit0
+//        SWAP1|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5     v0   lit0   phi0     v0     v0     v0     v0     v0   lit0     v0   phi0     v0   phi0   lit0   phi0
+//       SWAP14|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   phi0   lit0   phi0     v0     v0     v0     v0     v0   lit0     v0   phi0     v0   phi0   lit0     v0
+//        SWAP6|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   phi0   lit0   phi0     v0     v0     v0     v0     v0     v0     v0   phi0     v0   phi0   lit0   lit0
+//         DUP3|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   phi0   lit0   phi0     v0     v0     v0     v0     v0     v0     v0   phi0     v0   phi0   lit0   lit0   phi0
+//         DUP1|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   phi0   lit0   phi0     v0     v0     v0     v0     v0     v0     v0   phi0     v0   phi0   lit0   lit0   phi0   phi0
+//        SWAP2|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   phi0   lit0   phi0     v0     v0     v0     v0     v0     v0     v0   phi0     v0   phi0   lit0   phi0   phi0   lit0
+//          POP|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   phi0   lit0   phi0     v0     v0     v0     v0     v0     v0     v0   phi0     v0   phi0   lit0   phi0   phi0
+//         DUP5|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   phi0   lit0   phi0     v0     v0     v0     v0     v0     v0     v0   phi0     v0   phi0   lit0   phi0   phi0     v0
+//        SWAP2|   lit0     v5     v7     v0   phi0      * |   lit0   phi0     v5   phi0   lit0   phi0     v0     v0     v0     v0     v0     v0     v0   phi0     v0   phi0   lit0     v0   phi0   phi0
+//             +------------------------------------------ +--------------------------------------------------------------------------------------------------------------------------------------------
+//     (target)|                                      {v0} |   lit0   phi0     v5      *   lit0      *     v0     v0     v0     v0     v0     v0     v0   phi0     v0   phi0   lit0     v0   phi0   phi0
+// Status: Admissible
