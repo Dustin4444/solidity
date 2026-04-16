@@ -532,19 +532,22 @@ private:
 			if (!maybeIncorrectArgSlotDepth || maybeIncorrectArgSlotDepth->value < ReachableStackDepth - 1)
 			{
 				StackOffset const targetOffset{_stack.size()};
-				if (_state.count(_state.targetArg(targetOffset)) < _state.targetMinCount(_state.targetArg(targetOffset)))
+				auto const& targetArg = _state.targetArg(targetOffset);
+				if (_state.count(targetArg) < _state.targetMinCount(targetArg))
 				{
-					auto const sourceDepth = _stack.findSlotDepth(_state.targetArg(targetOffset));
-					if (!sourceDepth)
+					auto const sourceDepth = _stack.findSlotDepth(targetArg);
+					if (sourceDepth && _stack.dupReachable(*sourceDepth))
 					{
-						_stack.push(_state.targetArg(targetOffset));
+						_stack.dup(*sourceDepth);
 						return {ShuffleHelperResult::Status::StackModified};
 					}
-
-					if (!_stack.dupReachable(*sourceDepth))
-						return {ShuffleHelperResult::Status::StackTooDeep, _state.targetArg(targetOffset)};
-					_stack.dup(*sourceDepth);
-					return {ShuffleHelperResult::Status::StackModified};
+					// existing instance (if any) is out of reach — fall back to a push for freely-generatable args
+					if (_stack.canBeFreelyGenerated(targetArg))
+					{
+						_stack.push(targetArg);
+						return {ShuffleHelperResult::Status::StackModified};
+					}
+					return {ShuffleHelperResult::Status::StackTooDeep, targetArg};
 				}
 			}
 
@@ -840,6 +843,10 @@ private:
 		for (StackOffset const offset: _state.stackRange())
 		{
 			auto const& slotAtOffset = _stack[offset];
+			// freely-generatable slots (junk, literals, return labels) can always be reproduced with a push,
+			// so a deep existing copy doesn't make them unreachable.
+			if (_stack.canBeFreelyGenerated(slotAtOffset))
+				continue;
 			// we don't have enough of the slot
 			if (
 				_state.count(slotAtOffset) < _state.targetMinCount(slotAtOffset) &&
