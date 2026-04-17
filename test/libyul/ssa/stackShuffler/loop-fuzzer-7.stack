@@ -1,0 +1,41 @@
+initial: [lit0, lit0, v7, phi0, phi0, v0]
+targetStackTop: [v0, v0, lit0, v0, v0, v0, v0, v0, v0, v0, v0, v0, v0, v0, v0, v0, v0, JUNK]
+targetStackTailSet: {v0}
+targetStackSize: 22
+// ----
+//             |      0      1      2      3 |      4      5      6      7      8      9     10     11     12     13     14     15     16     17     18     19     20     21
+//             +---------------------------- +------------------------------------------------------------------------------------------------------------------------------
+//    (initial)|   lit0   lit0     v7   phi0 |   phi0     v0
+//        SWAP5|     v0   lit0     v7   phi0 |   phi0   lit0
+//         DUP6|     v0   lit0     v7   phi0 |   phi0   lit0     v0
+//        SWAP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0
+//         DUP2|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0     v0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0     v0     v0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0
+//         DUP1|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0
+//       SWAP15|     v0   lit0     v7   phi0 |   phi0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0   lit0
+//          POP|     v0   lit0     v7   phi0 |   phi0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0
+//    PUSH lit0|     v0   lit0     v7   phi0 |   phi0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0   lit0
+//       SWAP15|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0
+//       SWAP15|     v0   lit0     v7   phi0 |   phi0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0   lit0
+//          POP|     v0   lit0     v7   phi0 |   phi0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0
+//    PUSH lit0|     v0   lit0     v7   phi0 |   phi0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0   lit0
+//       SWAP15|     v0   lit0     v7   phi0 |   phi0     v0   lit0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0
+//       SWAP15|     v0   lit0     v7   phi0 |   phi0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0   lit0
+//          POP|     v0   lit0     v7   phi0 |   phi0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0
+//    PUSH lit0|     v0   lit0     v7   phi0 |   phi0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0   lit0
+//          ...|
+//             +---------------------------- +------------------------------------------------------------------------------------------------------------------------------
+//     (target)|                        {v0} |     v0     v0   lit0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0     v0      *
+// Status: MaxIterationsReached
