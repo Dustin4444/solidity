@@ -39,6 +39,9 @@ Bugfixes:
 * Parser: Fix a crash caused by invalid UTF-8 sequences in comments (including after inline assembly blocks). Such sequences now produce a proper error message instead.
 * Parser: Fix a crash caused by unhandled `Token::Illegal` at the top level of Solidity source and inside Yul `parseStatement`. Invalid tokens now produce a fatal parser error with a descriptive message.
 * Standard JSON: Fix invalid UTF-8 bytes in `formattedMessage` when a source location excerpt contains invalid UTF-8. The field now falls back to the plain message in that case.
+* Parser: Treat invalid UTF-8 sequences in comments and Natspec as errors. Such sequences used to be ignored and would cause a crash if they ended up inside JSON output.
+* Parser: Fix inaccurate or vague error messages in errors triggered by invalid UTF-8 in comments.
+* Standard JSON: Fix invalid UTF-8 bytes in the `formattedMessage` field of errors when a source location excerpt contains invalid UTF-8. The field now falls back to the plain message in that case.
 
 
 ### 0.8.34 (2026-02-18)
