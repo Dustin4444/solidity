@@ -1,0 +1,37 @@
+{
+    "errors": [
+        {
+            "component": "general",
+            "errorCode": "2314",
+            "formattedMessage": "Expected identifier but got 'ILLEGAL'",
+            "message": "Expected identifier but got 'ILLEGAL'",
+            "severity": "error",
+            "sourceLocation": {
+                "end": 10,
+                "file": "source_invalid_utf8.sol",
+                "start": 9
+            },
+            "type": "ParserError"
+        },
+        {
+            "component": "general",
+            "errorCode": "2314",
+            "formattedMessage": "ParserError: Expected identifier but got '{'
+ --> valid.sol:1:10:
+  |
+1 | contract {}
+  |          ^
+
+",
+            "message": "Expected identifier but got '{'",
+            "severity": "error",
+            "sourceLocation": {
+                "end": 10,
+                "file": "valid.sol",
+                "start": 9
+            },
+            "type": "ParserError"
+        }
+    ],
+    "sources": {}
+}

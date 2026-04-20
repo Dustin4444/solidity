@@ -1,0 +1,21 @@
+{
+	"language": "Solidity",
+	"sources":
+	{
+		"valid.sol":
+		{
+			"urls": ["valid.sol"]
+		},
+		"source_invalid_utf8.sol":
+		{
+			"urls": ["source_invalid_utf8.sol"]
+		}
+	},
+	"settings":
+	{
+		"outputSelection":
+		{
+			"*": { "*": ["abi"] }
+		}
+	}
+}
