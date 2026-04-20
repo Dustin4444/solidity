@@ -73,8 +73,7 @@ Json formatError(
 	error["component"] = _component;
 	error["severity"] = Error::formatErrorSeverityLowercase(Error::errorSeverity(_type));
 	error["message"] = _message;
-	std::string const& fmtMsg = (_formattedMessage.length() > 0) ? _formattedMessage : _message;
-	error["formattedMessage"] = util::validateUTF8(fmtMsg) ? fmtMsg : _message;
+	error["formattedMessage"] = (_formattedMessage.length() > 0 && validateUTF8(fmtMsg)) ? _formattedMessage : _message;
 	if (_sourceLocation.is_object())
 		error["sourceLocation"] = _sourceLocation;
 	if (_secondarySourceLocation.is_array())
