@@ -3,7 +3,13 @@
         {
             "component": "general",
             "errorCode": "2314",
-            "formattedMessage": "Expected identifier but got 'ILLEGAL'",
+            "formattedMessage": "ParserError: Expected identifier but got 'ILLEGAL'
+ --> source_invalid_utf8.sol:1:10:
+  |
+1 | contract \ufffd {}
+  |          ^
+
+",
             "message": "Expected identifier but got 'ILLEGAL'",
             "severity": "error",
             "sourceLocation": {

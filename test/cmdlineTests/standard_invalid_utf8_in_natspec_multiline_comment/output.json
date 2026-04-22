@@ -3,7 +3,13 @@
         {
             "component": "general",
             "errorCode": "1605",
-            "formattedMessage": "Invalid UTF-8 sequence in comment.",
+            "formattedMessage": "ParserError: Invalid UTF-8 sequence in comment.
+ --> source_invalid_utf8.sol:1:1:
+  |
+1 | /**\ufffd*/
+  | ^^^^^^
+
+",
             "message": "Invalid UTF-8 sequence in comment.",
             "severity": "error",
             "sourceLocation": {

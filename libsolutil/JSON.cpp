@@ -132,7 +132,8 @@ std::string jsonPrint(Json const& _input, JsonFormat const& _format)
 	std::string dumped = _input.dump(
 		/* indent */ (_format.format == JsonFormat::Pretty) ? static_cast<int>(_format.indent) : -1,
 		/* indent_char */ ' ',
-		/* ensure_ascii */ true
+		/* ensure_ascii */ true,
+		/* error_handler */ Json::error_handler_t::replace
 	);
 
 	return dumped;
