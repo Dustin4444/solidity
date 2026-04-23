@@ -26,6 +26,7 @@
 #include <libsolutil/Visitor.h>
 
 #include <range/v3/algorithm/count.hpp>
+#include <range/v3/algorithm/none_of.hpp>
 #include <range/v3/algorithm/replace.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/to_container.hpp>
@@ -226,24 +227,30 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 	bool const junkCanBeAdded = m_junkAdmittingBlocksFinder->allowsAdditionOfJunk(_blockId);
 
 	auto const& operationsLiveOut = m_liveness.operationsLiveOut(_blockId);
-	blockLayout.operationIn.reserve(block.operations.size());
-	for (std::size_t operationIndex = 0; operationIndex < block.operations.size(); ++operationIndex)
+	blockLayout.operationIn.reserve(operationsLiveOut.size());
+	std::size_t operationIndex = 0;
+	for (SSACFG::InstId const instId: block.instructions)
 	{
-		SSACFG::Operation const& operation = m_cfg.operation(block.operations[operationIndex]);
+		auto const& inst = m_cfg.inst(instId);
+		if (inst.opcode != Opcode::BuiltinCall && inst.opcode != Opcode::Call)
+			continue;
 		LivenessAnalysis::LivenessData opLiveOut = operationsLiveOut[operationIndex];
 		auto opLiveOutWithoutOutputs = opLiveOut;
-		for (auto const& output: operation.outputs)
+		for (auto const& output: inst.outputs)
 			opLiveOutWithoutOutputs.erase(output);
 
 		std::vector<Slot> requiredStackTop;
-		if (auto const* call = std::get_if<SSACFG::Call>(&operation.kind))
-			if (call->canContinue)
+		if (inst.opcode == Opcode::Call)
+		{
+			auto const& callPayload = m_cfg.callPayload(instId);
+			if (callPayload.canContinue)
 			{
-				auto const callSiteID = m_callSites.callSiteID(&call->call.get());
+				auto const callSiteID = m_callSites.callSiteID(&callPayload.call.get());
 				yulAssert(callSiteID.has_value());
 				requiredStackTop.emplace_back(Slot::makeFunctionCallReturnLabel(*callSiteID));
 			}
-		requiredStackTop += operation.inputs | ranges::views::transform(Slot::makeValueID);
+		}
+		requiredStackTop += inst.inputs | ranges::views::transform(Slot::makeValueID);
 
 		for (StackType::Depth depth{0}; depth < stack.size(); ++depth.value)
 			if (
@@ -273,8 +280,9 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 		blockLayout.operationIn.push_back(currentStackData);
 		for (std::size_t i = 0; i < requiredStackTop.size(); ++i)
 			stack.pop<false>();
-		for (auto const& val: operation.outputs)
+		for (auto const& val: inst.outputs)
 			stack.push<false>(Slot::makeValueID(val));
+		++operationIndex;
 	}
 
 	std::visit(
@@ -304,7 +312,9 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				}
 
 				yulAssert(!stack.empty() && stack.top().isValueID() && stack.top().valueID() == _cJump.condition);
-				yulAssert(m_cfg.block(_cJump.nonZero).phis.empty());
+				yulAssert(ranges::none_of(m_cfg.block(_cJump.nonZero).instructions, [this](SSACFG::InstId id) {
+					return m_cfg.inst(id).opcode == Opcode::Phi;
+				}));
 
 				// exitIn = pre-JUMPI state (condition on top) for CodeTransform
 				blockLayout.exitIn = currentStackData;

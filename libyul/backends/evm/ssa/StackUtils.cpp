@@ -203,10 +203,15 @@ CallSites solidity::yul::ssa::gatherCallSites(SSACFG const& _cfg)
 			}
 		});
 
-		for (auto const opId: block.operations)
-			if (auto const* call = std::get_if<SSACFG::Call>(&_cfg.operation(opId).kind))
-				if (call->canContinue)
-					result.addCallSite(&call->call.get());
+		for (SSACFG::InstId const instId: block.instructions)
+		{
+			auto const& inst = _cfg.inst(instId);
+			if (inst.opcode != Opcode::Call)
+				continue;
+			auto const& callPayload = _cfg.callPayload(instId);
+			if (callPayload.canContinue)
+				result.addCallSite(&callPayload.call.get());
+		}
 	}
 	return result;
 }
