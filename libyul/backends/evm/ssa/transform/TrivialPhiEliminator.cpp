@@ -194,9 +194,20 @@ private:
 				ranges::replace(vals, _phi, same);
 				if (targetPhi.value() < phiTargetBlocks.size())
 					for (auto const blockId: phiTargetBlocks[targetPhi.value()])
-						for (auto& u: cfg.block(blockId).upsilons)
+					{
+						auto& block = cfg.block(blockId);
+						for (auto& u: block.upsilons)
 							if (u.phi == targetPhi && u.value == _phi)
 								u.value = same;
+						for (SSACFG::InstId const instId: block.instructions)
+						{
+							auto& ins = cfg.inst(instId);
+							if (ins.opcode == Opcode::Upsilon
+								&& cfg.upsilonPhi(instId) == targetPhi
+								&& ins.inputs.at(0) == _phi)
+								ins.inputs[0] = same;
+						}
+					}
 				// maintain reverse index
 				if (same.isPhi())
 				{
@@ -253,6 +264,12 @@ private:
 			auto& block = cfg.block(blockId);
 			for (auto& u: block.upsilons)
 				u.value = canonicalize(u.value);
+			for (SSACFG::InstId const instId: block.instructions)
+			{
+				auto& ins = cfg.inst(instId);
+				if (ins.opcode == Opcode::Upsilon)
+					ins.inputs[0] = canonicalize(ins.inputs[0]);
+			}
 			for (auto const opId: block.operations)
 				for (auto& input: cfg.operation(opId).inputs)
 					input = canonicalize(input);

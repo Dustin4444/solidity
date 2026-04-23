@@ -22,9 +22,15 @@ using namespace solidity::yul::ssa;
 
 PhiInverse::PhiInverse(SSACFG const& _cfg, SSACFG::BlockId const& _from, SSACFG::BlockId const& _to)
 {
-	for (auto const& [phiValue, phi]: _cfg.block(_from).upsilons)
+	for (SSACFG::InstId const instId: _cfg.block(_from).instructions)
+	{
+		auto const& inst = _cfg.inst(instId);
+		if (inst.opcode != Opcode::Upsilon)
+			continue;
+		SSACFG::ValueId const phi = _cfg.upsilonPhi(instId);
 		if (_cfg.phiInfo(phi).block == _to)
-			m_phiToPreImage[phi] = phiValue;
+			m_phiToPreImage[phi] = inst.inputs.at(0);
+	}
 }
 
 bool PhiInverse::noOp() const
