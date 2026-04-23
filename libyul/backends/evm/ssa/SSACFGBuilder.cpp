@@ -246,7 +246,8 @@ void SSACFGBuilder::operator()(Switch const& _switch)
 				m_dialect.builtin(*equalityBuiltinHandle),
 				ghostCall
 			},
-			{m_graph.newLiteral(debugDataOf(_case), _case.value->value.value()), expression}
+			{m_graph.newLiteral(debugDataOf(_case), _case.value->value.value()), expression},
+			m_currentBlock
 		}, debugDataOf(_case));
 		currentBlock().operations.emplace_back(opId);
 		return outputValue;
@@ -452,7 +453,7 @@ std::vector<SSACFG::ValueId> SSACFGBuilder::visitFunctionCall(FunctionCall const
 		[&](BuiltinName const& _builtinName)
 		{
 			auto const& builtin = m_dialect.builtin(_builtinName.handle);
-			SSACFG::Operation result{{}, SSACFG::BuiltinCall{builtin, _call}, {}};
+			SSACFG::Operation result{{}, SSACFG::BuiltinCall{builtin, _call}, {}, m_currentBlock};
 			for (auto&& [idx, arg]: _call.arguments | ranges::views::enumerate | ranges::views::reverse)
 				if (!builtin.literalArgument(idx).has_value())
 					result.inputs.emplace_back(std::visit(*this, arg));
@@ -470,7 +471,7 @@ std::vector<SSACFG::ValueId> SSACFGBuilder::visitFunctionCall(FunctionCall const
 			canContinue = m_sideEffects.functionSideEffects().at(definition).canContinue;
 			auto const calleeIt = m_functionScopeToID.find(&function);
 			yulAssert(calleeIt != m_functionScopeToID.end(), "Called function has no registered graph id.");
-			SSACFG::Operation result{{}, SSACFG::Call{calleeIt->second, _call, canContinue}, {}};
+			SSACFG::Operation result{{}, SSACFG::Call{calleeIt->second, _call, canContinue}, {}, m_currentBlock};
 			for (auto const& arg: _call.arguments | ranges::views::reverse)
 				result.inputs.emplace_back(std::visit(*this, arg));
 			for (size_t i = 0; i < function.numReturns; ++i)

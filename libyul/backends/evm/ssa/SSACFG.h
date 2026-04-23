@@ -93,6 +93,7 @@ public:
 		std::vector<ValueId> outputs{};
 		std::variant<BuiltinCall, Call> kind;
 		std::vector<ValueId> inputs{};
+		BlockId block{};
 	};
 	struct BasicBlock
 	{
@@ -167,6 +168,9 @@ public:
 
 	OperationId makeOperation(Operation _op, langutil::DebugData::ConstPtr _debugData = {})
 	{
+		yulAssert(_op.block.hasValue());
+		for (ValueId const& output: _op.outputs)
+			yulAssert(output.isVariable() && m_variables.at(output.value()).definingBlock == _op.block);
 		OperationId id{static_cast<OperationId::ValueType>(m_operations.size())};
 		m_operations.emplace_back(std::move(_op));
 		if (debugInfo && _debugData)
