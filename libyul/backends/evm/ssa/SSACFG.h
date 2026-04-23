@@ -133,6 +133,11 @@ public:
 		/// Upsilon assignments placed at the block exit (before the terminator).
 		/// They record the phi pre-images for successor blocks.
 		std::vector<Upsilon> upsilons;
+		/// Uniform per-block instruction list, populated in parallel with phis/
+		/// operations/upsilons as the builder emits them. Consumers migrating to
+		/// the Inst pool iterate this and filter by Opcode. During the dual-write
+		/// window the three legacy vectors remain authoritative.
+		std::vector<InstId> instructions;
 		std::variant<MainExit, Jump, ConditionalJump, FunctionReturn, Terminated> exit = MainExit{};
 
 		template<std::invocable<BlockId> Callable>
@@ -171,7 +176,7 @@ public:
 	BlockId makeBlock(langutil::DebugData::ConstPtr _debugData)
 	{
 		BlockId blockId { static_cast<BlockId::ValueType>(m_blocks.size()) };
-		m_blocks.emplace_back(BasicBlock{{}, {}, {}, {}, BasicBlock::Terminated{}});
+		m_blocks.emplace_back(BasicBlock{{}, {}, {}, {}, {}, BasicBlock::Terminated{}});
 		if (debugInfo)
 			debugInfo->setBlockDebugData(blockId, std::move(_debugData));
 		return blockId;
@@ -202,9 +207,11 @@ public:
 			m_callPayloads.push_back(std::get<Call>(_op.kind));
 			opcode = Opcode::Call;
 		}
+		BlockId const block = _op.block;
 		Inst mirrored{opcode, payloadIdx, _op.block, _op.inputs, _op.outputs};
 		m_operations.emplace_back(std::move(_op));
-		appendInst(std::move(mirrored));
+		InstId const instId = appendInst(std::move(mirrored));
+		m_blocks.at(block.value).instructions.push_back(instId);
 		if (debugInfo && _debugData)
 			debugInfo->setOperationDebugData(id, std::move(_debugData));
 		return id;
@@ -238,7 +245,9 @@ public:
 		uint32_t const payloadIdx = static_cast<uint32_t>(m_upsilonPhis.size());
 		m_upsilonPhis.push_back(_phi);
 		++m_numUpsilonInsts;
-		return appendInst(Inst{Opcode::Upsilon, payloadIdx, _block, {_value}, {}});
+		InstId const id = appendInst(Inst{Opcode::Upsilon, payloadIdx, _block, {_value}, {}});
+		m_blocks.at(_block.value).instructions.push_back(id);
+		return id;
 	}
 
 private:
@@ -286,7 +295,8 @@ public:
 		auto const id = ValueId::makePhi(static_cast<ValueId::ValueType>(value));
 		if (debugInfo)
 			debugInfo->setValueDebugData(id, debugInfo->blockDebugData(_definingBlock));
-		appendInst(Inst{Opcode::Phi, 0, _definingBlock, {}, {id}});
+		InstId const instId = appendInst(Inst{Opcode::Phi, 0, _definingBlock, {}, {id}});
+		m_blocks.at(_definingBlock.value).instructions.push_back(instId);
 		return id;
 	}
 	ValueId newVariable(BlockId const _definingBlock)

@@ -73,9 +73,16 @@ private:
 	void cleanUnreachableUpsilons()
 	{
 		for (SSACFG::BlockId blockId{0}; blockId.value < cfg.numBlocks(); ++blockId.value)
-			std::erase_if(cfg.block(blockId).upsilons, [](SSACFG::Upsilon const& u) {
+		{
+			auto& block = cfg.block(blockId);
+			std::erase_if(block.upsilons, [](SSACFG::Upsilon const& u) {
 				return u.value.isUnreachable();
 			});
+			std::erase_if(block.instructions, [this](SSACFG::InstId id) {
+				auto const& ins = cfg.inst(id);
+				return ins.opcode == Opcode::Upsilon && ins.inputs.at(0).isUnreachable();
+			});
+		}
 	}
 
 	void buildIndices()
@@ -162,7 +169,14 @@ private:
 			same = cfg.unreachableValue();
 
 		// remove the phi from its defining block
-		std::erase(cfg.block(cfg.phiInfo(_phi).block).phis, _phi);
+		{
+			auto& block = cfg.block(cfg.phiInfo(_phi).block);
+			std::erase(block.phis, _phi);
+			std::erase_if(block.instructions, [this, _phi](SSACFG::InstId id) {
+				auto const& ins = cfg.inst(id);
+				return ins.opcode == Opcode::Phi && !ins.outputs.empty() && ins.outputs.front() == _phi;
+			});
+		}
 
 		// record the substitution
 		if (phiIdx >= substitution.size())
@@ -199,7 +213,14 @@ private:
 		if (phiIdx < phiTargetBlocks.size())
 		{
 			for (auto const blockId: phiTargetBlocks[phiIdx])
-				std::erase_if(cfg.block(blockId).upsilons, [_phi](auto const& u) { return u.phi == _phi; });
+			{
+				auto& block = cfg.block(blockId);
+				std::erase_if(block.upsilons, [_phi](auto const& u) { return u.phi == _phi; });
+				std::erase_if(block.instructions, [this, _phi](SSACFG::InstId id) {
+					auto const& ins = cfg.inst(id);
+					return ins.opcode == Opcode::Upsilon && cfg.upsilonPhi(id) == _phi;
+				});
+			}
 			phiTargetBlocks[phiIdx].clear();
 		}
 
