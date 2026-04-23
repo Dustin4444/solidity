@@ -117,6 +117,11 @@ private:
 	LivenessData blockExitValues(SSACFG::BlockId const& _blockId) const;
 
 	SSACFG const& m_cfg;
+	/// Cache keyed by InstId, built once at construction. Scaffolded here so that
+	/// once ValueId drops its Kind tag (PR 13) the filter can flip to
+	/// `!m_isLiteralInst[v.instIdx()]` without restructuring this file a second
+	/// time.
+	std::vector<bool> m_isLiteralInst;
 	traversal::ForwardTopologicalSort m_topologicalSort;
 	SSACFGLoopNestingForest m_loopNestingForest;
 	std::vector<LivenessData> m_liveIns;

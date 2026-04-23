@@ -169,12 +169,16 @@ LivenessAnalysis::LivenessData::LiveCounts::const_iterator LivenessAnalysis::Liv
 
 LivenessAnalysis::LivenessAnalysis(SSACFG const& _cfg):
 	m_cfg(_cfg),
+	m_isLiteralInst(_cfg.numInsts()),
 	m_topologicalSort(_cfg),
 	m_loopNestingForest(m_topologicalSort),
 	m_liveIns(_cfg.numBlocks()),
 	m_liveOuts(_cfg.numBlocks()),
 	m_operationLiveOuts(_cfg.numBlocks())
 {
+	for (uint32_t i = 0; i < _cfg.numInsts(); ++i)
+		m_isLiteralInst[i] = _cfg.inst(SSACFG::InstId{i}).opcode == Opcode::Const;
+
 	runDagDfs();
 	for (auto const loopRootNode: m_loopNestingForest.loopRootNodes())
 		runLoopTreeDfs(loopRootNode);
@@ -201,11 +205,15 @@ void LivenessAnalysis::runDagDfs()
 
 		// live <- PhiUses(B)
 		LivenessData live{};
-		for (auto const& upsilon: block.upsilons)
+		for (SSACFG::InstId const instId: block.instructions)
 		{
-			yulAssert(!upsilon.value.isUnreachable());
-			if (!upsilon.value.isLiteral())
-				live.insert(upsilon.value);
+			auto const& inst = m_cfg.inst(instId);
+			if (inst.opcode != Opcode::Upsilon)
+				continue;
+			SSACFG::ValueId const v = inst.inputs.at(0);
+			yulAssert(!v.isUnreachable());
+			if (!v.isLiteral())
+				live.insert(v);
 		}
 
 		// for each S \in succs(B) s.t. (B, S) not a back edge: live <- live \cup (LiveIn(S) - PhiDefs(S))
@@ -236,19 +244,25 @@ void LivenessAnalysis::runDagDfs()
 			// add value ids to the live set that are used in exit blocks
 			live += blockExitValues(blockId);
 
-			for (auto const opId: block.operations | ranges::views::reverse)
+			for (SSACFG::InstId const instId: block.instructions | ranges::views::reverse)
 			{
-				auto const& op = m_cfg.operation(opId);
+				auto const& inst = m_cfg.inst(instId);
+				if (inst.opcode != Opcode::BuiltinCall && inst.opcode != Opcode::Call)
+					continue;
 				// remove variables defined at p from live
-				live.eraseAll(op.outputs | ranges::views::filter(excludingLiteralsFilter()) | ranges::to<std::vector>);
+				live.eraseAll(inst.outputs | ranges::views::filter(excludingLiteralsFilter()) | ranges::to<std::vector>);
 				// add uses at p to live
-				live.insertAll(op.inputs | ranges::views::filter(excludingLiteralsFilter()) | ranges::to<std::vector>);
+				live.insertAll(inst.inputs | ranges::views::filter(excludingLiteralsFilter()) | ranges::to<std::vector>);
 			}
 		}
 
 		// livein(b) <- live \cup PhiDefs(B)
-		for (auto const& phi: block.phis)
-			live.insert(phi);
+		for (SSACFG::InstId const instId: block.instructions)
+		{
+			auto const& inst = m_cfg.inst(instId);
+			if (inst.opcode == Opcode::Phi)
+				live.insert(inst.outputs.at(0));
+		}
 		m_liveIns[blockId.value] = live;
 	}
 }
@@ -283,21 +297,30 @@ void LivenessAnalysis::fillOperationsLiveOut()
 {
 	for (SSACFG::BlockId blockId{0}; blockId.value < m_cfg.numBlocks(); ++blockId.value)
 	{
-		auto const& operations = m_cfg.block(blockId).operations;
+		auto const& block = m_cfg.block(blockId);
+		std::size_t opCount = 0;
+		for (SSACFG::InstId const instId: block.instructions)
+		{
+			auto const opcode = m_cfg.inst(instId).opcode;
+			if (opcode == Opcode::BuiltinCall || opcode == Opcode::Call)
+				++opCount;
+		}
 		auto& liveOuts = m_operationLiveOuts[blockId.value];
-		liveOuts.resize(operations.size());
-		if (!operations.empty())
+		liveOuts.resize(opCount);
+		if (opCount > 0)
 		{
 			auto live = m_liveOuts[blockId.value];
 			live += blockExitValues(blockId);
 			auto rit = liveOuts.rbegin();
-			for (auto const opId: operations | ranges::views::reverse)
+			for (SSACFG::InstId const instId: block.instructions | ranges::views::reverse)
 			{
-				auto const& op = m_cfg.operation(opId);
+				auto const& inst = m_cfg.inst(instId);
+				if (inst.opcode != Opcode::BuiltinCall && inst.opcode != Opcode::Call)
+					continue;
 				*rit = live;
-				for (auto const& output: op.outputs | ranges::views::filter(excludingLiteralsFilter()))
+				for (auto const& output: inst.outputs | ranges::views::filter(excludingLiteralsFilter()))
 					live.erase(output);
-				for (auto const& input: op.inputs | ranges::views::filter(excludingLiteralsFilter()))
+				for (auto const& input: inst.inputs | ranges::views::filter(excludingLiteralsFilter()))
 					live.insert(input);
 				++rit;
 			}
