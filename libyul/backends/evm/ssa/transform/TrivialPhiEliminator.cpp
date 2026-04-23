@@ -269,6 +269,9 @@ private:
 				auto& ins = cfg.inst(instId);
 				if (ins.opcode == Opcode::Upsilon)
 					ins.inputs[0] = canonicalize(ins.inputs[0]);
+				else if (ins.opcode == Opcode::BuiltinCall || ins.opcode == Opcode::Call)
+					for (auto& input: ins.inputs)
+						input = canonicalize(input);
 			}
 			for (auto const opId: block.operations)
 				for (auto& input: cfg.operation(opId).inputs)

@@ -46,11 +46,16 @@ std::string formatPhi(SSACFG const& _cfg, SSACFG::ValueId _phiId)
 	// Collect all upsilons targeting _phiId from the whole CFG.
 	std::vector<std::string> formattedUpsilons;
 	for (SSACFG::BlockId::ValueType bv = 0; bv < _cfg.numBlocks(); ++bv)
-		for (auto const& u: _cfg.block(SSACFG::BlockId{bv}).upsilons)
-			if (u.phi == _phiId)
+		for (SSACFG::InstId const instId: _cfg.block(SSACFG::BlockId{bv}).instructions)
+		{
+			auto const& inst = _cfg.inst(instId);
+			if (inst.opcode != Opcode::Upsilon)
+				continue;
+			if (_cfg.upsilonPhi(instId) == _phiId)
 				formattedUpsilons.push_back(
-					fmt::format("Block {} => {}", bv, u.value.str(_cfg))
+					fmt::format("Block {} => {}", bv, inst.inputs.at(0).str(_cfg))
 				);
+		}
 	if (!formattedUpsilons.empty())
 		return fmt::format("φ(\\l\\\n\t{}\\l\\\n)", fmt::join(formattedUpsilons, ",\\l\\\n\t"));
 	return "φ()";
@@ -99,30 +104,38 @@ protected:
 		else
 			_out << fmt::format("\\\nBlock {}\\n", _blockId.value);
 
-		for (auto const& phi: block.phis)
-			_out << fmt::format("phi{} := {}\\l\\\n", phi.value(), formatPhi(m_cfg, phi));
-		for (auto const opId: block.operations)
+		// Phis first, then BuiltinCall / Call in program order. Upsilons are rendered
+		// under successor phis (via formatPhi) and skipped here.
+		for (SSACFG::InstId const instId: block.instructions)
 		{
-			auto const& operation = m_cfg.operation(opId);
-			std::string const label = std::visit(GenericVisitor{
-				[&](SSACFG::Call const& _call) -> std::string {
-					if (m_controlFlow)
-						return m_controlFlow->functionGraph(_call.graphID)->name;
-					return fmt::format("func{}", _call.graphID);
-				},
-				[&](SSACFG::BuiltinCall const& _call) -> std::string {
-					return _call.builtin.get().name;
-				}
-			}, operation.kind);
-			if (!operation.outputs.empty())
+			auto const& inst = m_cfg.inst(instId);
+			if (inst.opcode != Opcode::Phi)
+				continue;
+			SSACFG::ValueId const phi = inst.outputs.at(0);
+			_out << fmt::format("phi{} := {}\\l\\\n", phi.value(), formatPhi(m_cfg, phi));
+		}
+		for (SSACFG::InstId const instId: block.instructions)
+		{
+			auto const& inst = m_cfg.inst(instId);
+			if (inst.opcode != Opcode::BuiltinCall && inst.opcode != Opcode::Call)
+				continue;
+			std::string label;
+			if (inst.opcode == Opcode::Call)
+			{
+				auto const graphID = m_cfg.callPayload(instId).graphID;
+				label = m_controlFlow ? m_controlFlow->functionGraph(graphID)->name : fmt::format("func{}", graphID);
+			}
+			else
+				label = m_cfg.builtinPayload(instId).builtin.get().name;
+			if (!inst.outputs.empty())
 				_out << fmt::format(
 					"{} := ",
-					fmt::join(operation.outputs | ranges::views::transform(valueToString), ", ")
+					fmt::join(inst.outputs | ranges::views::transform(valueToString), ", ")
 				);
 			_out << fmt::format(
 				"{}({})\\l\\\n",
 				escapeLabel(label),
-				fmt::join(operation.inputs | ranges::views::transform(valueToString), ", ")
+				fmt::join(inst.inputs | ranges::views::transform(valueToString), ", ")
 			);
 		}
 	}

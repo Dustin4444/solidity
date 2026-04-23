@@ -236,6 +236,27 @@ public:
 		return m_upsilonPhis.at(m_insts.at(_id.value).payloadIndex);
 	}
 
+	/// Returns the u256 payload of a Const Inst.
+	u256 const& literalPayload(InstId _id) const
+	{
+		yulAssert(m_insts.at(_id.value).opcode == Opcode::Const);
+		return m_literalPayloads.at(m_insts.at(_id.value).payloadIndex);
+	}
+
+	/// Returns the BuiltinCall payload of a BuiltinCall Inst.
+	BuiltinCall const& builtinPayload(InstId _id) const
+	{
+		yulAssert(m_insts.at(_id.value).opcode == Opcode::BuiltinCall);
+		return m_builtinPayloads.at(m_insts.at(_id.value).payloadIndex);
+	}
+
+	/// Returns the Call payload of a Call Inst.
+	Call const& callPayload(InstId _id) const
+	{
+		yulAssert(m_insts.at(_id.value).opcode == Opcode::Call);
+		return m_callPayloads.at(m_insts.at(_id.value).payloadIndex);
+	}
+
 	/// Appends an Upsilon Inst to the pool. Called by the builder alongside
 	/// growing block.upsilons; pulled out so the counter and side-table plumbing
 	/// stays in the graph.
