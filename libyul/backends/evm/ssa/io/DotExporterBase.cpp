@@ -177,7 +177,7 @@ std::string DotExporterBase::exportFunction(SSACFG const& _function, bool _wrapI
 	if (_wrapInDigraph)
 		out << fmt::format("digraph SSACFG {{\nnodesep=0.7;\ngraph[fontname=\"DejaVu Sans\", rankdir={}]\nnode[shape=box,fontname=\"DejaVu Sans\"];\n\n", m_rankDir);
 
-	static auto constexpr argsTransform = [](auto const& arg) { return fmt::format("v{}", arg.value()); };
+	static auto constexpr argsTransform = [](auto const& arg) { return fmt::format("v{}", arg.instIdx()); };
 	auto const entryHandle = fmt::format("FunctionEntry_{}_{}", escapeId(_function.name), _function.entry.value);
 	if (_function.numReturns > 0)
 		out << fmt::format("{} [label=\"function {}:\n [{} returns] := {}({})\"];\n",

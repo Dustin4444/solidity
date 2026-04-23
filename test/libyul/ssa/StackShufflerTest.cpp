@@ -100,21 +100,21 @@ Slot parseSlot(std::string_view token)
 	if (token.starts_with("v"))
 	{
 		if (auto const num = util::parseArithmetic<ValueId::ValueType>(token.substr(1)))
-			return Slot::makeValueID(ValueId::makeVariable(*num));
+			return Slot::makeValueID(ValueId::makeOutput(SSACFG::InstId{*num}, 0, SSACFG::Opcode::BuiltinCall));
 		throw std::runtime_error(fmt::format("Couldn't parse variable token: {}", token));
 	}
 
 	if (token.starts_with("phi"))
 	{
 		if (auto const num = util::parseArithmetic<ValueId::ValueType>(token.substr(3)))
-			return Slot::makeValueID(ValueId::makePhi(*num));
+			return Slot::makeValueID(ValueId::makeOutput(SSACFG::InstId{*num}, 0, SSACFG::Opcode::Phi));
 		throw std::runtime_error(fmt::format("Couldn't parse phi token: {}", token));
 	}
 
 	if (token.starts_with("lit"))
 	{
 		if (auto const num = util::parseArithmetic<ValueId::ValueType>(token.substr(3)))
-			return Slot::makeValueID(ValueId::makeLiteral(*num));
+			return Slot::makeValueID(ValueId::makeOutput(SSACFG::InstId{*num}, 0, SSACFG::Opcode::Const));
 		throw std::runtime_error(fmt::format("Couldn't parse literal token: {}", token));
 	}
 

@@ -94,7 +94,7 @@ private:
 					continue;
 				SSACFG::ValueId const phi = cfg.upsilonPhi(instId);
 				SSACFG::ValueId const value = inst.inputs.at(0);
-				auto const phiIdx = phi.value();
+				auto const phiIdx = phi.instIdx();
 				if (phiIdx >= upsilonValuesForPhi.size())
 				{
 					upsilonValuesForPhi.resize(phiIdx + 1);
@@ -106,7 +106,7 @@ private:
 				phiTargetBlocks[phiIdx].push_back(blockId);
 				if (value.isPhi())
 				{
-					auto const valIdx = value.value();
+					auto const valIdx = value.instIdx();
 					if (valIdx >= reversePhiUpsilonValues.size())
 						reversePhiUpsilonValues.resize(valIdx + 1);
 					reversePhiUpsilonValues[valIdx].push_back(phi);
@@ -127,7 +127,7 @@ private:
 			for (auto& val: upsilonValues)
 				if (val.isPhi())
 				{
-					auto const idx = val.value();
+					auto const idx = val.instIdx();
 					bool const hasUpsilons = idx < upsilonValuesForPhi.size() && !upsilonValuesForPhi[idx].empty();
 					if (!hasUpsilons)
 						val = unreachable;
@@ -153,7 +153,7 @@ private:
 
 	void tryRemove(SSACFG::ValueId _phi)
 	{
-		auto const phiIdx = _phi.value();
+		auto const phiIdx = _phi.instIdx();
 
 		// early exit if this phi was already processed
 		if (phiIdx < substitution.size() && substitution[phiIdx].hasValue())
@@ -179,8 +179,7 @@ private:
 
 		// remove the phi from its defining block
 		{
-			auto& block = cfg.block(cfg.phiInfo(_phi).block);
-			std::erase(block.phis, _phi);
+			auto& block = cfg.block(cfg.inst(_phi.instId()).block);
 			std::erase_if(block.instructions, [this, _phi](SSACFG::InstId id) {
 				auto const& ins = cfg.inst(id);
 				return ins.opcode == Opcode::Phi && !ins.outputs.empty() && ins.outputs.front() == _phi;
@@ -199,10 +198,10 @@ private:
 			for (auto const targetPhi: reversePhiUpsilonValues[phiIdx])
 			{
 				// update upsilonValuesForPhi[targetPhi]: _phi with same
-				auto& vals = upsilonValuesForPhi[targetPhi.value()];
+				auto& vals = upsilonValuesForPhi[targetPhi.instIdx()];
 				ranges::replace(vals, _phi, same);
-				if (targetPhi.value() < phiTargetBlocks.size())
-					for (auto const blockId: phiTargetBlocks[targetPhi.value()])
+				if (targetPhi.instIdx() < phiTargetBlocks.size())
+					for (auto const blockId: phiTargetBlocks[targetPhi.instIdx()])
 					{
 						auto& block = cfg.block(blockId);
 						for (SSACFG::InstId const instId: block.instructions)
@@ -217,9 +216,9 @@ private:
 				// maintain reverse index
 				if (same.isPhi())
 				{
-					if (same.value() >= reversePhiUpsilonValues.size())
-						reversePhiUpsilonValues.resize(same.value() + 1);
-					reversePhiUpsilonValues[same.value()].push_back(targetPhi);
+					if (same.instIdx() >= reversePhiUpsilonValues.size())
+						reversePhiUpsilonValues.resize(same.instIdx() + 1);
+					reversePhiUpsilonValues[same.instIdx()].push_back(targetPhi);
 				}
 				cascades.push_back(targetPhi);
 			}
@@ -248,7 +247,7 @@ private:
 	{
 		if (!_v.isPhi())
 			return _v;
-		auto const idx = _v.value();
+		auto const idx = _v.instIdx();
 		if (idx >= substitution.size())
 			return _v;
 		auto& sub = substitution[idx];

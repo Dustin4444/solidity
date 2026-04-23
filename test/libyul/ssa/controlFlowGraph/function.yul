@@ -28,7 +28,7 @@
 // Entry -> Block0_0;
 // Block0_0 [fillcolor="#FF746C", style=filled, label="\
 // Block 0; (0, max 0)\nLiveIn: \l\
-// LiveOut: \l\nUsed: \l\nv0, v1 := i()\l\
+// LiveOut: \l\nUsed: \l\nv0, v0.1 := i()\l\
 // h(v0)\l\
 // "];
 // Block0_0Exit [label="Terminated"];
@@ -38,10 +38,10 @@
 // FunctionEntry_f_0 -> Block1_0;
 // Block1_0 [label="\
 // Block 0; (0, max 0)\nLiveIn: v0[2], v1[1]\l\
-// LiveOut: v3[1]\l\nUsed: v0[2], v1[1]\l\nv2 := add(v1, v0)\l\
-// v3 := sub(v0, v2)\l\
+// LiveOut: v4[1]\l\nUsed: v0[2], v1[1]\l\nv3 := add(v1, v0)\l\
+// v4 := sub(v0, v3)\l\
 // "];
-// Block1_0Exit [label="FunctionReturn[v3]"];
+// Block1_0Exit [label="FunctionReturn[v4]"];
 // Block1_0 -> Block1_0Exit;
 // FunctionEntry_g_0 [label="function g:
 //  g()"];
@@ -57,8 +57,8 @@
 // FunctionEntry_h_0 -> Block3_0;
 // Block3_0 [fillcolor="#FF746C", style=filled, label="\
 // Block 0; (0, max 0)\nLiveIn: v0[1]\l\
-// LiveOut: \l\nUsed: v0[1]\l\nv1 := f(0x00, v0)\l\
-// h(v1)\l\
+// LiveOut: \l\nUsed: v0[1]\l\nv2 := f(0x00, v0)\l\
+// h(v2)\l\
 // "];
 // Block3_0Exit [label="Terminated"];
 // Block3_0 -> Block3_0Exit;

@@ -20,17 +20,17 @@
 // \l\
 // [FunctionCallReturnLabel[0], lit0]\l\
 // pair\l\
-// [FunctionCallReturnLabel[0], v0, v1]\l\
+// [FunctionCallReturnLabel[0], v1, v1.1]\l\
 // \l\
-// [v0, v1, FunctionCallReturnLabel[1], v0]\l\
+// [v1, v1.1, FunctionCallReturnLabel[1], v1]\l\
 // pair\l\
-// [v0, v1, FunctionCallReturnLabel[1], v2, v3]\l\
+// [v1, v1.1, FunctionCallReturnLabel[1], v2, v2.1]\l\
 // \l\
-// [JUNK, v1, v3, v2]\l\
+// [JUNK, v1.1, v2.1, v2]\l\
 // add\l\
-// [JUNK, v1, v4]\l\
+// [JUNK, v1.1, v3]\l\
 // \l\
-// [JUNK, v4, v1]\l\
+// [JUNK, v3, v1.1]\l\
 // sstore\l\
 // [JUNK]\l\
 // \l\
@@ -44,16 +44,16 @@
 // Block1_0 [label="\
 // IN: [ReturnLabel[1], v0]\l\
 // \l\
-// [ReturnLabel[1], v0, lit1, v0]\l\
+// [ReturnLabel[1], v0, lit2, v0]\l\
 // add\l\
-// [ReturnLabel[1], v0, v1]\l\
+// [ReturnLabel[1], v0, v3]\l\
 // \l\
-// [ReturnLabel[1], v1, lit2, v0]\l\
+// [ReturnLabel[1], v3, lit4, v0]\l\
 // add\l\
-// [ReturnLabel[1], v1, v2]\l\
+// [ReturnLabel[1], v3, v5]\l\
 // \l\
-// OUT: [v1, v2, ReturnLabel[1]]\l\
+// OUT: [v3, v5, ReturnLabel[1]]\l\
 // "];
-// Block1_0Exit [label="FunctionReturn[v1, v2]"];
+// Block1_0Exit [label="FunctionReturn[v3, v5]"];
 // Block1_0 -> Block1_0Exit;
 // }

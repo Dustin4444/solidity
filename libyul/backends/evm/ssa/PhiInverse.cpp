@@ -28,7 +28,7 @@ PhiInverse::PhiInverse(SSACFG const& _cfg, SSACFG::BlockId const& _from, SSACFG:
 		if (inst.opcode != Opcode::Upsilon)
 			continue;
 		SSACFG::ValueId const phi = _cfg.upsilonPhi(instId);
-		if (_cfg.phiInfo(phi).block == _to)
+		if (_cfg.inst(phi.instId()).block == _to)
 			m_phiToPreImage[phi] = inst.inputs.at(0);
 	}
 }

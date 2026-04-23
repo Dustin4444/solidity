@@ -52,8 +52,8 @@ struct AssemblyCallbacks
 		case StackSlot::Kind::ValueID:
 		{
 			auto const id = _slot.valueID();
-			yulAssert(id.isLiteral(), fmt::format("Tried bringing up v{}", id.value()));
-			assembly->appendConstant(cfg->literalInfo(id).value);
+			yulAssert(id.isLiteral(), fmt::format("Tried bringing up v{}", id.instIdx()));
+			assembly->appendConstant(cfg->literalPayload(id.instId()));
 			return;
 		}
 		case StackSlot::Kind::Junk:
@@ -118,7 +118,7 @@ private:
 		ControlFlowGraphs::FunctionGraphID _graphID);
 
 	void operator()(SSACFG::BlockId _blockId);
-	void operator()(SSACFG::InstId _instId, SSACFG::OperationId _opId, StackData const& _operationInputLayout);
+	void operator()(SSACFG::InstId _instId, StackData const& _operationInputLayout);
 	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::MainExit const& _mainExit);
 	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::ConditionalJump const& _conditionalJump);
 	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::Jump const& _jump);

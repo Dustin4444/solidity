@@ -179,7 +179,6 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 
 	auto const& block = m_cfg.block(_blockId);
-	yulAssert(block.operations.size() == blockLayout->operationIn.size(), "We need as many operation stack layouts as we have operations");
 
 	std::size_t operationIndex = 0;
 	for (SSACFG::InstId const instId: block.instructions)
@@ -187,11 +186,12 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 		auto const opcode = m_cfg.inst(instId).opcode;
 		if (opcode != Opcode::BuiltinCall && opcode != Opcode::Call)
 			continue;
+		yulAssert(operationIndex < blockLayout->operationIn.size());
 		auto const& operationInLayout = blockLayout->operationIn[operationIndex];
-		(*this)(instId, block.operations[operationIndex], operationInLayout);
+		(*this)(instId, operationInLayout);
 		++operationIndex;
 	}
-	yulAssert(operationIndex == block.operations.size());
+	yulAssert(operationIndex == blockLayout->operationIn.size());
 
 	// Shuffle to the block's exit layout before dispatching the exit.
 	// This ensures the condition is on top for ConditionalJump, phi pre-images are
@@ -203,7 +203,7 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 	std::visit(util::GenericVisitor{ [this, &_blockId](auto const& exit) { (*this)(_blockId, exit); } }, block.exit);
 }
 
-void CodeTransform::operator()(SSACFG::InstId _instId, SSACFG::OperationId _opId, StackData const& _operationInputLayout)
+void CodeTransform::operator()(SSACFG::InstId _instId, StackData const& _operationInputLayout)
 {
 	SSACFG::Inst const& _inst = m_cfg.inst(_instId);
 	yulAssert(_inst.opcode == Opcode::BuiltinCall || _inst.opcode == Opcode::Call);
@@ -256,7 +256,7 @@ void CodeTransform::operator()(SSACFG::InstId _instId, SSACFG::OperationId _opId
 
 	auto const opOriginLocation = [&]() -> langutil::SourceLocation {
 		if (m_cfg.debugInfo)
-			if (auto const& dbg = m_cfg.debugInfo->operationDebugData(_opId))
+			if (auto const& dbg = m_cfg.debugInfo->instDebugData(_instId))
 				return dbg->originLocation;
 		return {};
 	}();

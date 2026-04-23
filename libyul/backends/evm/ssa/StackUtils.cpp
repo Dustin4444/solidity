@@ -46,7 +46,7 @@ void GasAccumulatingCallbacks::push(StackSlot const& _slot)
 {
 	if (_slot.isLiteralValueID())
 	{
-		auto const size = numberEncodingSize(cfg.literalInfo(_slot.valueID()).value);
+		auto const size = numberEncodingSize(cfg.literalPayload(_slot.valueID().instId()));
 		opGas += evmasm::GasMeter::runGas(evmasm::pushInstruction(size), cfg.evmDialect.evmVersion());
 	}
 	else if (_slot.isJunk())

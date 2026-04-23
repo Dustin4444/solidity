@@ -44,14 +44,6 @@ struct BlockId
 	auto operator<=>(BlockId const&) const = default;
 };
 
-struct OperationId
-{
-	using ValueType = std::uint32_t;
-	ValueType value = std::numeric_limits<ValueType>::max();
-	bool hasValue() const { return value != std::numeric_limits<ValueType>::max(); }
-	auto operator<=>(OperationId const&) const = default;
-};
-
 struct InstId
 {
 	using ValueType = std::uint32_t;
@@ -70,49 +62,57 @@ enum class Opcode : std::uint8_t
 	BuiltinCall,  ///< EVM opcode / dialect builtin; payload indexes m_builtinPayloads
 	Call,         ///< user-defined function call; payload indexes m_callPayloads
 	Unreachable,  ///< per-use sentinel for dead-code paths; no payload
+	FunctionArg,  ///< function parameter; no inputs, single output ValueId stored in cfg.arguments
 };
 
+/// Identifies a specific produced value of an Inst. Carries an opcode cache
+/// for hot-path consumers (StackSlot inner loops, liveness filter); the
+/// cache is set at construction from the defining Inst's opcode and is
+/// immutable thereafter. Use cfg.kindOf(v) when the cache might be stale
+/// (e.g. after Identity-rewriting passes).
+/// Layout: 4-byte inst index, 1-byte output position, 1-byte opcode cache,
+/// 2 bytes padding => 8 bytes.
 class ValueId
 {
 public:
-	enum class Kind: std::uint8_t
-	{
-		Literal,
-		Variable,
-		Phi,
-		Unreachable
-	};
 	using ValueType = std::uint32_t;
+	using OutputPos = std::uint8_t;
 
 	constexpr ValueId() = default;
-	constexpr ValueId(ValueType const _value, Kind const _kind): m_value(_value), m_kind(_kind) {}
+	constexpr ValueId(InstId _instId, OutputPos _outputPos, Opcode _opcode): m_instIdx(_instId.value), m_outputPos(_outputPos), m_opcode(_opcode) {}
 	constexpr ValueId(ValueId const&) = default;
 	constexpr ValueId(ValueId&&) = default;
 	constexpr ValueId& operator=(ValueId const&) = default;
 	constexpr ValueId& operator=(ValueId&&) = default;
 
-	static ValueId constexpr makeLiteral(ValueType const& _value) { return ValueId{_value, Kind::Literal}; }
-	static ValueId constexpr makeVariable(ValueType const& _value) { return ValueId{_value, Kind::Variable}; }
-	static ValueId constexpr makePhi(ValueType const& _value) { return ValueId{_value, Kind::Phi}; }
-	static ValueId constexpr makeUnreachable() { return ValueId{0u, Kind::Unreachable}; }
+	static ValueId constexpr makeOutput(InstId _instId, OutputPos _pos, Opcode _opcode) { return ValueId{_instId, _pos, _opcode}; }
 
-	bool constexpr isLiteral() const noexcept { return m_kind == Kind::Literal; }
-	bool constexpr isVariable() const noexcept { return m_kind == Kind::Variable; }
-	bool constexpr isPhi() const noexcept { return m_kind == Kind::Phi; }
-	bool constexpr isUnreachable() const noexcept { return m_kind == Kind::Unreachable; }
+	bool constexpr hasValue() const { return m_instIdx != std::numeric_limits<ValueType>::max(); }
+	ValueType constexpr instIdx() const noexcept { return m_instIdx; }
+	OutputPos constexpr outputPos() const noexcept { return m_outputPos; }
+	InstId constexpr instId() const noexcept { return InstId{m_instIdx}; }
+	Opcode constexpr opcodeCache() const noexcept { return m_opcode; }
 
-	bool constexpr hasValue() const { return m_value != std::numeric_limits<ValueType>::max(); }
-	ValueType constexpr value() const noexcept { return m_value; }
-	Kind constexpr kind() const noexcept { return m_kind; }
+	/// Hot-path opcode checks using the local cache.
+	bool constexpr isLiteral() const noexcept { return m_opcode == Opcode::Const; }
+	bool constexpr isPhi() const noexcept { return m_opcode == Opcode::Phi; }
+	bool constexpr isUnreachable() const noexcept { return m_opcode == Opcode::Unreachable; }
+	/// Variable-like outputs: originate from BuiltinCall, Call, or FunctionArg.
+	bool constexpr isVariable() const noexcept
+	{
+		return m_opcode == Opcode::BuiltinCall || m_opcode == Opcode::Call || m_opcode == Opcode::FunctionArg;
+	}
 
-	/// Returns a human-readable string representation. Requires the full SSACFG for literal values.
+	/// Returns a human-readable string representation. Uses the SSACFG to
+	/// discriminate Const / Phi / Variable / Unreachable.
 	std::string str(SSACFG const& _cfg) const;
 
 	auto operator<=>(ValueId const&) const = default;
 
 private:
-	ValueType m_value{std::numeric_limits<ValueType>::max()};
-	Kind m_kind{Kind::Unreachable};
+	ValueType m_instIdx{std::numeric_limits<ValueType>::max()};
+	OutputPos m_outputPos{0};
+	Opcode m_opcode{Opcode::Unreachable};
 };
 
 }
@@ -128,20 +128,6 @@ struct fmt::formatter<solidity::yul::ssa::BlockId>
 		if (!_blockId.hasValue())
 			return fmt::format_to(_ctx.out(), "empty");
 		return fmt::format_to(_ctx.out(), "{}", _blockId.value);
-	}
-};
-
-template<>
-struct fmt::formatter<solidity::yul::ssa::OperationId>
-{
-	static auto constexpr parse(format_parse_context& ctx) -> decltype(ctx.begin()) { return ctx.begin(); }
-
-	template<typename FormatContext>
-	auto format(solidity::yul::ssa::OperationId const& _opId, FormatContext& _ctx) const -> decltype(_ctx.out())
-	{
-		if (!_opId.hasValue())
-			return fmt::format_to(_ctx.out(), "empty");
-		return fmt::format_to(_ctx.out(), "op{}", _opId.value);
 	}
 };
 
@@ -167,19 +153,22 @@ struct fmt::formatter<solidity::yul::ssa::ValueId>
 	template<typename FormatContext>
 	auto format(solidity::yul::ssa::ValueId const& _valueId, FormatContext& _ctx) const -> decltype(_ctx.out())
 	{
+		using solidity::yul::ssa::Opcode;
 		if (!_valueId.hasValue())
 			return fmt::format_to(_ctx.out(), "empty");
-		switch (_valueId.kind())
+		switch (_valueId.opcodeCache())
 		{
-		case solidity::yul::ssa::ValueId::Kind::Literal:
-			return fmt::format_to(_ctx.out(), "lit{}", _valueId.value());
-		case solidity::yul::ssa::ValueId::Kind::Variable:
-			return fmt::format_to(_ctx.out(), "v{}", _valueId.value());
-		case solidity::yul::ssa::ValueId::Kind::Phi:
-			return fmt::format_to(_ctx.out(), "phi{}", _valueId.value());
-		case solidity::yul::ssa::ValueId::Kind::Unreachable:
+		case Opcode::Const:
+			return fmt::format_to(_ctx.out(), "lit{}", _valueId.instIdx());
+		case Opcode::Phi:
+			return fmt::format_to(_ctx.out(), "phi{}", _valueId.instIdx());
+		case Opcode::Unreachable:
 			return fmt::format_to(_ctx.out(), "unreachable");
+		default:
+			break;
 		}
-		solidity::util::unreachable();
+		if (_valueId.outputPos() == 0)
+			return fmt::format_to(_ctx.out(), "v{}", _valueId.instIdx());
+		return fmt::format_to(_ctx.out(), "v{}.{}", _valueId.instIdx(), _valueId.outputPos());
 	}
 };

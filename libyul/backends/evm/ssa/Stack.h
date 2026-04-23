@@ -95,7 +95,7 @@ public:
 	constexpr StackSlot& operator=(StackSlot&&) = default;
 
 	constexpr bool isValueID() const noexcept { return kind() == Kind::ValueID; }
-	constexpr bool isLiteralValueID() const noexcept { return m_valueIdKind == SSACFG::ValueId::Kind::Literal; }
+	constexpr bool isLiteralValueID() const noexcept { return m_valueIdOpcode == SSACFG::Opcode::Const; }
 	constexpr bool isFunctionReturnLabel() const noexcept { return kind() == Kind::FunctionReturnLabel; }
 	constexpr bool isFunctionCallReturnLabel() const noexcept { return kind() == Kind::FunctionCallReturnLabel; }
 	constexpr bool isJunk() const noexcept { return kind() == Kind::Junk; }
@@ -103,25 +103,33 @@ public:
 
 	ControlFlowGraphs::FunctionGraphID functionReturnLabel() const { yulAssert(isFunctionReturnLabel()); return m_payload; }
 	CallSites::CallSiteID functionCallReturnLabel() const { yulAssert(isFunctionCallReturnLabel()); return m_payload; }
-	SSACFG::ValueId valueID() const { yulAssert(isValueID()); return {m_payload, m_valueIdKind}; }
+	SSACFG::ValueId valueID() const
+	{
+		yulAssert(isValueID());
+		return SSACFG::ValueId::makeOutput(SSACFG::InstId{m_payload}, m_valueIdOutputPos, m_valueIdOpcode);
+	}
 
 	static constexpr StackSlot makeJunk() { return {0, Kind::Junk}; }
-	static constexpr StackSlot makeValueID(SSACFG::ValueId const& _valueID) { return {_valueID.value(), Kind::ValueID, _valueID.kind()}; }
+	static constexpr StackSlot makeValueID(SSACFG::ValueId const& _valueID) { return {_valueID.instIdx(), Kind::ValueID, _valueID.outputPos(), _valueID.opcodeCache()}; }
 	static constexpr StackSlot makeFunctionReturnLabel(ControlFlowGraphs::FunctionGraphID const _graphID) { return {_graphID, Kind::FunctionReturnLabel}; }
 	static constexpr StackSlot makeFunctionCallReturnLabel(CallSites::CallSiteID const _callSiteID) { return {_callSiteID, Kind::FunctionCallReturnLabel};	}
 
 	auto operator<=>(StackSlot const&) const = default;
 private:
-	constexpr StackSlot(std::uint32_t const _payload, Kind const _kind, SSACFG::ValueId::Kind const _valueIdKind = SSACFG::ValueId::Kind::Unreachable):
+	constexpr StackSlot(std::uint32_t const _payload, Kind const _kind, std::uint8_t const _valueIdOutputPos = 0, SSACFG::Opcode const _valueIdOpcode = SSACFG::Opcode::Unreachable):
 		m_payload(_payload),
 		m_kind(_kind),
-		m_valueIdKind(_valueIdKind)
+		m_valueIdOutputPos(_valueIdOutputPos),
+		m_valueIdOpcode(_valueIdOpcode)
 	{}
 
 	/// interpretation depends on kind
 	std::uint32_t m_payload;
 	Kind m_kind;
-	SSACFG::ValueId::Kind m_valueIdKind;
+	/// for Kind::ValueID: output position of the referenced value within its Inst
+	std::uint8_t m_valueIdOutputPos;
+	/// for Kind::ValueID: cached Opcode of the defining Inst
+	SSACFG::Opcode m_valueIdOpcode;
 };
 static_assert(sizeof(StackSlot) == 8, "Want cache efficiency, benchmark this if you go beyond 8 bytes");
 static_assert(std::is_trivially_copyable_v<StackSlot>, "Should be able to use memcpy semantics");

@@ -89,16 +89,16 @@ protected:
 			);
 			_out << fmt::format(
 				"LiveIn: {}\\l\\\n",
-				fmt::join(m_liveness->liveIn(_blockId) | ranges::views::transform([&](auto const& liveIn) { return valueToString(SSACFG::ValueId{liveIn.first}) + fmt::format("[{}]", liveIn.second); }), ", ")
+				fmt::join(m_liveness->liveIn(_blockId) | ranges::views::transform([&](auto const& liveIn) { return valueToString(liveIn.first) + fmt::format("[{}]", liveIn.second); }), ", ")
 			);
 			_out << fmt::format(
 				"LiveOut: {}\\l\\n",
-				fmt::join(m_liveness->liveOut(_blockId) | ranges::views::transform([&](auto const& liveOut) { return valueToString(SSACFG::ValueId{liveOut.first}) + fmt::format("[{}]", liveOut.second); }), ", ")
+				fmt::join(m_liveness->liveOut(_blockId) | ranges::views::transform([&](auto const& liveOut) { return valueToString(liveOut.first) + fmt::format("[{}]", liveOut.second); }), ", ")
 			);
 			auto const usedVariables = m_liveness->used(_blockId);
 			_out << fmt::format(
 				"Used: {}\\l\\n",
-				fmt::join(usedVariables | ranges::views::transform([&](auto const& used) { return valueToString(SSACFG::ValueId{used.first}) + fmt::format("[{}]", used.second); }), ", ")
+				fmt::join(usedVariables | ranges::views::transform([&](auto const& used) { return valueToString(used.first) + fmt::format("[{}]", used.second); }), ", ")
 			);
 		}
 		else
@@ -112,7 +112,7 @@ protected:
 			if (inst.opcode != Opcode::Phi)
 				continue;
 			SSACFG::ValueId const phi = inst.outputs.at(0);
-			_out << fmt::format("phi{} := {}\\l\\\n", phi.value(), formatPhi(m_cfg, phi));
+			_out << fmt::format("phi{} := {}\\l\\\n", phi.instIdx(), formatPhi(m_cfg, phi));
 		}
 		for (SSACFG::InstId const instId: block.instructions)
 		{
@@ -166,12 +166,22 @@ std::string ValueId::str(SSACFG const& _cfg) const
 {
 	if (!hasValue())
 		return "INVALID";
-	switch (kind())
+	switch (_cfg.kindOf(*this))
 	{
-		case Kind::Literal:  return toCompactHexWithPrefix(_cfg.literalInfo(*this).value);
-		case Kind::Variable: return fmt::format("v{}", value());
-		case Kind::Phi: return fmt::format("phi{}", value());
-		case Kind::Unreachable: return "[unreachable]";
+		case Opcode::Const:
+			return toCompactHexWithPrefix(_cfg.literalPayload(instId()));
+		case Opcode::BuiltinCall:
+		case Opcode::Call:
+		case Opcode::FunctionArg:
+			if (outputPos() == 0)
+				return fmt::format("v{}", instIdx());
+			return fmt::format("v{}.{}", instIdx(), outputPos());
+		case Opcode::Phi:
+			return fmt::format("phi{}", instIdx());
+		case Opcode::Unreachable:
+			return "[unreachable]";
+		case Opcode::Upsilon:
+			yulAssert(false, "Upsilon Insts have no output ValueId");
 	}
 	unreachable();
 }
@@ -191,15 +201,3 @@ std::string SSACFG::toDot(
 		return exporter.exportBlocks(entry, _includeDiGraphDefinition);
 }
 
-Opcode SSACFG::kindOf(ValueId _v) const
-{
-	yulAssert(_v.hasValue());
-	switch (_v.kind())
-	{
-	case ValueId::Kind::Literal:     return Opcode::Const;
-	case ValueId::Kind::Phi:         return Opcode::Phi;
-	case ValueId::Kind::Variable:    return Opcode::BuiltinCall;  // bridge: variable ValueIds originate from BuiltinCall/Call Insts; distinguished later via m_insts
-	case ValueId::Kind::Unreachable: return Opcode::Unreachable;
-	}
-	unreachable();
-}

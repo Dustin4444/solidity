@@ -223,8 +223,12 @@ void LivenessAnalysis::runDagDfs()
 				{
 					// LiveIn(S) - PhiDefs(S)
 					auto liveInWithoutPhiDefs = m_liveIns[_successor.value];
-					for (auto const& phiId: m_cfg.block(_successor).phis)
-						liveInWithoutPhiDefs.erase(phiId);
+					for (SSACFG::InstId const succInstId: m_cfg.block(_successor).instructions)
+					{
+						auto const& succInst = m_cfg.inst(succInstId);
+						if (succInst.opcode == Opcode::Phi)
+							liveInWithoutPhiDefs.erase(succInst.outputs.at(0));
+					}
 					live.maxUnion(liveInWithoutPhiDefs);
 				}
 			});
@@ -276,8 +280,12 @@ void LivenessAnalysis::runLoopTreeDfs(SSACFG::BlockId::ValueType const _loopHead
 		auto const& block = m_cfg.block(SSACFG::BlockId{_loopHeader});
 		// LiveLoop <- LiveIn(B_N) - PhiDefs(B_N)
 		auto liveLoop = m_liveIns[_loopHeader];
-		for (auto const& phi: block.phis)
-			liveLoop.erase(phi);
+		for (SSACFG::InstId const instId: block.instructions)
+		{
+			auto const& inst = m_cfg.inst(instId);
+			if (inst.opcode == Opcode::Phi)
+				liveLoop.erase(inst.outputs.at(0));
+		}
 		// must be live out of header if live in of children
 		m_liveOuts[_loopHeader].maxUnion(liveLoop);
 		// for each blockId \in children(loopHeader)

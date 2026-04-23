@@ -78,31 +78,31 @@ protected:
 		_out << "\\\n";
 		_out << "IN: " << stackToString(blockLayout->stackIn) << "\\l\\\n";
 
-		for (std::size_t i = 0; i < block.operations.size(); ++i)
+		std::size_t i = 0;
+		for (SSACFG::InstId const instId: block.instructions)
 		{
-			auto const& operation = m_cfg.operation(block.operations[i]);
+			auto const& inst = m_cfg.inst(instId);
+			if (inst.opcode != SSACFG::Opcode::BuiltinCall && inst.opcode != SSACFG::Opcode::Call)
+				continue;
 			yulAssert(i < blockLayout->operationIn.size());
 			auto operationStack = blockLayout->operationIn[i];
 
 			_out << "\\l\\\n";
 			_out << stackToString(operationStack) << "\\l\\\n";
 
-			std::visit(GenericVisitor{
-				[&](SSACFG::Call const& _call) {
-					_out << escapeLabel(m_controlFlow.functionGraph(_call.graphID)->name);
-				},
-				[&](SSACFG::BuiltinCall const& _call) {
-					_out << escapeLabel(_call.builtin.get().name);
-				}
-			}, operation.kind);
+			if (inst.opcode == SSACFG::Opcode::Call)
+				_out << escapeLabel(m_controlFlow.functionGraph(m_cfg.callPayload(instId).graphID)->name);
+			else
+				_out << escapeLabel(m_cfg.builtinPayload(instId).builtin.get().name);
 			_out << "\\l\\\n";
 
-			yulAssert(operation.inputs.size() <= operationStack.size());
-			for (std::size_t j = 0; j < operation.inputs.size(); ++j)
+			yulAssert(inst.inputs.size() <= operationStack.size());
+			for (std::size_t j = 0; j < inst.inputs.size(); ++j)
 				operationStack.pop_back();
-			for (auto const& output: operation.outputs)
+			for (auto const& output: inst.outputs)
 				operationStack.push_back(StackSlot::makeValueID(output));
 			_out << stackToString(operationStack) << "\\l\\\n";
+			++i;
 		}
 
 		_out << "\\l\\\n";

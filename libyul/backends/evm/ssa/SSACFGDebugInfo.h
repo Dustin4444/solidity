@@ -56,16 +56,16 @@ struct SSACFGDebugInfo
 		return getOrEmpty(m_exitDebugData, _id.value);
 	}
 
-	void setOperationDebugData(OperationId _id, langutil::DebugData::ConstPtr _data)
+	void setInstDebugData(InstId _id, langutil::DebugData::ConstPtr _data)
 	{
 		yulAssert(_id.hasValue());
-		ensureSize(m_operationDebugData, _id.value);
-		m_operationDebugData[_id.value] = std::move(_data);
+		ensureSize(m_instDebugData, _id.value);
+		m_instDebugData[_id.value] = std::move(_data);
 	}
 
-	langutil::DebugData::ConstPtr const& operationDebugData(OperationId _id) const
+	langutil::DebugData::ConstPtr const& instDebugData(InstId _id) const
 	{
-		return getOrEmpty(m_operationDebugData, _id.value);
+		return getOrEmpty(m_instDebugData, _id.value);
 	}
 
 	void setValueDebugData(ValueId _id, langutil::DebugData::ConstPtr _data)
@@ -106,7 +106,7 @@ private:
 
 	std::vector<langutil::DebugData::ConstPtr> m_blockDebugData;
 	std::vector<langutil::DebugData::ConstPtr> m_exitDebugData;
-	std::vector<langutil::DebugData::ConstPtr> m_operationDebugData;
+	std::vector<langutil::DebugData::ConstPtr> m_instDebugData;
 	std::map<ValueId, langutil::DebugData::ConstPtr> m_valueDebugData;
 };
 
