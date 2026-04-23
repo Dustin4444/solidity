@@ -180,6 +180,8 @@ std::string ValueId::str(SSACFG const& _cfg) const
 			return fmt::format("phi{}", instIdx());
 		case Opcode::Unreachable:
 			return "[unreachable]";
+		case Opcode::Identity:
+			return fmt::format("identity{}", instIdx());
 		case Opcode::Upsilon:
 			yulAssert(false, "Upsilon Insts have no output ValueId");
 	}

@@ -78,6 +78,8 @@ add_library(yul
 	backends/evm/ssa/CodeTransform.h
 	backends/evm/ssa/ControlFlowGraphs.cpp
 	backends/evm/ssa/ControlFlowGraphs.h
+	backends/evm/ssa/InsertionSet.cpp
+	backends/evm/ssa/InsertionSet.h
 	backends/evm/ssa/JunkAdmittingBlocksFinder.cpp
 	backends/evm/ssa/JunkAdmittingBlocksFinder.h
 	backends/evm/ssa/LivenessAnalysis.cpp
@@ -106,6 +108,8 @@ add_library(yul
 	backends/evm/ssa/io/DotExporterBase.h
 	backends/evm/ssa/io/JSONExporter.cpp
 	backends/evm/ssa/io/JSONExporter.h
+	backends/evm/ssa/transform/Cleanup.cpp
+	backends/evm/ssa/transform/Cleanup.h
 	backends/evm/ssa/transform/TrivialPhiEliminator.cpp
 	backends/evm/ssa/transform/TrivialPhiEliminator.h
 	backends/evm/ssa/transform/UnreachableBlockCleaner.cpp

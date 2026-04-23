@@ -63,6 +63,13 @@ enum class Opcode : std::uint8_t
 	Call,         ///< user-defined function call; payload indexes m_callPayloads
 	Unreachable,  ///< per-use sentinel for dead-code paths; no payload
 	FunctionArg,  ///< function parameter; no inputs, single output ValueId stored in cfg.arguments
+	/// Forwards to a single replacement (inputs[0]) without producing its own output.
+	/// Used by transformation passes to mark an Inst as "use my inputs[0] instead".
+	/// The shared cleanup pass (transform::cleanup) path-compresses Identity chains
+	/// and rewrites every ValueId operand (instruction inputs, terminator fields,
+	/// upsilon phi payloads) to point at the terminal replacement, then removes
+	/// Identity Insts from block.instructions.
+	Identity,
 };
 
 /// Identifies a specific produced value of an Inst. Carries an opcode cache
