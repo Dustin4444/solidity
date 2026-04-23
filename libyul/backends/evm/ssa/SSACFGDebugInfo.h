@@ -23,6 +23,7 @@
 #include <liblangutil/DebugData.h>
 #include <libyul/Exceptions.h>
 
+#include <map>
 #include <vector>
 
 namespace solidity::yul::ssa
@@ -70,14 +71,16 @@ struct SSACFGDebugInfo
 	void setValueDebugData(ValueId _id, langutil::DebugData::ConstPtr _data)
 	{
 		yulAssert(_id.hasValue());
-		auto& vec = vectorForKind(_id.kind());
-		ensureSize(vec, _id.value());
-		vec[_id.value()] = std::move(_data);
+		m_valueDebugData[_id] = std::move(_data);
 	}
 
 	langutil::DebugData::ConstPtr const& valueDebugData(ValueId _id) const
 	{
-		return getOrEmpty(vectorForKind(_id.kind()), _id.value());
+		static langutil::DebugData::ConstPtr const empty{nullptr};
+		auto const it = m_valueDebugData.find(_id);
+		if (it == m_valueDebugData.end())
+			return empty;
+		return it->second;
 	}
 
 	/// Top-level debug data for the SSACFG (e.g. the function definition's debug data).
@@ -101,33 +104,10 @@ private:
 		return _debugData[_index];
 	}
 
-	std::vector<langutil::DebugData::ConstPtr>& vectorForKind(ValueId::Kind const _kind)
-	{
-		switch (_kind)
-		{
-		case ValueId::Kind::Literal: return m_literalDebugData;
-		case ValueId::Kind::Variable: return m_variableDebugData;
-		case ValueId::Kind::Phi: return m_phiDebugData;
-		default: yulAssert(false, "No debug data for unreachable values.");
-		}
-	}
-	std::vector<langutil::DebugData::ConstPtr> const& vectorForKind(ValueId::Kind const _kind) const
-	{
-		switch (_kind)
-		{
-		case ValueId::Kind::Literal: return m_literalDebugData;
-		case ValueId::Kind::Variable: return m_variableDebugData;
-		case ValueId::Kind::Phi: return m_phiDebugData;
-		default: yulAssert(false, "No debug data for unreachable values.");
-		}
-	}
-
 	std::vector<langutil::DebugData::ConstPtr> m_blockDebugData;
 	std::vector<langutil::DebugData::ConstPtr> m_exitDebugData;
 	std::vector<langutil::DebugData::ConstPtr> m_operationDebugData;
-	std::vector<langutil::DebugData::ConstPtr> m_literalDebugData;
-	std::vector<langutil::DebugData::ConstPtr> m_variableDebugData;
-	std::vector<langutil::DebugData::ConstPtr> m_phiDebugData;
+	std::map<ValueId, langutil::DebugData::ConstPtr> m_valueDebugData;
 };
 
 }
