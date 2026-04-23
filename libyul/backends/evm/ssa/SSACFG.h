@@ -186,7 +186,25 @@ public:
 		for (ValueId const& output: _op.outputs)
 			yulAssert(output.isVariable() && m_variables.at(output.value()).definingBlock == _op.block);
 		OperationId id{static_cast<OperationId::ValueType>(m_operations.size())};
+		// Dual-write: mirror as a BuiltinCall or Call Inst, keyed by a fresh
+		// payload side-table slot.
+		Opcode opcode;
+		uint32_t payloadIdx;
+		if (std::holds_alternative<BuiltinCall>(_op.kind))
+		{
+			payloadIdx = static_cast<uint32_t>(m_builtinPayloads.size());
+			m_builtinPayloads.push_back(std::get<BuiltinCall>(_op.kind));
+			opcode = Opcode::BuiltinCall;
+		}
+		else
+		{
+			payloadIdx = static_cast<uint32_t>(m_callPayloads.size());
+			m_callPayloads.push_back(std::get<Call>(_op.kind));
+			opcode = Opcode::Call;
+		}
+		Inst mirrored{opcode, payloadIdx, _op.block, _op.inputs, _op.outputs};
 		m_operations.emplace_back(std::move(_op));
+		appendInst(std::move(mirrored));
 		if (debugInfo && _debugData)
 			debugInfo->setOperationDebugData(id, std::move(_debugData));
 		return id;
@@ -203,7 +221,40 @@ public:
 	/// after the old pools are removed it will read directly from m_insts.
 	Opcode kindOf(ValueId _v) const;
 
+	/// Returns the phi targeted by an Upsilon Inst. Valid only when
+	/// inst(_id).opcode == Opcode::Upsilon.
+	ValueId upsilonPhi(InstId _id) const
+	{
+		yulAssert(m_insts.at(_id.value).opcode == Opcode::Upsilon);
+		return m_upsilonPhis.at(m_insts.at(_id.value).payloadIndex);
+	}
+
+	/// Appends an Upsilon Inst to the pool. Called by the builder alongside
+	/// growing block.upsilons; pulled out so the counter and side-table plumbing
+	/// stays in the graph.
+	InstId appendUpsilonInst(BlockId _block, ValueId _value, ValueId _phi)
+	{
+		yulAssert(_phi.isPhi());
+		uint32_t const payloadIdx = static_cast<uint32_t>(m_upsilonPhis.size());
+		m_upsilonPhis.push_back(_phi);
+		++m_numUpsilonInsts;
+		return appendInst(Inst{Opcode::Upsilon, payloadIdx, _block, {_value}, {}});
+	}
+
 private:
+	/// Appends an Inst to the pool, asserting the pool-parity invariant afterwards:
+	///   m_insts.size() == m_literals.size() + m_phis.size() + m_operations.size()
+	///                   + m_numUpsilonInsts + m_numUnreachableInsts
+	InstId appendInst(Inst _inst)
+	{
+		InstId const id{static_cast<InstId::ValueType>(m_insts.size())};
+		m_insts.emplace_back(std::move(_inst));
+		yulAssert(m_insts.size() ==
+			m_literals.size() + m_phis.size() + m_operations.size()
+			+ m_numUpsilonInsts + m_numUnreachableInsts);
+		return id;
+	}
+
 	std::vector<BasicBlock> m_blocks;
 	std::vector<Operation> m_operations;
 	std::vector<Inst> m_insts;
@@ -211,6 +262,11 @@ private:
 	std::vector<ValueId> m_upsilonPhis;
 	std::vector<BuiltinCall> m_builtinPayloads;
 	std::vector<Call> m_callPayloads;
+	/// Counters for Inst categories whose corresponding old-structure growth is not
+	/// a vector grow (upsilons live in per-block vectors; the unreachable ValueId
+	/// is a singleton). Used only by the pool-parity assertion above.
+	size_t m_numUpsilonInsts = 0;
+	size_t m_numUnreachableInsts = 0;
 public:
 	struct LiteralValue {
 		u256 value;
@@ -230,6 +286,7 @@ public:
 		auto const id = ValueId::makePhi(static_cast<ValueId::ValueType>(value));
 		if (debugInfo)
 			debugInfo->setValueDebugData(id, debugInfo->blockDebugData(_definingBlock));
+		appendInst(Inst{Opcode::Phi, 0, _definingBlock, {}, {id}});
 		return id;
 	}
 	ValueId newVariable(BlockId const _definingBlock)
@@ -247,6 +304,8 @@ public:
 	{
 		if (!m_unreachableValue)
 			m_unreachableValue = ValueId::makeUnreachable();
+		++m_numUnreachableInsts;
+		appendInst(Inst{Opcode::Unreachable, std::numeric_limits<uint32_t>::max(), BlockId{}, {}, {}});
 		return *m_unreachableValue;
 	}
 
@@ -260,13 +319,16 @@ public:
 			return valueId;
 		}
 
-		m_literals.emplace_back(LiteralValue{std::move(_value)});
+		m_literals.emplace_back(LiteralValue{_value});
 		auto const value = m_literals.size() - 1;
 		yulAssert(value < std::numeric_limits<ValueId::ValueType>::max());
 		auto const literalId = ValueId::makeLiteral(static_cast<ValueId::ValueType>(value));
 		if (debugInfo)
 			debugInfo->setValueDebugData(literalId, std::move(_debugData));
-		m_literalMapping.emplace(_value, literalId);
+		uint32_t const payloadIdx = static_cast<uint32_t>(m_literalPayloads.size());
+		m_literalPayloads.push_back(_value);
+		appendInst(Inst{Opcode::Const, payloadIdx, BlockId{}, {}, {literalId}});
+		m_literalMapping.emplace(std::move(_value), literalId);
 		return literalId;
 	}
 

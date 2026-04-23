@@ -544,6 +544,7 @@ void SSACFGBuilder::emitUpsilon(SSACFG::BlockId _block, SSACFG::ValueId _value, 
 {
 	yulAssert(_phi.isPhi());
 	m_graph.block(_block).upsilons.emplace_back(SSACFG::Upsilon{_value, _phi});
+	m_graph.appendUpsilonInst(_block, _value, _phi);
 }
 
 void SSACFGBuilder::writeVariable(Scope::Variable const& _variable, SSACFG::BlockId _block, SSACFG::ValueId _value)
