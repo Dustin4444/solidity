@@ -181,13 +181,17 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 	auto const& block = m_cfg.block(_blockId);
 	yulAssert(block.operations.size() == blockLayout->operationIn.size(), "We need as many operation stack layouts as we have operations");
 
-	for (std::size_t operationIndex = 0; operationIndex < block.operations.size(); ++operationIndex)
+	std::size_t operationIndex = 0;
+	for (SSACFG::InstId const instId: block.instructions)
 	{
+		auto const opcode = m_cfg.inst(instId).opcode;
+		if (opcode != Opcode::BuiltinCall && opcode != Opcode::Call)
+			continue;
 		auto const& operationInLayout = blockLayout->operationIn[operationIndex];
-
-		// perform the operation
-		(*this)(block.operations[operationIndex], operationInLayout);
+		(*this)(instId, block.operations[operationIndex], operationInLayout);
+		++operationIndex;
 	}
+	yulAssert(operationIndex == block.operations.size());
 
 	// Shuffle to the block's exit layout before dispatching the exit.
 	// This ensures the condition is on top for ConditionalJump, phi pre-images are
@@ -199,16 +203,16 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 	std::visit(util::GenericVisitor{ [this, &_blockId](auto const& exit) { (*this)(_blockId, exit); } }, block.exit);
 }
 
-void CodeTransform::operator()(SSACFG::OperationId _opId, StackData const& _operationInputLayout)
+void CodeTransform::operator()(SSACFG::InstId _instId, SSACFG::OperationId _opId, StackData const& _operationInputLayout)
 {
-	SSACFG::Operation const& _operation = m_cfg.operation(_opId);
-	bool const hasReturnLabel =
-			std::holds_alternative<SSACFG::Call>(_operation.kind) &&
-			std::get<SSACFG::Call>(_operation.kind).canContinue;
+	SSACFG::Inst const& _inst = m_cfg.inst(_instId);
+	yulAssert(_inst.opcode == Opcode::BuiltinCall || _inst.opcode == Opcode::Call);
+	bool const isCall = _inst.opcode == Opcode::Call;
+	bool const hasReturnLabel = isCall && m_cfg.callPayload(_instId).canContinue;
 
 	if (hasReturnLabel)
 	{
-		auto const [it, inserted] = m_returnLabels.try_emplace(&std::get<SSACFG::Call>(_operation.kind).call.get(), 0);
+		auto const [it, inserted] = m_returnLabels.try_emplace(&m_cfg.callPayload(_instId).call.get(), 0);
 		yulAssert(inserted, "Call sites should be unique.");
 		it->second = m_assembly.newLabelId();
 	}
@@ -229,27 +233,26 @@ void CodeTransform::operator()(SSACFG::OperationId _opId, StackData const& _oper
 	assertLayoutCompatibility(m_stack.data(), _operationInputLayout);
 
 	// Assert that we have the inputs of the operation on stack top.
-	yulAssert(m_stack.size() >= _operation.inputs.size());
+	yulAssert(m_stack.size() >= _inst.inputs.size());
 	for (auto const& [stackEntry, input]: ranges::views::zip(
-		m_stack | ranges::views::take_last(_operation.inputs.size()),
-		_operation.inputs
+		m_stack | ranges::views::take_last(_inst.inputs.size()),
+		_inst.inputs
 	))
 		yulAssert(stackEntry.isValueID() && stackEntry.valueID() == input);
 
 	// if the function can continue (doesn't always abort), make sure we have the correct return label slot in place
 	if (hasReturnLabel)
 	{
-		yulAssert(m_stack.size() > _operation.inputs.size());
-		auto const returnLabelSlot = m_stack.slot(StackDepth{_operation.inputs.size()});
-		yulAssert(std::holds_alternative<SSACFG::Call>(_operation.kind));
+		yulAssert(m_stack.size() > _inst.inputs.size());
+		auto const returnLabelSlot = m_stack.slot(StackDepth{_inst.inputs.size()});
 		yulAssert(
 			returnLabelSlot.isFunctionCallReturnLabel() &&
-			&m_callSites.functionCall(returnLabelSlot.functionCallReturnLabel()) == &std::get<SSACFG::Call>(_operation.kind).call.get()
+			&m_callSites.functionCall(returnLabelSlot.functionCallReturnLabel()) == &m_cfg.callPayload(_instId).call.get()
 		);
 	}
 
 	// height of the stack sans function return label and operation inputs
-	std::size_t const baseHeight = m_stack.size() - _operation.inputs.size() - (hasReturnLabel ? 1 : 0);
+	std::size_t const baseHeight = m_stack.size() - _inst.inputs.size() - (hasReturnLabel ? 1 : 0);
 
 	auto const opOriginLocation = [&]() -> langutil::SourceLocation {
 		if (m_cfg.debugInfo)
@@ -259,49 +262,51 @@ void CodeTransform::operator()(SSACFG::OperationId _opId, StackData const& _oper
 	}();
 
 	// generate code for the operation
-	std::visit(util::GenericVisitor{
-		[&](SSACFG::BuiltinCall const& _builtin) {
-			m_assembly.setSourceLocation(opOriginLocation);
-			static_cast<BuiltinFunctionForEVM const&>(_builtin.builtin.get()).generateCode(
-				_builtin.call,
-				m_assembly,
-				m_builtinContext
-			);
-		},
-		[&](SSACFG::Call const& _call) {
-			auto const* returnLabel = util::valueOrNullptr(m_returnLabels, &_call.call.get());
-			// check that if we have a return label, the call can continue
-			yulAssert(!!returnLabel == _call.canContinue);
-			m_assembly.setSourceLocation(opOriginLocation);
-			SSACFG const* calleeCFG  = m_controlFlow.functionGraph(_call.graphID);
-			yulAssert(calleeCFG);
-			m_assembly.appendJumpTo(
-				m_functionLabels.at(_call.graphID),
-				static_cast<int>(calleeCFG->numReturns) - static_cast<int>(calleeCFG->arguments.size()) - (_call.canContinue ? 1 : 0),
-				AbstractAssembly::JumpType::IntoFunction
-			);
-			// if we have a return label, append it to assembly and pop the label from the stack
-			// it might also be one of the inputs that is popped here but then the label will be popped below with
-			// the other inputs
-			if (returnLabel)
-			{
-				m_assembly.appendLabel(*returnLabel);
-				m_stack.pop<false>();
-			}
+	if (isCall)
+	{
+		auto const& callPayload = m_cfg.callPayload(_instId);
+		auto const* returnLabel = util::valueOrNullptr(m_returnLabels, &callPayload.call.get());
+		// check that if we have a return label, the call can continue
+		yulAssert(!!returnLabel == callPayload.canContinue);
+		m_assembly.setSourceLocation(opOriginLocation);
+		SSACFG const* calleeCFG = m_controlFlow.functionGraph(callPayload.graphID);
+		yulAssert(calleeCFG);
+		m_assembly.appendJumpTo(
+			m_functionLabels.at(callPayload.graphID),
+			static_cast<int>(calleeCFG->numReturns) - static_cast<int>(calleeCFG->arguments.size()) - (callPayload.canContinue ? 1 : 0),
+			AbstractAssembly::JumpType::IntoFunction
+		);
+		// if we have a return label, append it to assembly and pop the label from the stack
+		// it might also be one of the inputs that is popped here but then the label will be popped below with
+		// the other inputs
+		if (returnLabel)
+		{
+			m_assembly.appendLabel(*returnLabel);
+			m_stack.pop<false>();
 		}
-	}, _operation.kind);
+	}
+	else
+	{
+		auto const& builtinPayload = m_cfg.builtinPayload(_instId);
+		m_assembly.setSourceLocation(opOriginLocation);
+		static_cast<BuiltinFunctionForEVM const&>(builtinPayload.builtin.get()).generateCode(
+			builtinPayload.call,
+			m_assembly,
+			m_builtinContext
+		);
+	}
 	// simulate that the inputs are consumed
-	for (size_t i = 0; i < _operation.inputs.size(); ++i)
+	for (size_t i = 0; i < _inst.inputs.size(); ++i)
 		m_stack.pop<false>();
 	// simulate that the outputs are produced
-	for (auto value: _operation.outputs)
+	for (auto value: _inst.outputs)
 		m_stack.push<false>(StackSlot::makeValueID(value));
 
 	// Assert that the operation produced its proclaimed output.
-	yulAssert(m_stack.size() == baseHeight + _operation.outputs.size());
+	yulAssert(m_stack.size() == baseHeight + _inst.outputs.size());
 	for (auto const& [stackEntry, output]: ranges::views::zip(
-		m_stack.data() | ranges::views::take_last(_operation.outputs.size()),
-		_operation.outputs
+		m_stack.data() | ranges::views::take_last(_inst.outputs.size()),
+		_inst.outputs
 	))
 		yulAssert(stackEntry.isValueID() && stackEntry.valueID() == output);
 	yulAssert(
@@ -386,15 +391,25 @@ void CodeTransform::operator()(SSACFG::BlockId const& _blockId, SSACFG::BasicBlo
 {
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 	auto const& block = m_cfg.block(_blockId);
-	yulAssert(!block.operations.empty(), "Terminated block must have at least one operation.");
-	std::visit(util::GenericVisitor{
-		[](SSACFG::BuiltinCall const& _builtin) {
-			yulAssert(_builtin.builtin.get().controlFlowSideEffects.terminatesOrReverts(), "Last operation of Terminated block must terminate or revert.");
-		},
-		[](SSACFG::Call const& _call) {
-			yulAssert(!_call.canContinue, "Last operation of Terminated block must be a non-continuable call.");
-		}
-	}, m_cfg.operation(block.operations.back()).kind);
+	// Find the last BuiltinCall/Call Inst in the block.
+	SSACFG::InstId lastOpInstId{};
+	for (SSACFG::InstId const instId: block.instructions)
+	{
+		auto const opcode = m_cfg.inst(instId).opcode;
+		if (opcode == Opcode::BuiltinCall || opcode == Opcode::Call)
+			lastOpInstId = instId;
+	}
+	yulAssert(lastOpInstId.hasValue(), "Terminated block must have at least one operation.");
+	if (m_cfg.inst(lastOpInstId).opcode == Opcode::BuiltinCall)
+		yulAssert(
+			m_cfg.builtinPayload(lastOpInstId).builtin.get().controlFlowSideEffects.terminatesOrReverts(),
+			"Last operation of Terminated block must terminate or revert."
+		);
+	else
+		yulAssert(
+			!m_cfg.callPayload(lastOpInstId).canContinue,
+			"Last operation of Terminated block must be a non-continuable call."
+		);
 	// To be sure just emit another INVALID - should be removed by optimizer.
 	m_assembly.appendInstruction(evmasm::Instruction::INVALID);
 }
