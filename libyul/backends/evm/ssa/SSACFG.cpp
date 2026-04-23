@@ -177,3 +177,16 @@ std::string SSACFG::toDot(
 	else
 		return exporter.exportBlocks(entry, _includeDiGraphDefinition);
 }
+
+Opcode SSACFG::kindOf(ValueId _v) const
+{
+	yulAssert(_v.hasValue());
+	switch (_v.kind())
+	{
+	case ValueId::Kind::Literal:     return Opcode::Const;
+	case ValueId::Kind::Phi:         return Opcode::Phi;
+	case ValueId::Kind::Variable:    return Opcode::BuiltinCall;  // bridge: variable ValueIds originate from BuiltinCall/Call Insts; distinguished later via m_insts
+	case ValueId::Kind::Unreachable: return Opcode::Unreachable;
+	}
+	unreachable();
+}

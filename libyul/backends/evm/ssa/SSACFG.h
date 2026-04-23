@@ -66,7 +66,9 @@ public:
 
 	using BlockId = ssa::BlockId;
 	using OperationId = ssa::OperationId;
+	using InstId = ssa::InstId;
 	using ValueId = ssa::ValueId;
+	using Opcode = ssa::Opcode;
 
 	struct BuiltinCall
 	{
@@ -94,6 +96,18 @@ public:
 		std::variant<BuiltinCall, Call> kind;
 		std::vector<ValueId> inputs{};
 		BlockId block{};
+	};
+
+	/// Uniform node for the SSA CFG — holds every instruction category in a single pool.
+	/// Currently unused; wired into the builder in a subsequent commit. See
+	/// uniformity_of_ssa_cfg_v2.md for the design.
+	struct Inst
+	{
+		Opcode opcode;
+		uint32_t payloadIndex = std::numeric_limits<uint32_t>::max();
+		BlockId block{};
+		std::vector<ValueId> inputs{};
+		std::vector<ValueId> outputs{};
 	};
 	struct BasicBlock
 	{
@@ -180,9 +194,23 @@ public:
 	Operation& operation(OperationId _id) { return m_operations.at(_id.value); }
 	Operation const& operation(OperationId _id) const { return m_operations.at(_id.value); }
 
+	/// Accessors for the Inst pool. See uniformity_of_ssa_cfg_v2.md.
+	Inst& inst(InstId _id) { return m_insts.at(_id.value); }
+	Inst const& inst(InstId _id) const { return m_insts.at(_id.value); }
+	size_t numInsts() const { return m_insts.size(); }
+	/// Returns the opcode category for a given ValueId. During the dual-write
+	/// migration this bridges the old ValueId::Kind tag to the new Opcode space;
+	/// after the old pools are removed it will read directly from m_insts.
+	Opcode kindOf(ValueId _v) const;
+
 private:
 	std::vector<BasicBlock> m_blocks;
 	std::vector<Operation> m_operations;
+	std::vector<Inst> m_insts;
+	std::vector<u256> m_literalPayloads;
+	std::vector<ValueId> m_upsilonPhis;
+	std::vector<BuiltinCall> m_builtinPayloads;
+	std::vector<Call> m_callPayloads;
 public:
 	struct LiteralValue {
 		u256 value;

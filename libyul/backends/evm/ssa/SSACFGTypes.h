@@ -52,6 +52,26 @@ struct OperationId
 	auto operator<=>(OperationId const&) const = default;
 };
 
+struct InstId
+{
+	using ValueType = std::uint32_t;
+	ValueType value = std::numeric_limits<ValueType>::max();
+	bool hasValue() const { return value != std::numeric_limits<ValueType>::max(); }
+	auto operator<=>(InstId const&) const = default;
+};
+
+/// Opcode tag for Inst. The enum covers all instruction categories in the uniform Inst pool.
+/// See uniformity_of_ssa_cfg_v2.md for the full design.
+enum class Opcode : std::uint8_t
+{
+	Const,        ///< literal u256 value; payload indexes m_literalPayloads
+	Phi,          ///< reads from shadow variable; no inputs
+	Upsilon,      ///< writes to shadow variable; inputs = {value}; payload indexes m_upsilonPhis
+	BuiltinCall,  ///< EVM opcode / dialect builtin; payload indexes m_builtinPayloads
+	Call,         ///< user-defined function call; payload indexes m_callPayloads
+	Unreachable,  ///< per-use sentinel for dead-code paths; no payload
+};
+
 class ValueId
 {
 public:
@@ -122,6 +142,20 @@ struct fmt::formatter<solidity::yul::ssa::OperationId>
 		if (!_opId.hasValue())
 			return fmt::format_to(_ctx.out(), "empty");
 		return fmt::format_to(_ctx.out(), "op{}", _opId.value);
+	}
+};
+
+template<>
+struct fmt::formatter<solidity::yul::ssa::InstId>
+{
+	static auto constexpr parse(format_parse_context& ctx) -> decltype(ctx.begin()) { return ctx.begin(); }
+
+	template<typename FormatContext>
+	auto format(solidity::yul::ssa::InstId const& _instId, FormatContext& _ctx) const -> decltype(_ctx.out())
+	{
+		if (!_instId.hasValue())
+			return fmt::format_to(_ctx.out(), "empty");
+		return fmt::format_to(_ctx.out(), "i{}", _instId.value);
 	}
 };
 
