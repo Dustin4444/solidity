@@ -122,6 +122,9 @@ private:
 	Opcode m_opcode{Opcode::Unreachable};
 };
 
+static_assert(sizeof(ValueId) == 8, "ValueId layout regressed; cache efficiency relies on 8-byte ValueId");
+static_assert(alignof(ValueId) == 4);
+
 }
 
 template<>

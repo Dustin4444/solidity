@@ -91,6 +91,7 @@ public:
 		std::vector<ValueId> inputs{};
 		std::vector<ValueId> outputs{};
 	};
+	static_assert(sizeof(Inst) == 64, "Inst layout regressed; see uniformity_of_ssa_cfg_v2.md for the target layout");
 
 	struct BasicBlock
 	{
