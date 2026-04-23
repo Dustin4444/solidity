@@ -24,6 +24,7 @@
 #include <libsolutil/Numeric.h>
 #include <libsolutil/Visitor.h>
 
+#include <range/v3/algorithm/any_of.hpp>
 #include <range/v3/view/drop.hpp>
 #include <range/v3/view/enumerate.hpp>
 #include <range/v3/view/transform.hpp>
@@ -43,42 +44,45 @@ Json toJson(SSACFG const& _cfg, std::vector<SSACFG::ValueId> const& _values)
 	return ret;
 }
 
-Json toJson(Json& _ret, SSACFG const& _cfg, SSACFG::Operation const& _operation, ControlFlowGraphs const& _controlFlow)
+Json toJson(Json& _ret, SSACFG const& _cfg, SSACFG::InstId _instId, SSACFG::Inst const& _inst, ControlFlowGraphs const& _controlFlow)
 {
 	Json opJson = Json::object();
-	std::visit(util::GenericVisitor{
-		[&](SSACFG::Call const& _call) {
-			_ret["type"] = "FunctionCall";
-			opJson["op"] = _controlFlow.functionGraph(_call.graphID)->name;
-		},
-		[&](SSACFG::BuiltinCall const& _call) {
-			_ret["type"] = "BuiltinCall";
-			Json builtinArgsJson = Json::array();
-			auto const& builtin = _call.builtin.get();
-			if (!builtin.literalArguments.empty())
+	if (_inst.opcode == Opcode::Call)
+	{
+		auto const& callPayload = _cfg.callPayload(_instId);
+		_ret["type"] = "FunctionCall";
+		opJson["op"] = _controlFlow.functionGraph(callPayload.graphID)->name;
+	}
+	else
+	{
+		yulAssert(_inst.opcode == Opcode::BuiltinCall);
+		auto const& builtinPayload = _cfg.builtinPayload(_instId);
+		_ret["type"] = "BuiltinCall";
+		Json builtinArgsJson = Json::array();
+		auto const& builtin = builtinPayload.builtin.get();
+		if (!builtin.literalArguments.empty())
+		{
+			auto const& functionCallArgs = builtinPayload.call.get().arguments;
+			for (size_t i = 0; i < builtin.literalArguments.size(); ++i)
 			{
-				auto const& functionCallArgs = _call.call.get().arguments;
-				for (size_t i = 0; i < builtin.literalArguments.size(); ++i)
+				std::optional<LiteralKind> const& argument = builtin.literalArguments[i];
+				if (argument.has_value() && i < functionCallArgs.size())
 				{
-					std::optional<LiteralKind> const& argument = builtin.literalArguments[i];
-					if (argument.has_value() && i < functionCallArgs.size())
-					{
-						// The function call argument at index i must be a literal if builtin.literalArguments[i] is not nullopt
-						yulAssert(std::holds_alternative<Literal>(functionCallArgs[i]));
-						builtinArgsJson.push_back(formatLiteral(std::get<Literal>(functionCallArgs[i])));
-					}
+					// The function call argument at index i must be a literal if builtin.literalArguments[i] is not nullopt
+					yulAssert(std::holds_alternative<Literal>(functionCallArgs[i]));
+					builtinArgsJson.push_back(formatLiteral(std::get<Literal>(functionCallArgs[i])));
 				}
 			}
+		}
 
-			if (!builtinArgsJson.empty())
-				opJson["literalArgs"] = builtinArgsJson;
+		if (!builtinArgsJson.empty())
+			opJson["literalArgs"] = builtinArgsJson;
 
-			opJson["op"] = _call.builtin.get().name;
-		},
-	}, _operation.kind);
+		opJson["op"] = builtin.name;
+	}
 
-	opJson["in"] = toJson(_cfg, _operation.inputs);
-	opJson["out"] = toJson(_cfg, _operation.outputs);
+	opJson["in"] = toJson(_cfg, _inst.inputs);
+	opJson["out"] = toJson(_cfg, _inst.outputs);
 
 	return opJson;
 }
@@ -103,31 +107,46 @@ Json toJson(SSACFG const& _cfg, SSACFG::BlockId _blockId, LivenessAnalysis const
 		blockJson["liveness"] = livenessJson;
 	}
 	blockJson["instructions"] = Json::array();
-	if (!block.phis.empty())
-	{
+	bool const hasPhis = ranges::any_of(block.instructions, [&](SSACFG::InstId id) {
+		return _cfg.inst(id).opcode == Opcode::Phi;
+	});
+	if (hasPhis)
 		blockJson["entries"] = block.entries
 			| ranges::views::transform([](auto const& entry) { return "Block" + std::to_string(entry.value); })
 			| ranges::to<Json::array_t>();
-		for (auto const& phi: block.phis)
-		{
-			// Reconstruct phi arguments from upsilon nodes in predecessor blocks.
-			std::vector<SSACFG::ValueId> phiArgs;
-			for (auto const& entryId: block.entries)
-				for (auto const& upsilon: _cfg.block(entryId).upsilons)
-					if (upsilon.phi == phi)
-					{
-						phiArgs.push_back(upsilon.value);
-						break;
-					}
-			Json phiJson = Json::object();
-			phiJson["op"] = "PhiFunction";
-			phiJson["in"] = toJson(_cfg, phiArgs);
-			phiJson["out"] = toJson(_cfg, std::vector{phi});
-			blockJson["instructions"].push_back(phiJson);
-		}
+	for (SSACFG::InstId const instId: block.instructions)
+	{
+		auto const& inst = _cfg.inst(instId);
+		if (inst.opcode != Opcode::Phi)
+			continue;
+		SSACFG::ValueId const phi = inst.outputs.at(0);
+		// Reconstruct phi arguments from upsilon Insts in predecessor blocks.
+		std::vector<SSACFG::ValueId> phiArgs;
+		for (auto const& entryId: block.entries)
+			for (SSACFG::InstId const predInstId: _cfg.block(entryId).instructions)
+			{
+				auto const& predInst = _cfg.inst(predInstId);
+				if (predInst.opcode != Opcode::Upsilon)
+					continue;
+				if (_cfg.upsilonPhi(predInstId) == phi)
+				{
+					phiArgs.push_back(predInst.inputs.at(0));
+					break;
+				}
+			}
+		Json phiJson = Json::object();
+		phiJson["op"] = "PhiFunction";
+		phiJson["in"] = toJson(_cfg, phiArgs);
+		phiJson["out"] = toJson(_cfg, std::vector{phi});
+		blockJson["instructions"].push_back(phiJson);
 	}
-	for (auto const opId: block.operations)
-		blockJson["instructions"].push_back(toJson(blockJson, _cfg, _cfg.operation(opId), _controlFlow));
+	for (SSACFG::InstId const instId: block.instructions)
+	{
+		auto const& inst = _cfg.inst(instId);
+		if (inst.opcode != Opcode::BuiltinCall && inst.opcode != Opcode::Call)
+			continue;
+		blockJson["instructions"].push_back(toJson(blockJson, _cfg, instId, inst, _controlFlow));
+	}
 
 	return blockJson;
 }
