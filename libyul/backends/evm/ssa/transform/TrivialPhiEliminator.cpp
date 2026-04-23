@@ -75,9 +75,6 @@ private:
 		for (SSACFG::BlockId blockId{0}; blockId.value < cfg.numBlocks(); ++blockId.value)
 		{
 			auto& block = cfg.block(blockId);
-			std::erase_if(block.upsilons, [](SSACFG::Upsilon const& u) {
-				return u.value.isUnreachable();
-			});
 			std::erase_if(block.instructions, [this](SSACFG::InstId id) {
 				auto const& ins = cfg.inst(id);
 				return ins.opcode == Opcode::Upsilon && ins.inputs.at(0).isUnreachable();
@@ -90,9 +87,14 @@ private:
 		for (SSACFG::BlockId blockId{0}; blockId.value < cfg.numBlocks(); ++blockId.value)
 		{
 			auto const& block = cfg.block(blockId);
-			for (auto const& u: block.upsilons)
+			for (SSACFG::InstId const instId: block.instructions)
 			{
-				auto const phiIdx = u.phi.value();
+				auto const& inst = cfg.inst(instId);
+				if (inst.opcode != Opcode::Upsilon)
+					continue;
+				SSACFG::ValueId const phi = cfg.upsilonPhi(instId);
+				SSACFG::ValueId const value = inst.inputs.at(0);
+				auto const phiIdx = phi.value();
 				if (phiIdx >= upsilonValuesForPhi.size())
 				{
 					upsilonValuesForPhi.resize(phiIdx + 1);
@@ -100,14 +102,14 @@ private:
 				}
 				if (phiIdx >= reversePhiUpsilonValues.size())
 					reversePhiUpsilonValues.resize(phiIdx + 1);
-				upsilonValuesForPhi[phiIdx].push_back(u.value);
+				upsilonValuesForPhi[phiIdx].push_back(value);
 				phiTargetBlocks[phiIdx].push_back(blockId);
-				if (u.value.isPhi())
+				if (value.isPhi())
 				{
-					auto const valIdx = u.value.value();
+					auto const valIdx = value.value();
 					if (valIdx >= reversePhiUpsilonValues.size())
 						reversePhiUpsilonValues.resize(valIdx + 1);
-					reversePhiUpsilonValues[valIdx].push_back(u.phi);
+					reversePhiUpsilonValues[valIdx].push_back(phi);
 				}
 			}
 		}
@@ -136,7 +138,14 @@ private:
 	{
 		for (SSACFG::BlockId blockId{0}; blockId.value < cfg.numBlocks(); ++blockId.value)
 		{
-			auto const phis = cfg.block(blockId).phis;
+			// Snapshot the phi ValueIds because tryRemove mutates block.instructions.
+			std::vector<SSACFG::ValueId> phis;
+			for (SSACFG::InstId const instId: cfg.block(blockId).instructions)
+			{
+				auto const& inst = cfg.inst(instId);
+				if (inst.opcode == Opcode::Phi)
+					phis.push_back(inst.outputs.at(0));
+			}
 			for (auto const phi: phis)
 				tryRemove(phi);
 		}
@@ -196,9 +205,6 @@ private:
 					for (auto const blockId: phiTargetBlocks[targetPhi.value()])
 					{
 						auto& block = cfg.block(blockId);
-						for (auto& u: block.upsilons)
-							if (u.phi == targetPhi && u.value == _phi)
-								u.value = same;
 						for (SSACFG::InstId const instId: block.instructions)
 						{
 							auto& ins = cfg.inst(instId);
@@ -226,7 +232,6 @@ private:
 			for (auto const blockId: phiTargetBlocks[phiIdx])
 			{
 				auto& block = cfg.block(blockId);
-				std::erase_if(block.upsilons, [_phi](auto const& u) { return u.phi == _phi; });
 				std::erase_if(block.instructions, [this, _phi](SSACFG::InstId id) {
 					auto const& ins = cfg.inst(id);
 					return ins.opcode == Opcode::Upsilon && cfg.upsilonPhi(id) == _phi;
@@ -262,8 +267,6 @@ private:
 		for (SSACFG::BlockId blockId{0}; blockId.value < cfg.numBlocks(); ++blockId.value)
 		{
 			auto& block = cfg.block(blockId);
-			for (auto& u: block.upsilons)
-				u.value = canonicalize(u.value);
 			for (SSACFG::InstId const instId: block.instructions)
 			{
 				auto& ins = cfg.inst(instId);
@@ -273,9 +276,6 @@ private:
 					for (auto& input: ins.inputs)
 						input = canonicalize(input);
 			}
-			for (auto const opId: block.operations)
-				for (auto& input: cfg.operation(opId).inputs)
-					input = canonicalize(input);
 			std::visit(util::GenericVisitor{
 				[&](SSACFG::BasicBlock::FunctionReturn& r) {
 					for (auto& v: r.returnValues)
