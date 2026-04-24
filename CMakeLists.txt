@@ -74,7 +74,7 @@ endif()
 find_package(Threads)
 
 set(MIMALLOC_ENABLED FALSE)
-if (USE_MIMALLOC AND NOT EMSCRIPTEN AND NOT APPLE)
+if (USE_MIMALLOC AND NOT EMSCRIPTEN)
   if (CMAKE_VERSION VERSION_LESS "3.18")
     message(WARNING "mimalloc requires CMake >= 3.18, disabling (found ${CMAKE_VERSION})")
   else()

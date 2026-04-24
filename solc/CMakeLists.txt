@@ -13,7 +13,11 @@ add_executable(solc ${sources})
 target_link_libraries(solc PRIVATE solcli)
 
 if (MIMALLOC_ENABLED)
-	target_link_libraries(solc PRIVATE mimalloc-static)
+	if (APPLE)
+		target_link_libraries(solc PRIVATE -Wl,-force_load mimalloc-static)
+	else()
+		target_link_libraries(solc PRIVATE mimalloc-static)
+	endif()
 endif()
 
 include(GNUInstallDirs)
