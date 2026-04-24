@@ -12,7 +12,7 @@ set(sources main.cpp)
 add_executable(solc ${sources})
 target_link_libraries(solc PRIVATE solcli)
 
-if (USE_MIMALLOC AND NOT EMSCRIPTEN)
+if (MIMALLOC_ENABLED)
 	target_link_libraries(solc PRIVATE mimalloc-static)
 endif()
 

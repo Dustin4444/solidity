@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18.0)
+cmake_minimum_required(VERSION 3.13.0)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -73,8 +73,14 @@ endif()
 
 find_package(Threads)
 
+set(MIMALLOC_ENABLED FALSE)
 if (USE_MIMALLOC AND NOT EMSCRIPTEN)
-  include(mimalloc)
+  if (CMAKE_VERSION VERSION_LESS "3.18")
+    message(WARNING "mimalloc requires CMake >= 3.18, disabling (found ${CMAKE_VERSION})")
+  else()
+    include(mimalloc)
+    set(MIMALLOC_ENABLED TRUE)
+  endif()
 endif()
 
 if(NOT PEDANTIC)

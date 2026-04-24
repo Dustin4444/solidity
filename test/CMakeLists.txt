@@ -222,7 +222,7 @@ add_executable(soltest ${sources}
 )
 target_link_libraries(soltest PRIVATE solcli libsolc yul solidity smtutil solutil phaser Boost::boost yulInterpreter evmasm Boost::filesystem Boost::program_options Boost::unit_test_framework evmc)
 
-if (USE_MIMALLOC AND NOT EMSCRIPTEN)
+if (MIMALLOC_ENABLED)
     target_link_libraries(soltest PRIVATE mimalloc-static)
 endif()
 
