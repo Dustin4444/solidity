@@ -527,10 +527,11 @@ If you are interested what CMake options are available run ``cmake .. -LH``.
 
 Allocator
 ---------
-By default, the build uses `mimalloc <https://github.com/microsoft/mimalloc>`_ as the global allocator.
-It is fetched automatically via CMake's ``FetchContent``.
+On Linux, the build uses `mimalloc <https://github.com/microsoft/mimalloc>`_ as the global allocator
+by default. It is vendored as a git submodule under ``deps/mimalloc``.
 To disable it, pass ``-DUSE_MIMALLOC=OFF``.
-It is always disabled for Emscripten builds.
+It is automatically disabled on non-Linux platforms, when ``IGNORE_VENDORED_DEPENDENCIES`` is set,
+for sanitizer builds, and when the CMake version is older than 3.18.
 
 .. _smt_solvers_build:
 
