@@ -525,6 +525,13 @@ CMake Options
 
 If you are interested what CMake options are available run ``cmake .. -LH``.
 
+Allocator
+---------
+By default, the build uses `mimalloc <https://github.com/microsoft/mimalloc>`_ as the global allocator.
+It is fetched automatically via CMake's ``FetchContent``.
+To disable it, pass ``-DUSE_MIMALLOC=OFF``.
+It is always disabled for Emscripten builds.
+
 .. _smt_solvers_build:
 
 SMT Solvers

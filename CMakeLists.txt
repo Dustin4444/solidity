@@ -36,6 +36,7 @@ endif()
 
 option(SOLC_LINK_STATIC "Link solc executable statically on supported platforms" OFF)
 option(SOLC_STATIC_STDLIBS "Link solc against static versions of libgcc and libstdc++ on supported platforms" OFF)
+option(USE_MIMALLOC "Use mimalloc as the default allocator" ON)
 option(STRICT_Z3_VERSION "Require the exact version of Z3 solver expected by our test suite." ON)
 option(PEDANTIC "Enable extra warnings and pedantic build flags. Treat all warnings as errors." ON)
 option(PROFILE_OPTIMIZER_STEPS "Output performance metrics for the optimiser steps." OFF)
@@ -71,6 +72,10 @@ else ()
 endif()
 
 find_package(Threads)
+
+if (USE_MIMALLOC AND NOT EMSCRIPTEN)
+  include(mimalloc)
+endif()
 
 if(NOT PEDANTIC)
   message(WARNING "-- Pedantic build flags turned off. Warnings will not make compilation fail. This is NOT recommended in development builds.")

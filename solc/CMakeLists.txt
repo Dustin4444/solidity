@@ -12,6 +12,10 @@ set(sources main.cpp)
 add_executable(solc ${sources})
 target_link_libraries(solc PRIVATE solcli)
 
+if (USE_MIMALLOC AND NOT EMSCRIPTEN)
+	target_link_libraries(solc PRIVATE mimalloc-static)
+endif()
+
 include(GNUInstallDirs)
 install(TARGETS solc DESTINATION "${CMAKE_INSTALL_BINDIR}")
 

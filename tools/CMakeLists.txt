@@ -34,4 +34,8 @@ target_link_libraries(phaser PUBLIC solidity Boost::boost Boost::program_options
 add_executable(yul-phaser yulPhaser/main.cpp)
 target_link_libraries(yul-phaser PRIVATE phaser)
 
+if (USE_MIMALLOC AND NOT EMSCRIPTEN)
+	target_link_libraries(yul-phaser PRIVATE mimalloc-static)
+endif()
+
 install(TARGETS yul-phaser DESTINATION "${CMAKE_INSTALL_BINDIR}")
