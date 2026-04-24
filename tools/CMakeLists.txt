@@ -35,11 +35,7 @@ add_executable(yul-phaser yulPhaser/main.cpp)
 target_link_libraries(yul-phaser PRIVATE phaser)
 
 if (MIMALLOC_ENABLED)
-	if (APPLE)
-		target_link_libraries(yul-phaser PRIVATE -Wl,-force_load mimalloc-static)
-	else()
-		target_link_libraries(yul-phaser PRIVATE mimalloc-static)
-	endif()
+	target_link_libraries(yul-phaser PRIVATE mimalloc-static)
 endif()
 
 install(TARGETS yul-phaser DESTINATION "${CMAKE_INSTALL_BINDIR}")

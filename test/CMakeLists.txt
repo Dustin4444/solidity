@@ -223,11 +223,7 @@ add_executable(soltest ${sources}
 target_link_libraries(soltest PRIVATE solcli libsolc yul solidity smtutil solutil phaser Boost::boost yulInterpreter evmasm Boost::filesystem Boost::program_options Boost::unit_test_framework evmc)
 
 if (MIMALLOC_ENABLED)
-    if (APPLE)
-        target_link_libraries(soltest PRIVATE -Wl,-force_load mimalloc-static)
-    else()
-        target_link_libraries(soltest PRIVATE mimalloc-static)
-    endif()
+    target_link_libraries(soltest PRIVATE mimalloc-static)
 endif()
 
 # Special compilation flag for Visual Studio (version 2019 at least affected)
