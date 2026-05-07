@@ -158,48 +158,32 @@ void UnusedStoreEliminator::visit(Statement const& _statement)
 	// both by querying a combination of semantic information and by listing the instructions.
 	// This way the assert below should be triggered on any change.
 	using evmasm::SemanticInformation;
-	bool isStorageWrite = (*instruction == Instruction::SSTORE);
-	bool isMemoryWrite =
+	bool const isStorageOnlyWrite = (*instruction == Instruction::SSTORE);
+	bool const isMemoryOnlyWrite =
 		*instruction == Instruction::EXTCODECOPY ||
 		*instruction == Instruction::CODECOPY ||
 		*instruction == Instruction::CALLDATACOPY ||
-		*instruction == Instruction::RETURNDATACOPY ||
-		// TODO: Removing MCOPY is complicated because it's not just a store but also a load.
-		//*instruction == Instruction::MCOPY ||
 		*instruction == Instruction::MSTORE ||
-		*instruction == Instruction::MSTORE8;
-	bool isCandidateForRemoval =
-		*instruction != Instruction::MCOPY &&
+		*instruction == Instruction::MSTORE8 ||
+		*instruction == Instruction::MCOPY ||
+		*instruction == Instruction::RETURNDATACOPY;
+	bool const isBlacklisted =
+		// TODO: Removing MCOPY is complicated because it's not just a store but also a load.
+		*instruction == Instruction::MCOPY ||
+		// The optimization that eliminated `returndatacopy` operations
+		// was intentionally removed because it is very rarely used and complicates the implementation
+		// of UnusedStoreEliminator. I.e. a variable which is initialized to `returndatasize()` becomes
+		// stale when a call changing the size is used in between the variable initialization and `returndatacopy`.
+		*instruction == Instruction::RETURNDATACOPY;
+	bool const isCandidateForRemoval =
+		!isBlacklisted &&
 		SemanticInformation::otherState(*instruction) != SemanticInformation::Write && (
 			SemanticInformation::storage(*instruction) == SemanticInformation::Write ||
 			(!m_ignoreMemory && SemanticInformation::memory(*instruction) == SemanticInformation::Write)
 		);
-	yulAssert(isCandidateForRemoval == (isStorageWrite || (!m_ignoreMemory && isMemoryWrite)));
+	yulAssert(isCandidateForRemoval == (isStorageOnlyWrite || (!m_ignoreMemory && isMemoryOnlyWrite && !isBlacklisted)));
 	if (isCandidateForRemoval)
 	{
-		if (*instruction == Instruction::RETURNDATACOPY)
-		{
-			// Out-of-bounds access to the returndata buffer results in a revert,
-			// so we are careful not to remove a potentially reverting call to a builtin.
-			// The only way the Solidity compiler uses `returndatacopy` is
-			// `returndatacopy(X, 0, returndatasize())`, so we only allow to remove this pattern
-			// (which is guaranteed to never cause an out-of-bounds revert).
-			bool allowReturndatacopyToBeRemoved = false;
-			auto startOffset = identifierNameIfSSA(funCall->arguments.at(1));
-			auto length = identifierNameIfSSA(funCall->arguments.at(2));
-			if (length && startOffset)
-			{
-				FunctionCall const* lengthCall = std::get_if<FunctionCall>(m_ssaValues.at(*length).value);
-				if (
-					m_knowledgeBase.knownToBeZero(*startOffset) &&
-					lengthCall &&
-					toEVMInstruction(m_dialect, lengthCall->functionName) == Instruction::RETURNDATASIZE
-				)
-					allowReturndatacopyToBeRemoved = true;
-			}
-			if (!allowReturndatacopyToBeRemoved)
-				return;
-		}
 		m_allStores.insert(&_statement);
 		std::vector<Operation> operations = operationsFromFunctionCall(*funCall);
 		yulAssert(operations.size() == 1, "");
