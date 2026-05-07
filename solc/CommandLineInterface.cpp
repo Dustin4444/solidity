@@ -517,7 +517,7 @@ void CommandLineInterface::handleGasEstimation(std::string const& _contract)
 {
 	solAssert(CompilerInputModes.count(m_options.input.mode) == 1);
 
-	Json const estimates = m_compiler->gasEstimates(_contract);
+	Json estimates = m_compiler->gasEstimates(_contract);
 	sout() << "Gas estimation:" << std::endl;
 
 	if (estimates["creation"].is_object())
