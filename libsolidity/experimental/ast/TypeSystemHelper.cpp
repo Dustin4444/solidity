@@ -123,7 +123,7 @@ experimental::Type TypeSystemHelpers::tupleType(std::vector<Type> _elements) con
 	if (_elements.size() == 1)
 		return _elements.front();
 	Type result = _elements.back();
-	for (const Type& const type: _elements | ranges::views::reverse | ranges::views::drop_exactly(1))
+	for (Type const& type: _elements | ranges::views::reverse | ranges::views::drop_exactly(1))
 		result = typeSystem.type(PrimitiveType::Pair, {type, result});
 	return result;
 }
@@ -165,7 +165,7 @@ experimental::Type TypeSystemHelpers::sumType(std::vector<Type> _elements) const
 	if (_elements.size() == 1)
 		return _elements.front();
 	Type result = _elements.back();
-	for (const Type& const type: _elements | ranges::views::reverse | ranges::views::drop_exactly(1))
+	for (Type const& type: _elements | ranges::views::reverse | ranges::views::drop_exactly(1))
 		result = typeSystem.type(PrimitiveType::Sum, {type, result});
 	return result;
 }

@@ -799,7 +799,7 @@ bool TypeInference::visit(TypeDefinition const& _typeDefinition)
 
 	std::vector<Type> arguments;
 	if (_typeDefinition.arguments())
-		for (const ASTPointer<VariableDeclaration>& const argumentDeclaration: _typeDefinition.arguments()->parameters())
+		for (ASTPointer<VariableDeclaration> const& argumentDeclaration: _typeDefinition.arguments()->parameters())
 		{
 			solAssert(argumentDeclaration);
 			Type const typeVar = type(*argumentDeclaration);

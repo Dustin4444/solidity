@@ -1221,7 +1221,7 @@ void CommandLineInterface::link()
 		librariesReplacements[replacement] = library.second;
 	}
 
-	FileReader::StringMap const sourceCodes = m_fileReader.sourceUnits();
+	FileReader::StringMap sourceCodes = m_fileReader.sourceUnits();
 	for (auto& src: sourceCodes)
 	{
 		auto end = src.second.end();
