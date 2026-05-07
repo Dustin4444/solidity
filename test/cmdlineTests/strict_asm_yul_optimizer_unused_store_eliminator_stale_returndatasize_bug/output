@@ -1,0 +1,25 @@
+
+======= input.yul (EVM) =======
+
+Pretty printed source:
+object "C" {
+    code {
+        {
+            switch shr(224, calldataload(0))
+            case 0xa2c2d666 {
+                mstore(0, 1)
+                return(0, 32)
+            }
+            case 0xffae15ba { return(0, 0) }
+            default {
+                mstore(0, shl(225, 0x51616b33))
+                pop(staticcall(gas(), address(), 0, 0x04, 0, 0))
+                let s := returndatasize()
+                mstore(0, shl(225, 0x7fd70add))
+                pop(staticcall(gas(), address(), 0, 0x04, 0, 0))
+                returndatacopy(0, 0, s)
+                return(0, 0)
+            }
+        }
+    }
+}

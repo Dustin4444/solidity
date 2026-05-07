@@ -1,0 +1,55 @@
+Optimized IR:
+/// @use-src 0:"input.sol"
+object "C_19" {
+    code {
+        {
+            let _1 := memoryguard(0x80)
+            mstore(64, _1)
+            if callvalue() { revert(0, 0) }
+            let _2 := datasize("C_19_deployed")
+            codecopy(_1, dataoffset("C_19_deployed"), _2)
+            return(_1, _2)
+        }
+    }
+    /// @use-src 0:"input.sol"
+    object "C_19_deployed" {
+        code {
+            {
+                mstore(64, 128)
+                if iszero(lt(calldatasize(), 4))
+                {
+                    switch shr(224, calldataload(0))
+                    case 0x26121ff0 {
+                        if callvalue() { revert(0, 0) }
+                        if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
+                        mstore(0, shl(225, 0x51616b33))
+                        pop(staticcall(gas(), address(), 0, 4, 0, 0))
+                        let usr$rds := returndatasize()
+                        mstore(0, shl(225, 0x7fd70add))
+                        pop(staticcall(gas(), address(), 0, 4, 0, 0))
+                        returndatacopy(96, 0, usr$rds)
+                        return(0, 0)
+                    }
+                    case 0xa2c2d666 { external_fun_e1() }
+                    case 0xffae15ba { external_fun_e() }
+                }
+                revert(0, 0)
+            }
+            function external_fun_e1()
+            {
+                if callvalue() { revert(0, 0) }
+                if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
+                let memPos := mload(64)
+                mstore(memPos, 0x01)
+                return(memPos, 32)
+            }
+            function external_fun_e()
+            {
+                if callvalue() { revert(0, 0) }
+                if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
+                return(0, 0)
+            }
+        }
+        data ".metadata" hex""
+    }
+}
