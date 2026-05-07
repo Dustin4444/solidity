@@ -250,7 +250,7 @@ void NameAndTypeResolver::warnHomonymDeclarations() const
 	DeclarationContainer::Homonyms homonyms;
 	m_scopes.at(nullptr)->populateHomonyms(back_inserter(homonyms));
 
-	for (const auto& [innerLocation, outerDeclarations]: homonyms)
+	for (auto const& [innerLocation, outerDeclarations]: homonyms)
 	{
 		solAssert(innerLocation && !outerDeclarations.empty(), "");
 

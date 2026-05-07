@@ -1349,7 +1349,7 @@ bool ContractCompiler::visit(VariableDeclarationStatement const& _variableDeclar
 
 	// Local variable slots are reserved when their declaration is visited,
 	// and freed in the end of their scope.
-	for (const auto& decl: _variableDeclarationStatement.declarations())
+	for (auto const& decl: _variableDeclarationStatement.declarations())
 		if (decl)
 			appendStackVariableInitialisation(*decl, !_variableDeclarationStatement.initialValue());
 

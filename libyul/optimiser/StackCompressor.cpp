@@ -197,7 +197,7 @@ void eliminateVariablesOptimizedCodegen(
 
 	std::map<YulName, size_t> candidates;
 	for (auto const& [functionName, candidatesInFunction]: selector.candidates())
-		for (const auto& [cost, candidatesWithCost]: candidatesInFunction)
+		for (auto const& [cost, candidatesWithCost]: candidatesInFunction)
 			for (auto candidate: candidatesWithCost)
 				candidates[candidate] = cost;
 
@@ -217,7 +217,7 @@ void eliminateVariablesOptimizedCodegen(
 					if (!util::contains(suitableCandidates[*cost], varName))
 						suitableCandidates[*cost].emplace_back(varName);
 			}
-			for (const auto& candidatesByCost: suitableCandidates)
+			for (auto const& candidatesByCost: suitableCandidates)
 			{
 				for (auto candidate: candidatesByCost.second)
 					if (neededSlots--)

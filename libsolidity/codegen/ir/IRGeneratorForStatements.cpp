@@ -1165,7 +1165,7 @@ void IRGeneratorForStatements::endVisit(FunctionCall const& _functionCall)
 		{
 			auto const& errorConstructorCall = dynamic_cast<FunctionCall const&>(*arguments[1]);
 			appendCode() << m_utils.requireWithErrorFunction(errorConstructorCall) << "(" <<IRVariable(*arguments[0]).name();
-			for (const auto& argument: errorConstructorCall.arguments())
+			for (auto const& argument: errorConstructorCall.arguments())
 				if (argument->annotation().type->sizeOnStack() > 0)
 					appendCode() << ", " << IRVariable(*argument).commaSeparatedList();
 			appendCode() << ")\n";
@@ -1215,7 +1215,7 @@ void IRGeneratorForStatements::endVisit(FunctionCall const& _functionCall)
 			if (type(*arguments[1]).category() == Type::Category::Tuple)
 			{
 				auto const& tupleExpression = dynamic_cast<TupleExpression const&>(*arguments[1]);
-				for (const auto& component: tupleExpression.components())
+				for (auto const& component: tupleExpression.components())
 					argumentsOfEncodeFunction.push_back(component);
 			}
 			else

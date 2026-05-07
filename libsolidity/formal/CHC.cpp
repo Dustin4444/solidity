@@ -1012,7 +1012,7 @@ void CHC::externalFunctionCall(FunctionCall const& _funCall)
 
 	auto function = functionCallToDefinition(_funCall, currentScopeContract(), m_currentContract);
 	if (function)
-		for (const auto& var: function->returnParameters())
+		for (auto const& var: function->returnParameters())
 			m_context.variable(*var)->increaseIndex();
 
 	// If we see a low level call in trusted mode,
@@ -1445,9 +1445,9 @@ void CHC::defineInterfacesAndSummaries(SourceUnit const& _source)
 			auto const& resolved = contractFunctions(*contract);
 			for (auto const* function: contractFunctionsWithoutVirtual(*contract) + allFreeFunctions())
 			{
-				for (const auto& var: function->parameters())
+				for (auto const& var: function->parameters())
 					createVariable(*var);
-				for (const auto& var: function->returnParameters())
+				for (auto const& var: function->returnParameters())
 					createVariable(*var);
 				for (auto const* var: localVariablesIncludingModifiers(*function, contract))
 					createVariable(*var);
@@ -1856,7 +1856,7 @@ smtutil::Expression CHC::predicate(
 	args += std::vector<smtutil::Expression>{state().state()};
 	args += currentStateVariables(*contract);
 
-	for (const auto& var: _funDef->parameters() + _funDef->returnParameters())
+	for (auto const& var: _funDef->parameters() + _funDef->returnParameters())
 	{
 		if (m_context.knownVariable(*var))
 			m_context.variable(*var)->increaseIndex();

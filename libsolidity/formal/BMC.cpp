@@ -708,7 +708,7 @@ void BMC::inlineFunctionCall(
 	if (visitedFunction(_funDef))
 	{
 		auto const& returnParams = _funDef->returnParameters();
-		for (const auto& param: returnParams)
+		for (auto const& param: returnParams)
 		{
 			m_context.newValue(*param);
 			m_context.setUnknownValue(*param);

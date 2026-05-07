@@ -280,7 +280,7 @@ void SymbolicState::prepareForSourceUnit(SourceUnit const& _source, bool _storag
 	{
 		abiCalls += SMTEncoder::collectABICalls(source);
 		bytesConcatCalls += SMTEncoder::collectBytesConcatCalls(source);
-		for (const auto& node: source->nodes())
+		for (auto const& node: source->nodes())
 			if (auto contract = dynamic_cast<ContractDefinition const*>(node.get()))
 				contracts.insert(contract);
 	}

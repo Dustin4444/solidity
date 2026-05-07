@@ -596,10 +596,10 @@ Stack StackLayoutGenerator::combineStack(Stack const& _stack1, Stack const& _sta
 		return commonPrefix + compressStack(stack1Tail, _reachableStackDepth);
 
 	Stack candidate;
-	for (const auto& slot: stack1Tail)
+	for (auto const& slot: stack1Tail)
 		if (!util::contains(candidate, slot))
 			candidate.emplace_back(slot);
-	for (const auto& slot: stack2Tail)
+	for (auto const& slot: stack2Tail)
 		if (!util::contains(candidate, slot))
 			candidate.emplace_back(slot);
 	std::erase_if(candidate, [](StackSlot const& slot) {

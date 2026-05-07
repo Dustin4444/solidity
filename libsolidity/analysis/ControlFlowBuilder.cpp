@@ -427,7 +427,7 @@ bool ControlFlowBuilder::visit(Return const& _return)
 	{
 		appendControlFlow(*_return.expression());
 		// Returns with return expression are considered to be assignments to the return parameters.
-		for (const auto& returnParameter: _return.annotation().functionReturnParameters->parameters())
+		for (auto const& returnParameter: _return.annotation().functionReturnParameters->parameters())
 			m_currentNode->variableOccurrences.emplace_back(
 				*returnParameter,
 				VariableOccurrence::Kind::Assignment,

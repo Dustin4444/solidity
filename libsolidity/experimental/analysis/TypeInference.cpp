@@ -229,7 +229,7 @@ bool TypeInference::visit(TypeClassDefinition const& _typeClassDefinition)
 
 	auto& typeMembersAnnotation = annotation().members[typeConstructor(&_typeClassDefinition)];
 
-	for (const auto& subNode: _typeClassDefinition.subNodes())
+	for (auto const& subNode: _typeClassDefinition.subNodes())
 	{
 		subNode->accept(*this);
 		auto const* functionDefinition = dynamic_cast<FunctionDefinition const*>(subNode.get());
@@ -246,7 +246,7 @@ bool TypeInference::visit(TypeClassDefinition const& _typeClassDefinition)
 
 	annotation().typeClassFunctions[typeClass] = std::move(functionTypes);
 
-	for (const auto& [functionName, functionType]: functionTypes)
+	for (auto const& [functionName, functionType]: functionTypes)
 	{
 		TypeEnvironmentHelpers const helper{*m_env};
 		auto typeVars = helper.typeVars(functionType);
@@ -614,7 +614,7 @@ void TypeInference::endVisit(TupleExpression const& _tupleExpression)
 	case ExpressionContext::Sort:
 	{
 		Type const type = m_typeSystem.freshTypeVariable({});
-		for (const auto& componentType: componentTypes)
+		for (auto const& componentType: componentTypes)
 			unify(type, componentType, _tupleExpression.location());
 		expressionAnnotation.type = type;
 		break;
@@ -693,7 +693,7 @@ bool TypeInference::visit(TypeClassInstantiation const& _typeClassInstantiation)
 
 	std::map<std::string, Type> functionTypes;
 
-	for (const auto& subNode: _typeClassInstantiation.subNodes())
+	for (auto const& subNode: _typeClassInstantiation.subNodes())
 	{
 		auto const* functionDefinition = dynamic_cast<FunctionDefinition const*>(subNode.get());
 		solAssert(functionDefinition);
@@ -710,7 +710,7 @@ bool TypeInference::visit(TypeClassInstantiation const& _typeClassInstantiation)
 	solAssert(std::holds_alternative<TypeVariable>(m_typeSystem.typeClassVariable(typeClass)));
 	TypeVariable classVar = std::get<TypeVariable>(m_typeSystem.typeClassVariable(typeClass));
 
-	for (const auto& [name, classFunctionType]: classFunctions)
+	for (auto const& [name, classFunctionType]: classFunctions)
 	{
 		if (!functionTypes.count(name))
 		{
@@ -860,7 +860,7 @@ void TypeInference::endVisit(FunctionCall const& _functionCall)
 
 	TypeSystemHelpers const helper{m_typeSystem};
 	std::vector<Type> argTypes;
-	for (const auto& arg: _functionCall.arguments())
+	for (auto const& arg: _functionCall.arguments())
 	{
 		switch (m_expressionContext)
 		{
@@ -1125,7 +1125,7 @@ void TypeInference::unify(Type _a, Type _b, langutil::SourceLocation _location)
 					if (helper.isTypeConstant(sortMismatch->type))
 					{
 						TypeConstructor const constructor = std::get<0>(helper.destTypeConstant(sortMismatch->type));
-						for (const auto& typeClass: sortMismatch->sort.classes)
+						for (auto const& typeClass: sortMismatch->sort.classes)
 						{
 							if (auto const* instantiation = util::valueOrDefault(typeClassInstantiations(m_analysis, typeClass), constructor, nullptr))
 							{

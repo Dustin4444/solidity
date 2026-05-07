@@ -2980,7 +2980,7 @@ std::vector<VariableDeclaration const*> SMTEncoder::tryCatchVariables(FunctionDe
 			if (_catchClause.parameters())
 			{
 				auto const& params = _catchClause.parameters()->parameters();
-				for (const auto& param: params)
+				for (auto const& param: params)
 					vars.push_back(param.get());
 			}
 
@@ -3004,7 +3004,7 @@ std::vector<VariableDeclaration const*> SMTEncoder::modifiersVariables(FunctionD
 
 	std::vector<VariableDeclaration const*> vars;
 	std::set<ModifierDefinition const*> visited;
-	for (const auto& invok: _function.modifiers())
+	for (auto const& invok: _function.modifiers())
 	{
 		if (!invok)
 			continue;
@@ -3093,7 +3093,7 @@ std::map<ContractDefinition const*, std::vector<ASTPointer<frontend::Expression>
 	for (auto contract: _contract.annotation().linearizedBaseContracts)
 	{
 		/// Collect base contracts and potential constructor arguments.
-		for (const auto& specifier: contract->baseContracts())
+		for (auto const& specifier: contract->baseContracts())
 		{
 			solAssert(specifier, "");
 			auto const& base = dynamic_cast<ContractDefinition const&>(*specifier->name().annotation().referencedDeclaration);
@@ -3102,7 +3102,7 @@ std::map<ContractDefinition const*, std::vector<ASTPointer<frontend::Expression>
 		}
 		/// Collect base constructor arguments given as constructor modifiers.
 		if (auto constructor = contract->constructor())
-			for (const auto& mod: constructor->modifiers())
+			for (auto const& mod: constructor->modifiers())
 			{
 				auto decl = mod->name().annotation().referencedDeclaration;
 				if (auto base = dynamic_cast<ContractDefinition const*>(decl))
@@ -3197,7 +3197,7 @@ void SMTEncoder::createReturnedExpressions(FunctionDefinition const* _funDef, Ex
 		return;
 
 	auto const& returnParams = _funDef->returnParameters();
-	for (const auto& param: returnParams)
+	for (auto const& param: returnParams)
 		createVariable(*param);
 	auto returnValues = applyMap(returnParams, [this](auto const& param) -> std::optional<smtutil::Expression> {
 		solAssert(param && m_context.knownVariable(*param), "");
@@ -3252,7 +3252,7 @@ smtutil::Expression SMTEncoder::constantExpr(Expression const& _expr, VariableDe
 void SMTEncoder::collectFreeFunctions(std::set<SourceUnit const*, ASTNode::CompareByID> const& _sources)
 {
 	for (auto source: _sources)
-		for (const auto& node: source->nodes())
+		for (auto const& node: source->nodes())
 			if (auto function = dynamic_cast<FunctionDefinition const*>(node.get()))
 				m_freeFunctions.insert(function);
 			else if (
@@ -3268,7 +3268,7 @@ void SMTEncoder::collectFreeFunctions(std::set<SourceUnit const*, ASTNode::Compa
 void SMTEncoder::createFreeConstants(std::set<SourceUnit const*, ASTNode::CompareByID> const& _sources)
 {
 	for (auto source: _sources)
-		for (const auto& node: source->nodes())
+		for (auto const& node: source->nodes())
 			if (auto var = dynamic_cast<VariableDeclaration const*>(node.get()))
 				createVariable(*var);
 			else if (

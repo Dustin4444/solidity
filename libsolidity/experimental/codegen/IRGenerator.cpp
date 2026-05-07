@@ -149,7 +149,7 @@ std::string IRGenerator::generate(FunctionDefinition const& _function, Type _typ
 		}
 	}
 	code << "{\n";
-	for (const auto& _statement: _function.body().statements())
+	for (auto const& _statement: _function.body().statements())
 	{
 		IRGeneratorForStatements statementGenerator{m_context};
 		code << statementGenerator.generate(*_statement);

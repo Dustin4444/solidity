@@ -63,7 +63,7 @@ void ModelChecker::checkRequestedSourcesAndContracts(std::vector<std::shared_ptr
 {
 	std::map<std::string, std::set<std::string>> exist;
 	for (auto const& source: _sources)
-		for (const auto& node: source->nodes())
+		for (auto const& node: source->nodes())
 			if (auto contract = std::dynamic_pointer_cast<ContractDefinition>(node))
 				exist[contract->sourceUnitName()].insert(contract->name());
 
@@ -97,7 +97,7 @@ void ModelChecker::analyze(SourceUnit const& _source)
 	if (_source.annotation().experimentalFeatures.count(ExperimentalFeature::SMTChecker))
 	{
 		PragmaDirective const* smtPragma = nullptr;
-		for (const auto& node: _source.nodes())
+		for (auto const& node: _source.nodes())
 			if (auto pragma = std::dynamic_pointer_cast<PragmaDirective>(node))
 				if (
 					pragma->literals().size() >= 2 &&

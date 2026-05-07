@@ -324,7 +324,7 @@ void IRGeneratorForStatements::endVisit(FunctionCall const& _functionCall)
 	m_code << IRNames::function(*m_context.env, *functionDefinition, functionType) << "(";
 	auto const& arguments = _functionCall.arguments();
 	if (arguments.size() > 1)
-		for (const auto& arg: arguments | ranges::views::drop_last(1))
+		for (auto const& arg: arguments | ranges::views::drop_last(1))
 			m_code << IRNames::localVariable(*arg) << ", ";
 	if (!arguments.empty())
 		m_code << IRNames::localVariable(*arguments.back());

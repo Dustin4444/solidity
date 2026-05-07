@@ -358,7 +358,7 @@ bool SyntaxChecker::visit(UnaryOperation const& _operation)
 bool SyntaxChecker::visit(InlineAssembly const& _inlineAssembly)
 {
 	if (_inlineAssembly.flags())
-		for (const auto& flag: *_inlineAssembly.flags())
+		for (auto const& flag: *_inlineAssembly.flags())
 		{
 			if (*flag == "memory-safe")
 			{

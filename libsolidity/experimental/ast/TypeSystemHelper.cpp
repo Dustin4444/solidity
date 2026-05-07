@@ -276,7 +276,7 @@ std::vector<experimental::Type> TypeEnvironmentHelpers::typeVars(Type _type) con
 	auto typeVarsImpl = [&](Type _type, auto _recurse) -> void {
 		std::visit(util::GenericVisitor{
 			[&](TypeConstant const& _type) {
-				for (const auto& arg: _type.arguments)
+				for (auto const& arg: _type.arguments)
 					_recurse(arg, _recurse);
 			},
 			[&](TypeVariable const& _var) {
@@ -341,7 +341,7 @@ std::string TypeSystemHelpers::sortToString(Sort _sort) const
 	{
 		std::stringstream stream;
 		stream << "(";
-		for (const auto& typeClass: _sort.classes | ranges::views::drop_last(1))
+		for (auto const& typeClass: _sort.classes | ranges::views::drop_last(1))
 			stream << typeSystem.typeClassName(typeClass) << ", ";
 		stream << typeSystem.typeClassName(*_sort.classes.rbegin()) << ")";
 		return stream.str();
@@ -358,7 +358,7 @@ std::string TypeEnvironmentHelpers::canonicalTypeName(Type _type) const
 			if (!_type.arguments.empty())
 			{
 				stream << "$";
-				for (const auto& type: _type.arguments | ranges::views::drop_last(1))
+				for (auto const& type: _type.arguments | ranges::views::drop_last(1))
 					stream << canonicalTypeName(type) << "$";
 				stream << canonicalTypeName(_type.arguments.back());
 				stream << "$";
@@ -389,7 +389,7 @@ std::string TypeEnvironmentHelpers::typeToString(Type const& _type) const
 			auto tupleTypes = TypeSystemHelpers{env.typeSystem()}.destTupleType(_arguments.back());
 			std::string result = "(";
 			result += typeToString(_arguments.front());
-			for (const auto& type: tupleTypes)
+			for (auto const& type: tupleTypes)
 				result += ", " + typeToString(type);
 			result += ")";
 			return result;
@@ -404,7 +404,7 @@ std::string TypeEnvironmentHelpers::typeToString(Type const& _type) const
 			if (!_type.arguments.empty())
 			{
 				stream << "(";
-				for (const auto& type: _type.arguments | ranges::views::drop_last(1))
+				for (auto const& type: _type.arguments | ranges::views::drop_last(1))
 					stream << typeToString(type) << ", ";
 				stream << typeToString(_type.arguments.back());
 				stream << ")";
@@ -429,7 +429,7 @@ std::string TypeEnvironmentHelpers::typeToString(Type const& _type) const
 				break;
 			default:
 				stream << ":(";
-				for (const auto& typeClass: _type.sort().classes | ranges::views::drop_last(1))
+				for (auto const& typeClass: _type.sort().classes | ranges::views::drop_last(1))
 					stream << env.typeSystem().typeClassName(typeClass) << ", ";
 				stream << env.typeSystem().typeClassName(*_type.sort().classes.rbegin());
 				stream << ")";

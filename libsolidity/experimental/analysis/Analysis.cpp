@@ -172,7 +172,7 @@ bool Analysis::check(std::vector<std::shared_ptr<SourceUnit const>> const& _sour
 
 	return std::apply([&](auto... _indexTuple) {
 		return ([&](auto&& _step) {
-			for (const auto& source: _sourceUnits)
+			for (auto const& source: _sourceUnits)
 				if (!_step.analyze(*source))
 					return false;
 			return true;

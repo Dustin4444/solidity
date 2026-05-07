@@ -38,7 +38,7 @@ struct IRGenerationContext
 	void enqueueFunctionDefinition(FunctionDefinition const* _functionDefinition, Type _type)
 	{
 		QueuedFunction const queue{_functionDefinition, env->resolve(_type)};
-		for (const auto& type: generatedFunctions[_functionDefinition])
+		for (auto const& type: generatedFunctions[_functionDefinition])
 			if (env->typeEquals(type, _type))
 				return;
 		functionQueue.emplace_back(queue);

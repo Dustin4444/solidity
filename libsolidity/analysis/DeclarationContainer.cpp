@@ -204,7 +204,7 @@ void DeclarationContainer::populateHomonyms(std::back_insert_iterator<Homonyms> 
 	for (DeclarationContainer const* innerContainer: m_innerContainers)
 		innerContainer->populateHomonyms(_it);
 
-	for (const auto& [name, location]: m_homonymCandidates)
+	for (auto const& [name, location]: m_homonymCandidates)
 	{
 		ResolvingSettings settings;
 		settings.recursive = true;
