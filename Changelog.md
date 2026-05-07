@@ -12,6 +12,7 @@ Compiler Features:
 * General: Remove support for the experimental Generic Solidity prototype (`pragma experimental solidity`).
 * SMTChecker: Emit a deprecation warning for the BMC engine.
 * SMTChecker: Support `block.slotnum`.
+* Yul Optimizer: Remove optimization that eliminated `returndatacopy` operations.
 
 Bugfixes:
 * Code Generator: Fix ICE on parenthesized custom error construction in require statement.
@@ -48,6 +49,9 @@ Language Features:
 * General: Add a builtin that computes the base slot of a storage namespace using the `erc7201` formula from ERC-7201.
 * Name Resolver: Warn about identifiers selected for future promotion to Solidity or Yul keywords (`at`, `error`, `layout`, `leave`, `super`, `transient`, `this`).
 * Yul Analyzer: Warn about identifiers selected for future promotion to Yul keywords and reserved identifiers (`basefee`, `blobbasefee`, `blobhash`, `clz`, `leave`, `memoryguard`, `mcopy`, `prevrandao`, `tload`, `tstore`).
+
+Important Bugfixes:
+* Yul Optimizer: Fix `UnusedStoreEliminator` incorrectly removing `returndatacopy` operations when the length comes from a stale `returndatasize()` call that was invalidated by subsequent call opcodes.
 
 Compiler Features:
 * Commandline Interface: Disallow selecting the deprecated assembly input mode that was only accessible via `--assemble` instead of treating it as equivalent to `--strict-assembly`.
