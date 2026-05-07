@@ -1,3 +1,4 @@
+// This test ensures that `returndatacopy` is NOT optimized away.
 {
   let s := returndatasize()
   returndatacopy(0,0,s)
@@ -9,8 +10,6 @@
 //
 // {
 //     {
-//         let s := returndatasize()
-//         let _1 := 0
-//         let _2 := 0
+//         returndatacopy(0, 0, returndatasize())
 //     }
 // }
