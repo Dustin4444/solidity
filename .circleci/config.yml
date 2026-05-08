@@ -855,7 +855,7 @@ defaults:
       name: t_native_test_ext_zeppelin
       project: zeppelin
       binary_type: native
-      image: cimg/node:lts
+      image: cimg/node:24.15
       resource_class: large
 
   - job_native_test_ext_ens: &job_native_test_ext_ens
@@ -863,7 +863,7 @@ defaults:
       name: t_native_test_ext_ens
       project: ens
       binary_type: native
-      image: cimg/node:22.13
+      image: cimg/node:24.15
 
   - job_native_compile_ext_trident: &job_native_compile_ext_trident
       <<: *requires_b_ubu_static
@@ -907,14 +907,14 @@ defaults:
       # NOTE: test suite disabled due to dependence on a specific version of Hardhat
       # which does not support shanghai EVM.
       compile_only: 1
-      image: cimg/node:lts
+      image: cimg/node:24.15
 
   - job_native_test_ext_uniswap: &job_native_test_ext_uniswap
       <<: *requires_b_ubu_static
       name: t_native_test_ext_uniswap
       project: uniswap
       binary_type: native
-      image: cimg/node:22.13
+      image: cimg/node:24.15
       resource_class: large # Tests run out of memory on a smaller machine
 
   - job_native_test_ext_prb_math: &job_native_test_ext_prb_math
@@ -922,7 +922,7 @@ defaults:
       name: t_native_test_ext_prb_math
       project: prb-math
       binary_type: native
-      image: cimg/node:22.13
+      image: cimg/node:24.15
       resource_class: large # Tests run out of memory on a smaller machine
 
   - job_native_test_ext_elementfi: &job_native_test_ext_elementfi
@@ -930,7 +930,7 @@ defaults:
       name: t_native_test_ext_elementfi
       project: elementfi
       binary_type: native
-      image: cimg/node:lts
+      image: cimg/node:24.15
       resource_class: medium
 
   - job_native_test_ext_brink: &job_native_test_ext_brink
@@ -938,7 +938,7 @@ defaults:
       name: t_native_test_ext_brink
       project: brink
       binary_type: native
-      image: cimg/node:22.13
+      image: cimg/node:24.15
 
   - job_native_compile_ext_chainlink: &job_native_compile_ext_chainlink
       <<: *requires_b_ubu_static
@@ -958,7 +958,7 @@ defaults:
       binary_type: native
       # NOTE: test suite disabled due to constant failures.
       compile_only: 1
-      image: cimg/node:lts
+      image: cimg/node:24.15
 
   - job_b_ubu_asan_clang: &job_b_ubu_asan_clang
       <<: *on_all_tags_and_branches
@@ -1575,7 +1575,7 @@ jobs:
     # Runs out of memory on the small instance
     <<: *base_ubuntu2404
     docker:
-      - image: cimg/rust:1.79.0-node
+      - image: cimg/rust:1.95.0-node
     environment:
       <<: *base_ubuntu2404_env
       EDR_TESTS_SOLC_PATH: /tmp/workspace/soljson.js
@@ -1585,8 +1585,7 @@ jobs:
           at: /tmp/workspace
       - run:
           name: Ensure pnpm is installed if npm is present
-          # Pin to pnpm v9 as v10 introduces additional safe guards and causes failures
-          command: sudo npm install -g pnpm@9
+          command: sudo npm install -g pnpm
       - run:
           name: Retrieve EDR latest release tag
           command: |
@@ -1635,7 +1634,7 @@ jobs:
         default: 0
       image:
         type: string
-        default: cimg/node:current
+        default: cimg/node:24.15
       resource_class:
         type: string
         default: small
@@ -1660,8 +1659,7 @@ jobs:
           name: Ensure pnpm is installed if npm is present
           command: |
             if command -v npm &> /dev/null; then
-              # Pin to pnpm v9 as v10 introduces additional safe guards and causes failures
-              sudo npm install -g pnpm@9
+              sudo npm install -g pnpm
             fi
       - when:
           condition: << parameters.python2 >>
