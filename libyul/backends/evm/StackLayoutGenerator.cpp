@@ -491,8 +491,7 @@ std::optional<Stack> StackLayoutGenerator::getExitLayoutOrStageDependencies(
 				return StackSlot{_varSlot};
 			}) | ranges::to<Stack>;
 
-			if (simulateFunctionsWithJumps())
-				stack.emplace_back(FunctionReturnLabelSlot{_functionReturn.info->function});
+			stack.emplace_back(FunctionReturnLabelSlot{_functionReturn.info->function});
 			return stack;
 		},
 		[&](CFG::BasicBlock::Terminated const&) -> std::optional<Stack>
@@ -763,7 +762,7 @@ void StackLayoutGenerator::fillInJunk(CFG::BasicBlock const& _block, CFG::Functi
 					_addChild(_conditionalJump.zero);
 					_addChild(_conditionalJump.nonZero);
 				},
-				[&](CFG::BasicBlock::FunctionReturn const&) { yulAssert(!simulateFunctionsWithJumps()); },
+				[&](CFG::BasicBlock::FunctionReturn const&) { yulAssert(false); },
 				[&](CFG::BasicBlock::Terminated const&) {},
 			}, _block->exit);
 		});

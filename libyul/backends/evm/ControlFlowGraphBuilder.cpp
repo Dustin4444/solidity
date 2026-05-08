@@ -232,10 +232,6 @@ std::unique_ptr<CFG> ControlFlowGraphBuilder::build(
 	Block const& _block
 )
 {
-	std::optional<uint8_t> eofVersion;
-	if (EVMDialect const* evmDialect = dynamic_cast<EVMDialect const*>(&_dialect))
-		eofVersion = evmDialect->eofVersion();
-
 	auto result = std::make_unique<CFG>();
 	result->entry = &result->makeBlock(debugDataOf(_block));
 
@@ -265,10 +261,7 @@ ControlFlowGraphBuilder::ControlFlowGraphBuilder(
 	m_info(_analysisInfo),
 	m_functionSideEffects(_functionSideEffects),
 	m_dialect(_dialect)
-{
-	if (EVMDialect const* evmDialect = dynamic_cast<EVMDialect const*>(&m_dialect))
-		m_simulateFunctionsWithJumps = !evmDialect->eofVersion().has_value();
-}
+{}
 
 StackSlot ControlFlowGraphBuilder::operator()(Literal const& _literal)
 {
@@ -569,8 +562,7 @@ Stack const& ControlFlowGraphBuilder::visitFunctionCall(FunctionCall const& _cal
 		Scope::Function const& function = lookupFunction(std::get<Identifier>(_call.functionName).name);
 		canContinue = m_graph.functionInfo.at(&function).canContinue;
 		Stack inputs;
-		// For EOF (m_simulateFunctionsWithJumps == false) we do not have to put return label on stack.
-		if (m_simulateFunctionsWithJumps && canContinue)
+		if (canContinue)
 			inputs.emplace_back(FunctionCallReturnLabelSlot{_call});
 		for (auto const& arg: _call.arguments | ranges::views::reverse)
 			inputs.emplace_back(std::visit(*this, arg));

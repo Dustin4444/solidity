@@ -85,8 +85,7 @@ std::tuple<std::optional<SourceNameMap>, ErrorList> tryGetSourceLocationMapping(
 
 	ErrorList errors;
 	ErrorReporter reporter(errors);
-	Dialect const& dialect = yul::EVMDialect::strictAssemblyForEVM(solidity::test::CommonOptions::get().evmVersion(),
-		solidity::test::CommonOptions::get().eofVersion());
+	Dialect const& dialect = yul::EVMDialect::strictAssemblyForEVM(solidity::test::CommonOptions::get().evmVersion());
 	ObjectParser objectParser{reporter, dialect};
 	CharStream stream(std::move(source), "");
 	auto object = objectParser.parse(std::make_shared<Scanner>(stream), false);
@@ -148,7 +147,6 @@ BOOST_AUTO_TEST_CASE(to_string)
 	expectation = boost::replace_all_copy(expectation, "\t", "    ");
 	YulStack asmStack(
 		solidity::test::CommonOptions::get().evmVersion(),
-		solidity::test::CommonOptions::get().eofVersion(),
 		solidity::frontend::OptimiserSettings::none(),
 		DebugInfoSelection::AllExceptExperimental()
 	);

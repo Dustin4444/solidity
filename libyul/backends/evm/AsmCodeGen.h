@@ -44,7 +44,6 @@ public:
 		AsmAnalysisInfo& _analysisInfo,
 		evmasm::Assembly& _assembly,
 		langutil::EVMVersion _evmVersion,
-		std::optional<uint8_t> _eofVersion,
 		ExternalIdentifierAccess::CodeGenerator _identifierAccess = {},
 		bool _useNamedLabelsForFunctions = false,
 		bool _optimizeStackAllocation = false

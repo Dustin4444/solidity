@@ -62,9 +62,7 @@ std::tuple<size_t, size_t> constexpr verbatimIndexToArgsAndRets(size_t _index)
 bool isLowLevelStackManipulationInstruction(evmasm::Instruction const& _instruction)
 {
 	return
-		_instruction == evmasm::Instruction::SWAPN ||
 		evmasm::SemanticInformation::isSwapInstruction(_instruction) ||
-		_instruction == evmasm::Instruction::DUPN ||
 		evmasm::SemanticInformation::isDupInstruction(_instruction) ||
 		isPushInstruction(_instruction);
 }
@@ -76,18 +74,13 @@ bool isLowLevelControlFlowInstruction(evmasm::Instruction const& _instruction)
 	case evmasm::Instruction::JUMP:
 	case evmasm::Instruction::JUMPI:
 	case evmasm::Instruction::JUMPDEST:
-	case evmasm::Instruction::JUMPF:
-	case evmasm::Instruction::RJUMP:
-	case evmasm::Instruction::RJUMPI:
-	case evmasm::Instruction::RETF:
-	case evmasm::Instruction::CALLF:
 		return true;
 	default:
 		return false;
 	}
 }
 
-std::set<std::string, std::less<>> createReservedIdentifiers(langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion)
+std::set<std::string, std::less<>> createReservedIdentifiers(langutil::EVMVersion _evmVersion)
 {
 	// TODO remove this in 0.9.0. We allow creating functions or identifiers in Yul with the name
 	// basefee for VMs before london.
@@ -139,16 +132,6 @@ std::set<std::string, std::less<>> createReservedIdentifiers(langutil::EVMVersio
 		return _instr == evmasm::Instruction::CLZ && !_evmVersion.hasCLZ();
 	};
 
-	auto eofIdentifiersException = [&](evmasm::Instruction _instr) -> bool
-	{
-		solAssert(!_eofVersion.has_value() || (*_eofVersion == 1 && _evmVersion.supportsEOF()));
-		if (_eofVersion.has_value())
-			// For EOF every instruction is reserved identifier.
-			return false;
-		return langutil::EVMVersion::firstWithEOF().hasOpcode(_instr, 1) &&
-			!langutil::EVMVersion::firstWithEOF().hasOpcode(_instr, std::nullopt);
-	};
-
 	std::set<std::string, std::less<>> reserved;
 	for (auto const& instr: evmasm::c_instructions)
 	{
@@ -160,8 +143,7 @@ std::set<std::string, std::less<>> createReservedIdentifiers(langutil::EVMVersio
 			!blobBaseFeeException(instr.second) &&
 			!mcopyException(instr.second) &&
 			!transientStorageException(instr.second) &&
-			!clzException(instr.second) &&
-			!eofIdentifiersException(instr.second)
+			!clzException(instr.second)
 		)
 			reserved.emplace(name);
 	}
@@ -174,18 +156,12 @@ std::set<std::string, std::less<>> createReservedIdentifiers(langutil::EVMVersio
 		"loadimmutable",
 	};
 
-	if (_eofVersion.has_value())
-		reserved += std::vector<std::string>{
-			"auxdataloadn",
-		};
-
 	return reserved;
 }
 
 std::vector<BuiltinFunctionForEVM const*> createDialectBuiltins(
 	std::vector<std::tuple<EVMBuiltins::Scopes, BuiltinFunctionForEVM>> const& _allBuiltins,
 	langutil::EVMVersion const _evmVersion,
-	std::optional<uint8_t> const _eofVersion,
 	bool const _objectAccess
 )
 {
@@ -212,14 +188,12 @@ std::vector<BuiltinFunctionForEVM const*> createDialectBuiltins(
 				builtinShouldBeAdded =
 					!isLowLevelControlFlowInstruction(_opcode) &&
 					!isLowLevelStackManipulationInstruction(_opcode) &&
-					_evmVersion.hasOpcode(_opcode, _eofVersion) &&
+					_evmVersion.hasOpcode(_opcode) &&
 					!prevRandaoException(builtin.name);
 			}
 		}
 
 		builtinShouldBeAdded &= !scopes.requiresObjectAccess() || _objectAccess;
-		builtinShouldBeAdded &= !scopes.requiresEOF() || _eofVersion.has_value();
-		builtinShouldBeAdded &= !scopes.requiresNonEOF() || !_eofVersion.has_value();
 
 		if (builtinShouldBeAdded)
 			builtins.emplace_back(&builtin);
@@ -238,12 +212,11 @@ std::regex const& verbatimPattern()
 
 }
 
-EVMDialect::EVMDialect(langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion, bool _objectAccess):
+EVMDialect::EVMDialect(langutil::EVMVersion _evmVersion, bool _objectAccess):
 	m_objectAccess(_objectAccess),
 	m_evmVersion(_evmVersion),
-	m_eofVersion(_eofVersion),
-	m_functions(createDialectBuiltins(allBuiltins().functions(), _evmVersion, _eofVersion, _objectAccess)),
-	m_reserved(createReservedIdentifiers(_evmVersion, _eofVersion))
+	m_functions(createDialectBuiltins(allBuiltins().functions(), _evmVersion, _objectAccess)),
+	m_reserved(createReservedIdentifiers(_evmVersion))
 {
 	for (auto const& [index, maybeBuiltin]: m_functions | ranges::views::enumerate)
 		if (maybeBuiltin)
@@ -310,22 +283,22 @@ bool EVMDialect::reservedIdentifier(std::string_view _name) const
 	return m_reserved.contains(_name);
 }
 
-EVMDialect const& EVMDialect::strictAssemblyForEVM(langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion)
+EVMDialect const& EVMDialect::strictAssemblyForEVM(langutil::EVMVersion _evmVersion)
 {
-	static std::map<std::pair<langutil::EVMVersion, std::optional<uint8_t>>, std::unique_ptr<EVMDialect const>> dialects;
+	static std::map<langutil::EVMVersion, std::unique_ptr<EVMDialect const>> dialects;
 	static YulStringRepository::ResetCallback callback{[&] { dialects.clear(); }};
-	if (!dialects[{_evmVersion, _eofVersion}])
-		dialects[{_evmVersion, _eofVersion}] = std::make_unique<EVMDialect>(_evmVersion, _eofVersion, false);
-	return *dialects[{_evmVersion, _eofVersion}];
+	if (!dialects[_evmVersion])
+		dialects[_evmVersion] = std::make_unique<EVMDialect>(_evmVersion, false);
+	return *dialects[_evmVersion];
 }
 
-EVMDialect const& EVMDialect::strictAssemblyForEVMObjects(langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion)
+EVMDialect const& EVMDialect::strictAssemblyForEVMObjects(langutil::EVMVersion _evmVersion)
 {
-	static std::map<std::pair<langutil::EVMVersion, std::optional<uint8_t>>, std::unique_ptr<EVMDialect const>> dialects;
+	static std::map<langutil::EVMVersion, std::unique_ptr<EVMDialect const>> dialects;
 	static YulStringRepository::ResetCallback callback{[&] { dialects.clear(); }};
-	if (!dialects[{_evmVersion, _eofVersion}])
-		dialects[{_evmVersion, _eofVersion}] = std::make_unique<EVMDialect>(_evmVersion, _eofVersion, true);
-	return *dialects[{_evmVersion, _eofVersion}];
+	if (!dialects[_evmVersion])
+		dialects[_evmVersion] = std::make_unique<EVMDialect>(_evmVersion, true);
+	return *dialects[_evmVersion];
 }
 
 std::set<std::string_view> EVMDialect::builtinFunctionNames() const

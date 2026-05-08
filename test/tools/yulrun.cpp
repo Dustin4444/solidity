@@ -58,15 +58,11 @@ std::pair<std::shared_ptr<AST const>, std::shared_ptr<AsmAnalysisInfo>> parse(st
 {
 	YulStack stack(
 		langutil::EVMVersion(),
-		std::nullopt,
 		solidity::frontend::OptimiserSettings::none(),
 		DebugInfoSelection::Default()
 	);
 	if (stack.parseAndAnalyze("--INPUT--", _source))
 	{
-		auto const* evmDialect = dynamic_cast<EVMDialect const*>(&stack.dialect());
-		// TODO: Add EOF support
-		solUnimplementedAssert(evmDialect && !evmDialect->eofVersion(), "No EOF support for yulrun yet.");
 		yulAssert(!Error::hasErrorsWarningsOrInfos(stack.errors()), "Parsed successfully but had errors.");
 		return make_pair(stack.parserResult()->code(), stack.parserResult()->analysisInfo);
 	}

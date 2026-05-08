@@ -240,83 +240,6 @@ BuiltinFunctionForEVM loadimmutableBuiltin()
 		}
 	);
 }
-
-BuiltinFunctionForEVM auxdataloadnBuiltin()
-{
-	return createFunction(
-		"auxdataloadn",
-		1,
-		1,
-		EVMBuiltins::sideEffectsOfInstruction(evmasm::Instruction::DATALOADN),
-		ControlFlowSideEffects::fromInstruction(evmasm::Instruction::DATALOADN),
-		{LiteralKind::Number},
-		[](
-			FunctionCall const& _call,
-			AbstractAssembly& _assembly,
-			BuiltinContext&
-		) {
-			yulAssert(_call.arguments.size() == 1);
-			Literal const* literal = std::get_if<Literal>(&_call.arguments.front());
-			yulAssert(literal, "");
-			yulAssert(literal->value.value() <= std::numeric_limits<uint16_t>::max());
-			_assembly.appendAuxDataLoadN(static_cast<uint16_t>(literal->value.value()));
-		}
-	);
-}
-
-BuiltinFunctionForEVM eofcreateBuiltin()
-{
-	return createFunction(
-		"eofcreate",
-		5,
-		1,
-		EVMBuiltins::sideEffectsOfInstruction(evmasm::Instruction::EOFCREATE),
-		ControlFlowSideEffects::fromInstruction(evmasm::Instruction::EOFCREATE),
-		{LiteralKind::String, std::nullopt, std::nullopt, std::nullopt, std::nullopt},
-		[](
-			FunctionCall const& _call,
-			AbstractAssembly& _assembly,
-			BuiltinContext& context
-		) {
-			yulAssert(_call.arguments.size() == 5);
-			Literal const* literal = std::get_if<Literal>(&_call.arguments.front());
-			auto const formattedLiteral = formatLiteral(*literal);
-			yulAssert(!util::contains(formattedLiteral, '.'));
-			auto const* containerID = util::valueOrNullptr(context.subIDs, formattedLiteral);
-			yulAssert(containerID != nullptr);
-			yulAssert(containerID->value <= std::numeric_limits<AbstractAssembly::ContainerID>::max());
-			_assembly.appendEOFCreate(static_cast<AbstractAssembly::ContainerID>(containerID->value));
-		}
-	);
-}
-
-BuiltinFunctionForEVM returncontractBuiltin()
-{
-	return createFunction(
-		"returncontract",
-		3,
-		0,
-		EVMBuiltins::sideEffectsOfInstruction(evmasm::Instruction::RETURNCONTRACT),
-		ControlFlowSideEffects::fromInstruction(evmasm::Instruction::RETURNCONTRACT),
-		{LiteralKind::String, std::nullopt, std::nullopt},
-		[](
-			FunctionCall const& _call,
-			AbstractAssembly& _assembly,
-			BuiltinContext& context
-		) {
-			yulAssert(_call.arguments.size() == 3);
-			Literal const* literal = std::get_if<Literal>(&_call.arguments.front());
-			yulAssert(literal);
-			auto const formattedLiteral = formatLiteral(*literal);
-			yulAssert(!util::contains(formattedLiteral, '.'));
-			auto const* containerID = util::valueOrNullptr(context.subIDs, formattedLiteral);
-			yulAssert(containerID != nullptr);
-			yulAssert(containerID->value <= std::numeric_limits<AbstractAssembly::ContainerID>::max());
-			_assembly.appendReturnContract(static_cast<AbstractAssembly::ContainerID>(containerID->value));
-		}
-	);
-}
-
 }
 
 EVMBuiltins::EVMBuiltins()
@@ -324,8 +247,6 @@ EVMBuiltins::EVMBuiltins()
 	for (auto const& [name, opcode]: evmasm::c_instructions)
 	{
 		if (
-			opcode == evmasm::Instruction::SWAPN ||
-			opcode == evmasm::Instruction::DUPN ||
 			evmasm::SemanticInformation::isSwapInstruction(opcode) ||
 			evmasm::SemanticInformation::isDupInstruction(opcode)
 		)
@@ -336,28 +257,16 @@ EVMBuiltins::EVMBuiltins()
 			m_scopesAndFunctions.emplace_back(instruction, instructionBuiltin(opcode, langutil::EVMVersion::london()));
 		else
 			m_scopesAndFunctions.emplace_back(instruction, instructionBuiltin(opcode, langutil::EVMVersion::current()));
-
-		// these are replaced by 'proper' builtin functions
-		if (
-			opcode == evmasm::Instruction::DATALOADN ||
-			opcode == evmasm::Instruction::EOFCREATE ||
-			opcode == evmasm::Instruction::RETURNCONTRACT
-		)
-			std::get<0>(m_scopesAndFunctions.back()) |= replaced;
 	}
 
 	m_scopesAndFunctions.emplace_back(objectAccess, linkersymbolBuiltin());
 	m_scopesAndFunctions.emplace_back(objectAccess, memoryguardBuiltin());
 
-	m_scopesAndFunctions.emplace_back(objectAccess | requiresNonEOF, datasizeBuiltin());
-	m_scopesAndFunctions.emplace_back(objectAccess | requiresNonEOF, dataoffsetBuiltin());
-	m_scopesAndFunctions.emplace_back(objectAccess | requiresNonEOF, datacopyBuiltin());
-	m_scopesAndFunctions.emplace_back(objectAccess | requiresNonEOF, setimmutableBuiltin());
-	m_scopesAndFunctions.emplace_back(objectAccess | requiresNonEOF, loadimmutableBuiltin());
-
-	m_scopesAndFunctions.emplace_back(objectAccess | requiresEOF, auxdataloadnBuiltin());
-	m_scopesAndFunctions.emplace_back(objectAccess | requiresEOF, eofcreateBuiltin());
-	m_scopesAndFunctions.emplace_back(objectAccess | requiresEOF, returncontractBuiltin());
+	m_scopesAndFunctions.emplace_back(objectAccess, datasizeBuiltin());
+	m_scopesAndFunctions.emplace_back(objectAccess, dataoffsetBuiltin());
+	m_scopesAndFunctions.emplace_back(objectAccess, datacopyBuiltin());
+	m_scopesAndFunctions.emplace_back(objectAccess, setimmutableBuiltin());
+	m_scopesAndFunctions.emplace_back(objectAccess, loadimmutableBuiltin());
 
 	static size_t constexpr verbatimPrefixLength = std::char_traits<char>::length("verbatim_");
 	for (auto const& [scope, builtin]: m_scopesAndFunctions)
@@ -366,7 +275,6 @@ EVMBuiltins::EVMBuiltins()
 			builtin.name.substr(0, verbatimPrefixLength) != "verbatim_",
 			"Builtin functions besides verbatim should not start with the verbatim_ prefix."
 		);
-		yulAssert(!(scope.requiresEOF() && scope.requiresNonEOF()), "Mutually exclusive scopes");
 	}
 }
 

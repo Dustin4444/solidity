@@ -45,22 +45,20 @@ struct EVMDialectConfigurationToTest
 {
 	EVMDialect const& dialect() const
 	{
-		return objectAccess ? EVMDialect::strictAssemblyForEVMObjects(evmVersion, eofVersion) : EVMDialect::strictAssemblyForEVM(evmVersion, eofVersion);
+		return objectAccess ? EVMDialect::strictAssemblyForEVMObjects(evmVersion) : EVMDialect::strictAssemblyForEVM(evmVersion);
 	}
 
 	friend std::ostream& operator<<(std::ostream& _out, EVMDialectConfigurationToTest const& _config)
 	{
 		_out << fmt::format(
-			"EVMConfigurationToTest[{}, eof={}, objectAccess={}]",
+			"EVMConfigurationToTest[{}, objectAccess={}]",
 			_config.evmVersion.name(),
-			_config.eofVersion.has_value() ? std::to_string(*_config.eofVersion) : "null",
 			_config.objectAccess
 		);
 		return _out;
 	}
 
 	langutil::EVMVersion evmVersion;
-	std::optional<uint8_t> eofVersion;
 	bool objectAccess;
 };
 
@@ -69,10 +67,8 @@ std::vector<EVMDialectConfigurationToTest> generateConfigs(EVMVersionCollection 
 {
 	std::vector<EVMDialectConfigurationToTest> configs;
 	for (bool const objectAccess: _objectAccess)
-		for (auto const& eofVersion: langutil::EVMVersion::allEOFVersions())
-			for (auto const& evmVersion: _evmVersions)
-				if (!eofVersion || evmVersion.supportsEOF())
-					configs.push_back(EVMDialectConfigurationToTest{evmVersion, eofVersion, objectAccess});
+		for (auto const& evmVersion: _evmVersions)
+			configs.push_back(EVMDialectConfigurationToTest{evmVersion, objectAccess});
 
 	return configs;
 }
@@ -131,8 +127,8 @@ BOOST_DATA_TEST_CASE(
 	configToTest
 )
 {
-	auto const& dialect = EVMDialect::strictAssemblyForEVM(configToTest.evmVersion, configToTest.eofVersion);
-	auto const& dialectForObjects = EVMDialect::strictAssemblyForEVMObjects(configToTest.evmVersion, configToTest.eofVersion);
+	auto const& dialect = EVMDialect::strictAssemblyForEVM(configToTest.evmVersion);
+	auto const& dialectForObjects = EVMDialect::strictAssemblyForEVMObjects(configToTest.evmVersion);
 
 	std::set<std::string_view> const inlineBuiltinNames = dialect.builtinFunctionNames();
 

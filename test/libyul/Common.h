@@ -58,7 +58,7 @@ yul::YulStack parseYul(
 Block disambiguate(std::string const& _source);
 std::string format(std::string const& _source);
 
-solidity::yul::Dialect const& dialect(std::string const& _name, langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion);
+solidity::yul::Dialect const& dialect(std::string const& _name, langutil::EVMVersion _evmVersion);
 
 void printYulErrors(
 	yul::YulStack const& _yulStack,

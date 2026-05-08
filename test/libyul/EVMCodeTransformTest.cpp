@@ -51,11 +51,10 @@ TestCase::TestResult EVMCodeTransformTest::run(std::ostream& _stream, std::strin
 	solidity::frontend::OptimiserSettings settings = solidity::frontend::OptimiserSettings::none();
 	settings.runYulOptimiser = false;
 	settings.optimizeStackAllocation = m_stackOpt;
-	// Restrict to a single EVM/EOF version combination (the default one) as code generation
+	// Restrict to a single EVM version (the default one) as code generation
 	// can be different from version to version.
 	YulStack yulStack(
 		CommonOptions::get().evmVersion(),
-		CommonOptions::get().eofVersion(),
 		settings,
 		DebugInfoSelection::AllExceptExperimental()
 	);
@@ -66,7 +65,7 @@ TestCase::TestResult EVMCodeTransformTest::run(std::ostream& _stream, std::strin
 		return TestResult::FatalError;
 	}
 
-	evmasm::Assembly assembly{CommonOptions::get().evmVersion(), false, CommonOptions::get().eofVersion(), {}};
+	evmasm::Assembly assembly{CommonOptions::get().evmVersion(), false, {}};
 	EthAssemblyAdapter adapter(assembly);
 	EVMObjectCompiler::compile(
 		*yulStack.parserResult(),

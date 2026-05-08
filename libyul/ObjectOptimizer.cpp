@@ -66,7 +66,7 @@ void ObjectOptimizer::optimize(Object& _object, Settings const& _settings, bool 
 			);
 		}
 
-	EVMDialect const& dialect = EVMDialect::strictAssemblyForEVMObjects(_settings.evmVersion, _settings.eofVersion);
+	EVMDialect const& dialect = EVMDialect::strictAssemblyForEVMObjects(_settings.evmVersion);
 	GasMeter const meter(dialect, _isCreation, _settings.expectedExecutionsPerDeployment);
 
 	std::optional<h256> cacheKey = calculateCacheKey(_object.code()->root(), *_object.debugData, _settings, _isCreation);
@@ -128,7 +128,7 @@ std::optional<h256> ObjectOptimizer::calculateCacheKey(
 )
 {
 	AsmPrinter asmPrinter(
-		EVMDialect::strictAssemblyForEVMObjects(_settings.evmVersion, _settings.eofVersion),
+		EVMDialect::strictAssemblyForEVMObjects(_settings.evmVersion),
 		_debugData.sourceNames,
 		DebugInfoSelection::All()
 	);
@@ -145,8 +145,6 @@ std::optional<h256> ObjectOptimizer::calculateCacheKey(
 	rawKey += h256(u256(_settings.expectedExecutionsPerDeployment)).asBytes();
 	rawKey += FixedHash<1>(static_cast<uint8_t>(_isCreation)).asBytes();
 	rawKey += keccak256(_settings.evmVersion.name()).asBytes();
-	yulAssert(!_settings.eofVersion.has_value() || *_settings.eofVersion > 0);
-	rawKey += FixedHash<1>(static_cast<uint8_t>(_settings.eofVersion ? *_settings.eofVersion : 0)).asBytes();
 	rawKey += keccak256(_settings.yulOptimiserSteps).asBytes();
 	rawKey += keccak256(_settings.yulOptimiserCleanupSteps).asBytes();
 

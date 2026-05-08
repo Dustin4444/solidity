@@ -71,10 +71,7 @@ public:
 		m_objectStructure(std::move(_objectStructure))
 	{
 		if (EVMDialect const* evmDialect = dynamic_cast<EVMDialect const*>(&m_dialect))
-		{
 			m_evmVersion = evmDialect->evmVersion();
-			m_eofVersion = evmDialect->eofVersion();
-		}
 	}
 
 	bool analyze(Block const& _block);
@@ -126,8 +123,6 @@ private:
 	bool validateInstructions(std::string_view _instrIdentifier, langutil::SourceLocation const& _location);
 	bool validateInstructions(FunctionCall const& _functionCall);
 
-	void validateObjectStructure(langutil::SourceLocation const& _astRootLocation);
-
 	void warnIfFutureKeywordOrReservedIdentifier(YulName _identifier, langutil::SourceLocation const& _location);
 
 	yul::ExternalIdentifierAccess::Resolver m_resolver;
@@ -138,7 +133,6 @@ private:
 	AsmAnalysisInfo& m_info;
 	langutil::ErrorReporter& m_errorReporter;
 	langutil::EVMVersion m_evmVersion;
-	std::optional<uint8_t> m_eofVersion;
 	Dialect const& m_dialect;
 	/// Names of data objects to be referenced by builtin functions with literal arguments.
 	Object::Structure m_objectStructure;

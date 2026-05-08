@@ -66,7 +66,7 @@ public:
 		std::optional<BuiltinHandle> sub;
 	};
 	/// Constructor, should only be used internally. Use the factory functions below.
-	EVMDialect(langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion, bool _objectAccess);
+	EVMDialect(langutil::EVMVersion _evmVersion, bool _objectAccess);
 
 	std::optional<BuiltinHandle> findBuiltin(std::string_view _name) const override;
 
@@ -84,14 +84,13 @@ public:
 	std::optional<BuiltinHandle> hashFunctionHandle() const override { return m_hashFunction; }
 	AuxiliaryBuiltinHandles const& auxiliaryBuiltinHandles() const { return m_auxiliaryBuiltinHandles; }
 
-	static EVMDialect const& strictAssemblyForEVM(langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion);
+	static EVMDialect const& strictAssemblyForEVM(langutil::EVMVersion _evmVersion);
 	/// Builtins with and without object access are compatible, i.e., builtin handles without object access are not
 	/// invalidated and still point to the same function.
-	static EVMDialect const& strictAssemblyForEVMObjects(langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion);
+	static EVMDialect const& strictAssemblyForEVMObjects(langutil::EVMVersion _evmVersion);
 
 	langutil::EVMVersion evmVersion() const { return m_evmVersion; }
-	std::optional<uint8_t> eofVersion() const { return m_eofVersion; }
-	size_t reachableStackDepth() const { return m_eofVersion.has_value() ? 256 : m_evmVersion.reachableStackDepth(); }
+	size_t reachableStackDepth() const { return m_evmVersion.reachableStackDepth(); }
 
 	bool providesObjectAccess() const { return m_objectAccess; }
 
@@ -111,7 +110,6 @@ protected:
 
 	bool const m_objectAccess;
 	langutil::EVMVersion const m_evmVersion;
-	std::optional<uint8_t> m_eofVersion;
 	std::unordered_map<std::string_view, BuiltinHandle> m_builtinFunctionsByName;
 	std::vector<BuiltinFunctionForEVM const*> m_functions;
 	std::array<std::unique_ptr<BuiltinFunctionForEVM>, verbatimIDOffset> mutable m_verbatimFunctions{};

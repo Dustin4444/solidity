@@ -65,8 +65,6 @@ class EVMBuiltins
 	static std::size_t constexpr instructionBit = 0;
 	static std::size_t constexpr replacedInstructionBit = 1;
 	static std::size_t constexpr objectAccessBit = 2;
-	static std::size_t constexpr requiresEOFBit = 3;
-	static std::size_t constexpr requiresNonEOFBit = 4;
 
 public:
 	struct Scopes
@@ -77,10 +75,6 @@ public:
 		bool replaced() const { return value.test(replacedInstructionBit); }
 		/// if true, the evm builtin function is only valid when object access is given
 		bool requiresObjectAccess() const { return value.test(objectAccessBit); }
-		/// if true, the evm builtin function is only valid if EOF is enabled
-		bool requiresEOF() const { return value.test(requiresEOFBit); }
-		/// if true, the evm builtin function is only valid if EOF is not enabled
-		bool requiresNonEOF() const { return value.test(requiresNonEOFBit); }
 
 		Scopes operator|(Scopes const& _other) const
 		{
@@ -95,7 +89,7 @@ public:
 			return *this;
 		}
 
-		std::bitset<5> value;
+		std::bitset<3> value;
 	};
 
 	EVMBuiltins();
@@ -111,8 +105,6 @@ private:
 	static Scopes constexpr instruction{1 << instructionBit};
 	static Scopes constexpr replaced{1 << replacedInstructionBit};
 	static Scopes constexpr objectAccess{1 << objectAccessBit};
-	static Scopes constexpr requiresEOF{1 << requiresEOFBit};
-	static Scopes constexpr requiresNonEOF{1 << requiresNonEOFBit};
 
 	std::vector<std::tuple<Scopes, BuiltinFunctionForEVM>> m_scopesAndFunctions;
 };

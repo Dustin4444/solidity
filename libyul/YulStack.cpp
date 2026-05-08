@@ -59,7 +59,7 @@ bool YulStack::parse(std::string const& _sourceName, std::string const& _source)
 	{
 		m_charStream = std::make_unique<CharStream>(_source, _sourceName);
 		std::shared_ptr<Scanner> scanner = std::make_shared<Scanner>(*m_charStream);
-		m_parserResult = ObjectParser(m_errorReporter, EVMDialect::strictAssemblyForEVMObjects(m_evmVersion, m_eofVersion)).parse(scanner, false);
+		m_parserResult = ObjectParser(m_errorReporter, EVMDialect::strictAssemblyForEVMObjects(m_evmVersion)).parse(scanner, false);
 	}
 	catch (UnimplementedFeatureError const& _error)
 	{
@@ -132,7 +132,6 @@ void YulStack::optimize()
 			*m_parserResult,
 			ObjectOptimizer::Settings{
 				m_evmVersion,
-				m_eofVersion,
 				optimizeStackAllocation,
 				yulOptimiserSteps,
 				yulOptimiserCleanupSteps,
@@ -166,7 +165,7 @@ bool YulStack::analyzeParsed(Object& _object)
 	AsmAnalyzer analyzer(
 		*_object.analysisInfo,
 		m_errorReporter,
-		EVMDialect::strictAssemblyForEVMObjects(m_evmVersion, m_eofVersion),
+		EVMDialect::strictAssemblyForEVMObjects(m_evmVersion),
 		{},
 		_object.summarizeStructure()
 	);
@@ -209,7 +208,6 @@ void YulStack::reparse()
 
 	YulStack cleanStack(
 		m_evmVersion,
-		m_eofVersion,
 		m_optimiserSettings,
 		m_debugInfoSelection,
 		m_soliditySourceProvider,
@@ -313,7 +311,7 @@ YulStack::assembleEVMWithDeployed(std::optional<std::string_view> _deployName, b
 	yulAssert(m_parserResult->hasCode(), "");
 	yulAssert(m_parserResult->analysisInfo, "");
 
-	evmasm::Assembly assembly(m_evmVersion, true, m_eofVersion, {});
+	evmasm::Assembly assembly(m_evmVersion, true, {});
 	EthAssemblyAdapter adapter(assembly);
 
 	// NOTE: We always need stack optimization when Yul optimizer is disabled (unless code contains
@@ -399,7 +397,7 @@ Json YulStack::cfgJson() const
 		// NOTE: The block Ids are reset for each object
 		std::unique_ptr<ssa::ControlFlowGraphs> controlFlowGraphs = ssa::SSACFGBuilder::build(
 			*_object.analysisInfo,
-			EVMDialect::strictAssemblyForEVMObjects(m_evmVersion, m_eofVersion),
+			EVMDialect::strictAssemblyForEVMObjects(m_evmVersion),
 			_object.code()->root(),
 			keepLiteralAssignments
 		);

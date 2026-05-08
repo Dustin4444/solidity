@@ -251,7 +251,6 @@ std::tuple<bool, Block> StackCompressor::run(
 	auto evmDialect = dynamic_cast<EVMDialect const*>(_object.dialect());
 	if (evmDialect)
 	{
-		yulAssert(!evmDialect->eofVersion().has_value(), "StackCompressor does not support EOF.");
 		usesOptimizedCodeGenerator =
 			_optimizeStackAllocation &&
 			evmDialect->evmVersion().canOverchargeGasForCall() &&

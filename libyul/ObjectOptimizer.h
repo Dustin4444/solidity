@@ -49,7 +49,6 @@ public:
 	struct Settings
 	{
 		langutil::EVMVersion evmVersion;
-		std::optional<uint8_t> eofVersion;
 		bool optimizeStackAllocation;
 		std::string yulOptimiserSteps;
 		std::string yulOptimiserCleanupSteps;

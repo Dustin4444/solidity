@@ -58,7 +58,6 @@ YulStack yul::test::parseYul(
 {
 	YulStack yulStack(
 		CommonOptions::get().evmVersion(),
-		CommonOptions::get().eofVersion(),
 		_optimiserSettings.has_value() ?
 			*_optimiserSettings :
 			(CommonOptions::get().optimize ? OptimiserSettings::standard() : OptimiserSettings::minimal()),
@@ -98,15 +97,15 @@ std::string yul::test::format(std::string const& _source)
 
 namespace
 {
-std::map<std::string const, yul::Dialect const& (*)(langutil::EVMVersion, std::optional<uint8_t>)> const validDialects = {
+std::map<std::string const, yul::Dialect const& (*)(langutil::EVMVersion)> const validDialects = {
 	{
 		"evm",
-		[](langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion) -> yul::Dialect const&
-		{ return yul::EVMDialect::strictAssemblyForEVMObjects(_evmVersion, _eofVersion); }
+		[](langutil::EVMVersion _evmVersion) -> yul::Dialect const&
+		{ return yul::EVMDialect::strictAssemblyForEVMObjects(_evmVersion); }
 	}
 };
 
-	std::vector<std::string> validDialectNames()
+std::vector<std::string> validDialectNames()
 {
 	std::vector<std::string> names{size(validDialects), ""};
 	std::transform(begin(validDialects), end(validDialects), names.begin(), [](auto const& dialect) { return dialect.first; });
@@ -115,7 +114,7 @@ std::map<std::string const, yul::Dialect const& (*)(langutil::EVMVersion, std::o
 }
 }
 
-yul::Dialect const& yul::test::dialect(std::string const& _name, langutil::EVMVersion _evmVersion, std::optional<uint8_t> _eofVersion)
+yul::Dialect const& yul::test::dialect(std::string const& _name, langutil::EVMVersion _evmVersion)
 {
 	if (!validDialects.count(_name))
 		BOOST_THROW_EXCEPTION(std::runtime_error{
@@ -126,7 +125,7 @@ yul::Dialect const& yul::test::dialect(std::string const& _name, langutil::EVMVe
 			"."
 		});
 
-	return validDialects.at(_name)(_evmVersion, _eofVersion);
+	return validDialects.at(_name)(_evmVersion);
 }
 
 void yul::test::printYulErrors(

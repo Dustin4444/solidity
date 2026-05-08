@@ -79,7 +79,6 @@ public:
 	YulStack():
 		YulStack(
 			langutil::EVMVersion{},
-			std::nullopt,
 			solidity::frontend::OptimiserSettings::none(),
 			langutil::DebugInfoSelection::Default()
 		)
@@ -87,14 +86,12 @@ public:
 
 	YulStack(
 		langutil::EVMVersion _evmVersion,
-		std::optional<uint8_t> _eofVersion,
 		solidity::frontend::OptimiserSettings _optimiserSettings,
 		langutil::DebugInfoSelection const& _debugInfoSelection,
 		langutil::CharStreamProvider const* _soliditySourceProvider = nullptr,
 		std::shared_ptr<ObjectOptimizer> _objectOptimizer = nullptr
 	):
 		m_evmVersion(_evmVersion),
-		m_eofVersion(_eofVersion),
 		m_optimiserSettings(std::move(_optimiserSettings)),
 		m_debugInfoSelection(_debugInfoSelection),
 		m_soliditySourceProvider(_soliditySourceProvider),
@@ -171,7 +168,6 @@ private:
 	void reportUnimplementedFeatureError(langutil::UnimplementedFeatureError const& _error);
 
 	langutil::EVMVersion m_evmVersion;
-	std::optional<uint8_t> m_eofVersion;
 	solidity::frontend::OptimiserSettings m_optimiserSettings;
 	langutil::DebugInfoSelection m_debugInfoSelection{};
 

@@ -115,53 +115,10 @@ void NoOutputAssembly::appendAssemblySize()
 	appendInstruction(evmasm::Instruction::PUSH1);
 }
 
-void NoOutputAssembly::appendDupN(size_t)
-{
-	m_stackHeight++;
-}
-
 std::pair<std::shared_ptr<AbstractAssembly>, AbstractAssembly::SubID> NoOutputAssembly::createSubAssembly(bool, std::string)
 {
 	yulAssert(false, "Sub assemblies not implemented.");
 	return {};
-}
-
-AbstractAssembly::FunctionID NoOutputAssembly::registerFunction(uint8_t _args, uint8_t _rets, bool)
-{
-	yulAssert(m_context.numFunctions <= std::numeric_limits<AbstractAssembly::FunctionID>::max());
-	AbstractAssembly::FunctionID id = static_cast<AbstractAssembly::FunctionID>(m_context.numFunctions++);
-	m_context.functionSignatures[id] = {_args, _rets};
-	return id;
-}
-
-void NoOutputAssembly::beginFunction(FunctionID _functionID)
-{
-	yulAssert(m_currentFunctionID == 0, "Attempted to begin a function before ending the last one.");
-	yulAssert(m_context.functionSignatures.count(_functionID) == 1, "Filling unregistered function.");
-	yulAssert(m_stackHeight == 0, "Non-empty stack on beginFunction call.");
-	m_currentFunctionID = _functionID;
-}
-
-void NoOutputAssembly::endFunction()
-{
-	yulAssert(m_currentFunctionID != 0, "End function without begin function.");
-	auto const [_, rets] = m_context.functionSignatures.at(m_currentFunctionID);
-	yulAssert(m_stackHeight == rets, "Stack height mismatch at function end.");
-	m_currentFunctionID = 0;
-}
-
-void NoOutputAssembly::appendFunctionCall(FunctionID _functionID)
-{
-	auto [args, rets] = m_context.functionSignatures.at(_functionID);
-	m_stackHeight += static_cast<int>(rets) - static_cast<int>(args);
-	solAssert(m_stackHeight >= 0);
-}
-
-void NoOutputAssembly::appendFunctionReturn()
-{
-	yulAssert(m_currentFunctionID != 0, "End function without begin function.");
-	auto const [_, rets] = m_context.functionSignatures.at(m_currentFunctionID);
-	yulAssert(m_stackHeight == rets, "Stack height mismatch at function end.");
 }
 
 void NoOutputAssembly::appendDataOffset(std::vector<AbstractAssembly::SubID> const&)
@@ -190,23 +147,8 @@ void NoOutputAssembly::appendImmutableAssignment(std::string const&)
 	yulAssert(false, "setimmutable not implemented.");
 }
 
-void NoOutputAssembly::appendAuxDataLoadN(uint16_t)
-{
-	yulAssert(false, "auxdataloadn not implemented.");
-}
-
-void NoOutputAssembly::appendEOFCreate(ContainerID)
-{
-	yulAssert(false, "eofcreate not implemented.");
-
-}
-void NoOutputAssembly::appendReturnContract(ContainerID)
-{
-	yulAssert(false, "returncontract not implemented.");
-}
-
 NoOutputEVMDialect::NoOutputEVMDialect(EVMDialect const& _copyFrom):
-	EVMDialect(_copyFrom.evmVersion(), _copyFrom.eofVersion(), _copyFrom.providesObjectAccess())
+	EVMDialect(_copyFrom.evmVersion(), _copyFrom.providesObjectAccess())
 {
 	// save the modified functions here - note that this only has to be done once because we modify all of
 	// them in one go, later reference pointers to this static vector

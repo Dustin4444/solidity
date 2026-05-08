@@ -126,11 +126,6 @@ private:
 	//// Fills in junk when entering branches that do not need a clean stack in case the result is cheaper.
 	void fillInJunk(CFG::BasicBlock const& _block, CFG::FunctionInfo const* _functionInfo = nullptr);
 
-	/// True if it simulates functions with jumps. False otherwise. True for legacy bytecode.
-	bool simulateFunctionsWithJumps() const
-	{
-		return !m_evmDialect.eofVersion().has_value();
-	}
 	size_t reachableStackDepth() const
 	{
 		return m_evmDialect.reachableStackDepth();
