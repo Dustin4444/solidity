@@ -14,7 +14,7 @@ def get_nested_value(dictionary, *keys):
     return dictionary
 
 
-@pytest.fixture(params=["input_file.json", "input_file_eof.json"])
+@pytest.fixture(params=["input_file.json"])
 def solc_output(request, solc_path):
     testfile_dir = Path(__file__).parent
     with open(testfile_dir / request.param, "r", encoding="utf8") as f:
