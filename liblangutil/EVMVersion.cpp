@@ -26,18 +26,15 @@ using namespace solidity;
 using namespace solidity::evmasm;
 using namespace solidity::langutil;
 
-bool EVMVersion::hasOpcode(Instruction _opcode, std::optional<uint8_t> _eofVersion) const
+bool EVMVersion::hasOpcode(Instruction _opcode) const
 {
-	// EOF version can be only defined since osaka
-	assert(!_eofVersion.has_value() || *this >= EVMVersion::firstWithEOF());
-
 	switch (_opcode)
 	{
 	case Instruction::RETURNDATACOPY:
 	case Instruction::RETURNDATASIZE:
 		return supportsReturndata();
 	case Instruction::STATICCALL:
-		return !_eofVersion.has_value() && hasStaticCall();
+		return hasStaticCall();
 	case Instruction::SHL:
 	case Instruction::SHR:
 	case Instruction::SAR:
@@ -45,9 +42,9 @@ bool EVMVersion::hasOpcode(Instruction _opcode, std::optional<uint8_t> _eofVersi
 	case Instruction::CLZ:
 		return hasCLZ();
 	case Instruction::CREATE2:
-		return !_eofVersion.has_value() && hasCreate2();
+		return hasCreate2();
 	case Instruction::EXTCODEHASH:
-		return !_eofVersion.has_value() && hasExtCodeHash();
+		return hasExtCodeHash();
 	case Instruction::CHAINID:
 		return hasChainID();
 	case Instruction::SELFBALANCE:
@@ -63,7 +60,6 @@ bool EVMVersion::hasOpcode(Instruction _opcode, std::optional<uint8_t> _eofVersi
 	case Instruction::TSTORE:
 	case Instruction::TLOAD:
 		return supportsTransientStorage();
-	// Instructions below are deprecated in EOF
 	case Instruction::CALL:
 	case Instruction::CALLCODE:
 	case Instruction::DELEGATECALL:
@@ -77,22 +73,7 @@ bool EVMVersion::hasOpcode(Instruction _opcode, std::optional<uint8_t> _eofVersi
 	case Instruction::EXTCODESIZE:
 	case Instruction::EXTCODECOPY:
 	case Instruction::GAS:
-		return !_eofVersion.has_value();
-	// Instructions below available only in EOF
-	case Instruction::EOFCREATE:
-	case Instruction::RETURNCONTRACT:
-	case Instruction::DATALOADN:
-	case Instruction::RJUMP:
-	case Instruction::RJUMPI:
-	case Instruction::CALLF:
-	case Instruction::JUMPF:
-	case Instruction::DUPN:
-	case Instruction::SWAPN:
-	case Instruction::RETF:
-	case Instruction::EXTCALL:
-	case Instruction::EXTSTATICCALL:
-	case Instruction::EXTDELEGATECALL:
-		return _eofVersion.has_value();
+		return true;
 	default:
 		return true;
 	}

@@ -86,14 +86,6 @@ public:
 		};
 	}
 
-	static auto constexpr allEOFVersions()
-	{
-		return std::array{
-			std::optional<uint8_t>(),
-			std::make_optional<uint8_t>(1)
-		};
-	}
-
 	static std::optional<EVMVersion> fromString(std::string const& _version)
 	{
 		for (auto const& v: allVersions())
@@ -101,8 +93,6 @@ public:
 				return v;
 		return std::nullopt;
 	}
-
-	static EVMVersion firstWithEOF() { return {Version::Osaka}; }
 
 	bool isExperimental() const {
 		solAssert(Version::Future > currentVersion);
@@ -150,10 +140,9 @@ public:
 	bool hasBlobHash() const { return *this >= cancun(); }
 	bool hasMcopy() const { return *this >= cancun(); }
 	bool supportsTransientStorage() const { return *this >= cancun(); }
-	bool supportsEOF() const { return *this >= firstWithEOF(); }
 	constexpr size_t reachableStackDepth() const { return 16; }
 
-	bool hasOpcode(evmasm::Instruction _opcode, std::optional<uint8_t> _eofVersion) const;
+	bool hasOpcode(evmasm::Instruction _opcode) const;
 
 	/// Whether we have to retain the costs for the call opcode itself (false),
 	/// or whether we can just forward easily all remaining gas (true).
