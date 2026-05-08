@@ -149,7 +149,6 @@ size_t IRGenerationContext::reservedMemory()
 	size_t reservedMemory = *m_reservedMemory;
 
 	// We assume reserved memory contains only immutable variables.
-	// This memory is used i.e. by RETURNCONTRACT to create new EOF container with aux data.
 	size_t immutableVariablesSize = 0;
 	for (auto const* var: keys(m_immutableVariables))
 	{
@@ -159,7 +158,7 @@ size_t IRGenerationContext::reservedMemory()
 	}
 
 	// In Creation context check that only immutable variables or library address are stored in the reserved memory.
-	// In Deployed context (for EOF) m_immutableVariables contains offsets in EOF data section.
+	// In Deployed context m_immutableVariables is empty.
 	solAssert(
 		(m_executionContext == ExecutionContext::Creation &&
 			reservedMemory == immutableVariablesSize + (m_libraryAddressImmutableOffset.has_value() ? 32 : 0)) ||
@@ -224,10 +223,10 @@ void IRGenerationContext::internalFunctionCalledThroughDispatch(YulArity const& 
 
 YulUtilFunctions IRGenerationContext::utils()
 {
-	return YulUtilFunctions(m_evmVersion, m_eofVersion, m_revertStrings, m_functions);
+	return YulUtilFunctions(m_evmVersion, m_revertStrings, m_functions);
 }
 
 ABIFunctions IRGenerationContext::abiFunctions()
 {
-	return ABIFunctions(m_evmVersion, m_eofVersion, m_revertStrings, m_functions);
+	return ABIFunctions(m_evmVersion, m_revertStrings, m_functions);
 }

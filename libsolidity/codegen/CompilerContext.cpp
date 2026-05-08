@@ -436,7 +436,7 @@ void CompilerContext::appendInlineAssembly(
 	ErrorList errors;
 	ErrorReporter errorReporter(errors);
 	langutil::CharStream charStream(_assembly, _sourceName);
-	yul::EVMDialect const& dialect = yul::EVMDialect::strictAssemblyForEVM(m_evmVersion, std::nullopt);
+	yul::EVMDialect const& dialect = yul::EVMDialect::strictAssemblyForEVM(m_evmVersion);
 	std::optional<langutil::SourceLocation> locationOverride;
 	if (!_system)
 		locationOverride = m_asm->currentSourceLocation();
@@ -521,7 +521,6 @@ void CompilerContext::appendInlineAssembly(
 		analysisInfo,
 		*m_asm,
 		m_evmVersion,
-		std::nullopt,
 		identifierAccess.generateCode,
 		_system,
 		_optimiserSettings.optimizeStackAllocation

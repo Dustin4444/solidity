@@ -958,7 +958,6 @@ bool ContractCompiler::visit(InlineAssembly const& _inlineAssembly)
 		*analysisInfo,
 		*m_context.assemblyPtr(),
 		m_context.evmVersion(),
-		std::nullopt,
 		identifierAccessCodeGen,
 		false,
 		m_optimiserSettings.optimizeStackAllocation
