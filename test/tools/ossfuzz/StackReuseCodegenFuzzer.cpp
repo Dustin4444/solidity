@@ -101,12 +101,11 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	bool unoptimizedStackTooDeep = false;
 	try
 	{
-		YulAssembler assembler{version, std::nullopt, settings, yul_source};
+		YulAssembler assembler{version, settings, yul_source};
 		unoptimisedByteCode = assembler.assemble();
 		auto yulObject = assembler.object();
-		// TODO: Add EOF support
 		recursiveFunction = recursiveFunctionExists(
-			EVMDialect::strictAssemblyForEVMObjects(version, std::nullopt),
+			EVMDialect::strictAssemblyForEVMObjects(version),
 			*yulObject
 		);
 	}
@@ -156,7 +155,7 @@ DEFINE_PROTO_FUZZER(Program const& _input)
 	bytes optimisedByteCode;
 	try
 	{
-		optimisedByteCode = YulAssembler{version, std::nullopt, settings, yul_source}.assemble();
+		optimisedByteCode = YulAssembler{version, settings, yul_source}.assemble();
 	}
 	catch (solidity::yul::StackTooDeepError const&)
 	{
