@@ -115,6 +115,8 @@ add_library(yul
 	backends/evm/ssa/transform/IdentityAndNopRemover.h
 	backends/evm/ssa/transform/OptimizationPipeline.cpp
 	backends/evm/ssa/transform/OptimizationPipeline.h
+	backends/evm/ssa/transform/Outliner.cpp
+	backends/evm/ssa/transform/Outliner.h
 	backends/evm/ssa/transform/TrivialPhiEliminator.cpp
 	backends/evm/ssa/transform/TrivialPhiEliminator.h
 	backends/evm/ssa/transform/UnreachableBlockCleaner.cpp
