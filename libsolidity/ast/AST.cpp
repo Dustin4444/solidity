@@ -237,7 +237,7 @@ std::vector<EventDefinition const*> const& ContractDefinition::definedInterfaceE
 	});
 }
 
-std::vector<EventDefinition const*> const ContractDefinition::usedInterfaceEvents() const
+std::vector<EventDefinition const*> ContractDefinition::usedInterfaceEvents() const
 {
 	solAssert(annotation().creationCallGraph.set(), "");
 

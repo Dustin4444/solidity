@@ -887,7 +887,7 @@ std::vector<std::string> CompilerStack::contractNames() const
 	return contractNames;
 }
 
-std::string const CompilerStack::lastContractName(std::optional<std::string> const& _sourceName) const
+std::string CompilerStack::lastContractName(std::optional<std::string> const& _sourceName) const
 {
 	solAssert(m_stackState >= AnalysisSuccessful, "Parsing was not successful.");
 	// try to find some user-supplied contract

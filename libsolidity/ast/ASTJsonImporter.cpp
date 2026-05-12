@@ -90,7 +90,7 @@ ASTPointer<T> ASTJsonImporter::createASTNode(Json const& _node, Args&&... _args)
 	return n;
 }
 
-SourceLocation const ASTJsonImporter::createSourceLocation(Json const& _node)
+SourceLocation ASTJsonImporter::createSourceLocation(Json const& _node)
 {
 	astAssert(member(_node, "src").is_string(), "'src' must be a string");
 

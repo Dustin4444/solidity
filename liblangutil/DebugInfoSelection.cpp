@@ -34,7 +34,7 @@ using namespace solidity;
 using namespace solidity::langutil;
 using namespace solidity::util;
 
-DebugInfoSelection const DebugInfoSelection::All(bool _value) noexcept
+DebugInfoSelection DebugInfoSelection::All(bool _value) noexcept
 {
 	DebugInfoSelection result;
 	for (bool DebugInfoSelection::* const member: componentMap() | ranges::views::values)
@@ -42,14 +42,14 @@ DebugInfoSelection const DebugInfoSelection::All(bool _value) noexcept
 	return result;
 }
 
-DebugInfoSelection const DebugInfoSelection::Only(bool DebugInfoSelection::* _member) noexcept
+DebugInfoSelection DebugInfoSelection::Only(bool DebugInfoSelection::* _member) noexcept
 {
 	DebugInfoSelection result{};
 	result.*_member = true;
 	return result;
 }
 
-DebugInfoSelection const DebugInfoSelection::AllExcept(std::vector<bool DebugInfoSelection::*> const& _members) noexcept
+DebugInfoSelection DebugInfoSelection::AllExcept(std::vector<bool DebugInfoSelection::*> const& _members) noexcept
 {
 	DebugInfoSelection result = All();
 	for (bool DebugInfoSelection::* const member: _members)

@@ -44,7 +44,7 @@ namespace solidity::yul
 
 using SourceLocation = langutil::SourceLocation;
 
-SourceLocation const AsmJsonImporter::createSourceLocation(Json const& _node)
+SourceLocation AsmJsonImporter::createSourceLocation(Json const& _node)
 {
 	yulAssert(member(_node, "src").is_string(), "'src' must be a string");
 
