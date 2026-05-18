@@ -1,6 +1,8 @@
 ### 0.8.36 (unreleased)
 
 Language Features:
+* General: Add support for constant evaluation of `keccak256` builtin.
+* General: Add support for constant evaluation for `uint256` type conversion.
 
 Compiler Features:
 * General: Speed up SHA-256 hashing (`picosha2`).
