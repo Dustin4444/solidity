@@ -21,11 +21,11 @@ object "C_16" {
                     if eq(0x26121ff0, shr(224, calldataload(0)))
                     {
                         if callvalue() { revert(0, 0) }
-                        if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
+                        if slt(add(calldatasize(), 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc), 0) { revert(0, 0) }
                         let newFreePtr := add(_1, 64)
                         if or(gt(newFreePtr, 0xffffffffffffffff), lt(newFreePtr, _1))
                         {
-                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                             mstore(4, 0x41)
                             revert(0, 0x24)
                         }
@@ -33,8 +33,8 @@ object "C_16" {
                         mstore(_1, 12)
                         let _2 := add(_1, 32)
                         mstore(_2, "example.main")
-                        mstore(0, add(keccak256(_2, 12), not(0)))
-                        let slot := and(keccak256(0, 32), not(255))
+                        mstore(0, add(keccak256(_2, 12), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))
+                        let slot := and(keccak256(0, 32), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00)
                         let memPos := mload(64)
                         mstore(memPos, slot)
                         return(memPos, 32)

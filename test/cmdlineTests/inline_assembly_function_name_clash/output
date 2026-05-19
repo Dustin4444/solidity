@@ -28,7 +28,7 @@
                     "returnSlots": 1
                 },
                 "convert_uint256_to_uint256": {
-                    "entryPoint": 276,
+                    "entryPoint": 307,
                     "parameterSlots": 1,
                     "returnSlots": 1
                 },
@@ -43,58 +43,58 @@
                     "returnSlots": 0
                 },
                 "fun_f": {
-                    "entryPoint": 442,
+                    "entryPoint": 473,
                     "id": 25,
                     "parameterSlots": 0,
                     "returnSlots": 1
                 },
                 "fun_f_inner": {
-                    "entryPoint": 430,
+                    "entryPoint": 461,
                     "parameterSlots": 1,
                     "returnSlots": 1
                 },
                 "fun_g": {
-                    "entryPoint": 564,
+                    "entryPoint": 595,
                     "id": 36,
                     "parameterSlots": 0,
                     "returnSlots": 1
                 },
                 "fun_g_inner": {
-                    "entryPoint": 552,
+                    "entryPoint": 583,
                     "parameterSlots": 1,
                     "returnSlots": 1
                 },
                 "identity": {
-                    "entryPoint": 273,
+                    "entryPoint": 304,
                     "parameterSlots": 1,
                     "returnSlots": 1
                 },
                 "modifier_m": {
-                    "entryPoint": 509,
+                    "entryPoint": 540,
                     "id": 14,
                     "parameterSlots": 1,
                     "returnSlots": 1
                 },
                 "modifier_m_17": {
-                    "entryPoint": 344,
+                    "entryPoint": 375,
                     "id": 14,
                     "parameterSlots": 1,
                     "returnSlots": 1
                 },
                 "modifier_m_19": {
-                    "entryPoint": 387,
+                    "entryPoint": 418,
                     "id": 14,
                     "parameterSlots": 1,
                     "returnSlots": 1
                 },
                 "modifier_m_28": {
-                    "entryPoint": 466,
+                    "entryPoint": 497,
                     "id": 14,
                     "parameterSlots": 1,
                     "returnSlots": 1
                 },
                 "prepare_store_uint256": {
-                    "entryPoint": 304,
+                    "entryPoint": 335,
                     "parameterSlots": 1,
                     "returnSlots": 1
                 },
@@ -129,37 +129,37 @@
                     "returnSlots": 1
                 },
                 "update_storage_value_offset_uint256_to_uint256": {
-                    "entryPoint": 307,
+                    "entryPoint": 338,
                     "parameterSlots": 2,
                     "returnSlots": 0
                 },
                 "usr$f": {
-                    "entryPoint": 339,
+                    "entryPoint": 370,
                     "parameterSlots": 0,
                     "returnSlots": 1
                 },
                 "usr$f_17": {
-                    "entryPoint": 382,
+                    "entryPoint": 413,
                     "parameterSlots": 0,
                     "returnSlots": 1
                 },
                 "usr$f_22": {
-                    "entryPoint": 425,
+                    "entryPoint": 456,
                     "parameterSlots": 0,
                     "returnSlots": 1
                 },
                 "usr$f_26": {
-                    "entryPoint": 461,
+                    "entryPoint": 492,
                     "parameterSlots": 0,
                     "returnSlots": 1
                 },
                 "usr$f_32": {
-                    "entryPoint": 504,
+                    "entryPoint": 535,
                     "parameterSlots": 0,
                     "returnSlots": 1
                 },
                 "usr$f_37": {
-                    "entryPoint": 547,
+                    "entryPoint": 578,
                     "parameterSlots": 0,
                     "returnSlots": 1
                 },

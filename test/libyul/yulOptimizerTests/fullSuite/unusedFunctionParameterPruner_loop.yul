@@ -29,7 +29,11 @@
 //         let b := 10
 //         let a := calldataload(0)
 //         let _1 := iszero(a)
-//         for { } iszero(b) { b := add(b, not(0)) }
+//         for { }
+//         iszero(b)
+//         {
+//             b := add(b, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+//         }
 //         {
 //             mstore(a, 0)
 //             if _1 { leave }

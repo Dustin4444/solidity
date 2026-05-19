@@ -21,7 +21,7 @@ object "C_25" {
         { newValue := shl(0, value) }
         function update_byte_slice_shift(value, toInsert) -> result
         {
-            let mask := not(0)
+            let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
             toInsert := shift_left(toInsert)
             value := and(value, not(mask))
             result := or(value, and(toInsert, mask))
@@ -148,7 +148,7 @@ object "C_25" {
             { newValue := shl(0, value) }
             function update_byte_slice_shift(value, toInsert) -> result
             {
-                let mask := not(0)
+                let mask := 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
                 toInsert := shift_left(toInsert)
                 value := and(value, not(mask))
                 result := or(value, and(toInsert, mask))
@@ -169,7 +169,7 @@ object "C_25" {
             function update_byte_slice_dynamic32(value, shiftBytes, toInsert) -> result
             {
                 let shiftBits := mul(shiftBytes, 8)
-                let mask := shift_left_dynamic(shiftBits, not(0))
+                let mask := shift_left_dynamic(shiftBits, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
                 toInsert := shift_left_dynamic(shiftBits, toInsert)
                 value := and(value, not(mask))
                 result := or(value, and(toInsert, mask))

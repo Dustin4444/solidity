@@ -22,7 +22,7 @@ object "C_12" {
                     if eq(0x26121ff0, shr(224, calldataload(0)))
                     {
                         if callvalue() { revert(0, 0) }
-                        if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
+                        if slt(add(calldatasize(), 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc), 0) { revert(0, 0) }
                         mstore(_1, 0x183a6125c38840424c4a85fa12bab2ab606c4b6d0e7cc73c0c06ba5300eab500)
                         return(_1, 32)
                     }

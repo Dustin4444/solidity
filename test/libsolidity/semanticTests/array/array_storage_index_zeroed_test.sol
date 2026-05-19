@@ -52,18 +52,18 @@ contract C {
 // ----
 // test_zeroed_indices(uint256): 1 ->
 // test_zeroed_indices(uint256): 5 ->
-// gas irOptimized: 133763
+// gas irOptimized: 133751
 // gas legacy: 131664
 // gas legacyOptimized: 129990
 // test_zeroed_indices(uint256): 10 ->
-// gas irOptimized: 228556
+// gas irOptimized: 228532
 // gas legacy: 225215
 // gas legacyOptimized: 222351
 // test_zeroed_indices(uint256): 15 ->
-// gas irOptimized: 327360
+// gas irOptimized: 327324
 // gas legacy: 322899
 // gas legacyOptimized: 318907
 // test_zeroed_indices(uint256): 0xFF ->
-// gas irOptimized: 5180120
+// gas irOptimized: 5179508
 // gas legacy: 5093135
 // gas legacyOptimized: 5020523

@@ -20,12 +20,12 @@ object "C_14" {
                     if eq(0x26121ff0, shr(224, calldataload(0)))
                     {
                         if callvalue() { revert(0, 0) }
-                        if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
+                        if slt(add(calldatasize(), 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc), 0) { revert(0, 0) }
                         let _1 := tload(0)
                         let sum := add(_1, 0x01)
                         if gt(_1, sum)
                         {
-                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                             mstore(4, 0x11)
                             revert(0, 0x24)
                         }

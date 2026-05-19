@@ -142,8 +142,7 @@ sub_0: assembly {
       add
       mstore
       0x80
-      0x1f
-      not
+      not(0x1f)
       0x1f
       dup4
       add

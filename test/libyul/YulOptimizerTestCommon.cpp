@@ -413,9 +413,7 @@ YulOptimizerTestCommon::YulOptimizerTestCommon(std::shared_ptr<Object const> _ob
 			return block;
 		}},
 		{"fullSuite", [&]() {
-			GasMeter meter(dynamic_cast<EVMDialect const&>(*m_object->dialect()), false, 200);
 			OptimiserSuite::run(
-				&meter,
 				*m_optimizedObject,
 				true,
 				frontend::OptimiserSettings::DefaultYulOptimiserSteps,

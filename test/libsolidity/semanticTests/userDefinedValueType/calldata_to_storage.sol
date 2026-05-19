@@ -34,7 +34,7 @@ contract C {
 // small(uint256): 0 -> 1
 // small(uint256): 1 -> 2
 // h(bytes2[]): 0x20, 3, "ab", "cd", "ef" -> 0x20, 3, "ab", "cd", "ef"
-// gas irOptimized: 68635
+// gas irOptimized: 68626
 // gas legacy: 71231
 // gas legacyOptimized: 69289
 // l(uint256): 0 -> 0x6162000000000000000000000000000000000000000000000000000000000000

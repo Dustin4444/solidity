@@ -17,8 +17,8 @@ contract c {
 // gas irOptimized: 48421
 // storageEmpty -> 0
 // copy(uint256,uint256): 99, 1 -> true
-// gas irOptimized: 35641
+// gas irOptimized: 35639
 // storageEmpty -> 0
 // copy(uint256,uint256): 99, 2 -> true
-// gas irOptimized: 35641
+// gas irOptimized: 35639
 // storageEmpty -> 1

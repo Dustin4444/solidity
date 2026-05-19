@@ -23,7 +23,7 @@ object "Arraysum_34" {
                     if eq(0x81d73423, shr(224, calldataload(0)))
                     {
                         if callvalue() { revert(0, 0) }
-                        if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
+                        if slt(add(calldatasize(), 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc), 0) { revert(0, 0) }
                         let var_sum := 0
                         /// @src 0:175:182  "sum = 0"
                         var_sum := /** @src 0:80:429  "contract Arraysum {..." */ 0
@@ -49,7 +49,7 @@ object "Arraysum_34" {
                             let sum := add(var_sum, sload(add(18569430475105882587588266137607568536673111973893317399460219858819262702947, var_i)))
                             if gt(var_sum, sum)
                             {
-                                mstore(0, shl(224, 0x4e487b71))
+                                mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                                 mstore(4, 0x11)
                                 revert(0, 0x24)
                             }

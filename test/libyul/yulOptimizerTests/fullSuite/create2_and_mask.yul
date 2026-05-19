@@ -14,7 +14,7 @@
 //
 // {
 //     {
-//         let a := and(create2(0, 0, 0x20, 0), sub(shl(160, 1), 1))
-//         sstore(a, and(sub(shl(160, 1), 1), create2(0, 0, 0x20, 0)))
+//         let a := and(create2(0, 0, 0x20, 0), 0xffffffffffffffffffffffffffffffffffffffff)
+//         sstore(a, and(0xffffffffffffffffffffffffffffffffffffffff, create2(0, 0, 0x20, 0)))
 //     }
 // }

@@ -31,7 +31,7 @@ sub_0: assembly {
       revert
     tag_3:
       jumpi(tag_7, callvalue)
-      jumpi(tag_7, slt(add(not(0x03), calldatasize), 0x00))
+      jumpi(tag_7, slt(add(calldatasize, not(0x03)), 0x00))
       tload(0x00)
       0x01
       dup2

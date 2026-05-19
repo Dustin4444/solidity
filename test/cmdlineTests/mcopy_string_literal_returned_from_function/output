@@ -21,11 +21,11 @@ object "C_10" {
                     if eq(0xc2985578, shr(224, calldataload(0)))
                     {
                         if callvalue() { revert(0, 0) }
-                        if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
+                        if slt(add(calldatasize(), 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc), 0) { revert(0, 0) }
                         let newFreePtr := add(_1, 64)
                         if or(gt(newFreePtr, 0xffffffffffffffff), lt(newFreePtr, _1))
                         {
-                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                             mstore(4, 0x41)
                             revert(0, 0x24)
                         }
@@ -39,7 +39,7 @@ object "C_10" {
                         mstore(add(memPos, 32), length)
                         mcopy(add(memPos, 64), _2, length)
                         mstore(add(add(memPos, length), 64), 0)
-                        return(memPos, add(sub(add(memPos, and(add(length, 31), not(31))), memPos), 64))
+                        return(memPos, add(sub(add(memPos, and(add(length, 31), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0)), memPos), 64))
                     }
                 }
                 revert(0, 0)

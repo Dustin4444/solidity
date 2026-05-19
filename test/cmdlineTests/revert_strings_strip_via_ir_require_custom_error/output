@@ -46,7 +46,7 @@ sub_0: assembly {
       revert
     tag_5:
       jumpi(tag_9, callvalue)
-      jumpi(tag_9, slt(add(not(0x03), calldatasize), 0x00))
+      jumpi(tag_9, slt(add(calldatasize, not(0x03)), 0x00))
       0x20
       mload(0x40)
       0x00
@@ -59,7 +59,7 @@ sub_0: assembly {
       revert
     tag_3:
       jumpi(tag_9, callvalue)
-      jumpi(tag_9, slt(add(not(0x03), calldatasize), 0x00))
+      jumpi(tag_9, slt(add(calldatasize, not(0x03)), 0x00))
       0x40
       dup2
       add
@@ -85,21 +85,23 @@ sub_0: assembly {
       shl(0xd9, 0x32b93937b9)
       dup4
       mstore
+      not(0x1f)
+      0x1f
       mload(0x40)
-      swap3
-      dup4
-      swap2
+      swap5
+      dup6
+      swap4
       shl(0xe5, 0x01676c8b)
-      dup4
+      dup6
       mstore
       0x08
       0x04
-      dup5
+      dup7
       add
       mstore
       0x60
       0x24
-      dup5
+      dup7
       add
       mstore
       mload
@@ -107,29 +109,26 @@ sub_0: assembly {
       swap2
       dup2
       0x64
-      dup6
+      dup8
       add
       mstore
-      dup5
-      dup5
+      dup7
+      dup7
       add
       mcopy
       0x00
+      dup6
       dup3
-      dup3
+      dup7
       add
-      dup5
       add
-      dup2
-      swap1
       mstore
+      0x00
       0x44
-      dup4
+      dup6
       add
       mstore
-      0x1f
       add
-      not(0x1f)
       and
       dup2
       add

@@ -52,32 +52,32 @@ contract test {
 // experimental: true
 // ----
 // constructor()
-// gas irOptimized: 95303
-// gas irOptimized code: 520000
+// gas irOptimized: 95259
+// gas irOptimized code: 519600
 // gas legacy: 126346
 // gas legacy code: 932600
-// gas legacyOptimized: 102639
-// gas legacyOptimized code: 612400
-// gas ssaCFGOptimized: 95825
-// gas ssaCFGOptimized code: 527800
+// gas legacyOptimized: 102655
+// gas legacyOptimized code: 612600
+// gas ssaCFGOptimized: 95657
+// gas ssaCFGOptimized code: 526000
 // toSlice(string): 0x20, 11, "hello world" -> 11, 0xa0
 // gas irOptimized: 22646
 // gas legacy: 23168
 // gas legacyOptimized: 22488
 // roundtrip(string): 0x20, 11, "hello world" -> 0x20, 11, "hello world"
-// gas irOptimized: 23225
+// gas irOptimized: 23222
 // gas legacy: 23674
 // gas legacyOptimized: 22991
 // utf8len(string): 0x20, 16, "\xf0\x9f\x98\x83\xf0\x9f\x98\x83\xf0\x9f\x98\x83\xf0\x9f\x98\x83" -> 4 # Input: "😃😃😃😃" #
 // gas irOptimized: 23956
 // gas legacy: 25621
-// gas legacyOptimized: 24096
+// gas legacyOptimized: 24104
 // multiconcat(string,uint256): 0x40, 3, 11, "hello world" -> 0x20, 0x58, 0x68656c6c6f20776f726c6468656c6c6f20776f726c6468656c6c6f20776f726c, 0x6468656c6c6f20776f726c6468656c6c6f20776f726c6468656c6c6f20776f72, 49027192869463622675296414541903001712009715982962058146354235762728281047040 # concatenating 3 times #
-// gas irOptimized: 27630
+// gas irOptimized: 27618
 // gas legacy: 30778
 // gas legacyOptimized: 27519
 // benchmark(string,bytes32): 0x40, 0x0842021, 8, "solidity" -> 0x2020
-// gas irOptimized: 1976778
+// gas irOptimized: 1976742
 // gas legacy: 4234020
-// gas legacyOptimized: 2318668
-// gas ssaCFGOptimized: 1882325
+// gas legacyOptimized: 2335116
+// gas ssaCFGOptimized: 1882158

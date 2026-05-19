@@ -63,7 +63,6 @@ public:
 
 	/// The value nullopt for `_expectedExecutionsPerDeployment` represents creation code.
 	static void run(
-		GasMeter const* _meter,
 		Object& _object,
 		bool _optimizeStackAllocation,
 		std::string_view _optimisationSequence,

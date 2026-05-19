@@ -8,7 +8,7 @@ object "C_12" {
             mstore(64, _1)
             if callvalue() { revert(0, 0) }
             /// @src 0:103:238  "assembly {..."
-            sstore(0, shl(180, 1))
+            sstore(0, 0x1000000000000000000000000000000000000000000000)
             /// @src 0:61:418  "contract C {..."
             let _2 := datasize("C_12_deployed")
             codecopy(_1, dataoffset("C_12_deployed"), _2)

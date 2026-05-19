@@ -4,26 +4,25 @@ EVM assembly:
     /* "input.sol":61:668  contract C {... */
   0x80
   jumpi(tag_7, callvalue)
-  0x1f
   bytecodeSize
+  dup1
   codesize
-  dup2
-  swap1
   sub
-  swap2
-  dup3
-  add
+  swap1
   not(0x1f)
+  0x1f
+  dup4
+  add
   and
   dup4
   add
   swap2
-  sub(shl(0x40, 0x01), 0x01)
   dup4
-  gt
-  dup5
-  dup5
+  dup4
   lt
+  sub(shl(0x40, 0x01), 0x01)
+  dup5
+  gt
   or
   tag_3
   jumpi
@@ -116,25 +115,25 @@ sub_0: assembly {
       revert
     tag_3:
       jumpi(tag_7, callvalue)
-      jumpi(tag_7, slt(add(not(0x03), calldatasize), 0x00))
+      jumpi(tag_7, slt(add(calldatasize, not(0x03)), 0x00))
         /* "input.sol":745:765  type(C).creationCode */
       dataSize(sub_0)
-      swap1
         /* "input.sol":669:772  contract D {... */
-      0x3f
-      dup3
-      add
+      swap1
       not(0x1f)
+      0x3f
+      dup4
+      add
       and
       dup2
       add
       swap1
-      0xffffffffffffffff
+      dup1
       dup3
-      gt
-      dup2
-      dup4
       lt
+      0xffffffffffffffff
+      dup4
+      gt
       or
       tag_9
       jumpi
@@ -153,16 +152,18 @@ sub_0: assembly {
       dataOffset(sub_0)
       dup5
       codecopy
+      not(0x1f)
         /* "input.sol":669:772  contract D {... */
-      dup2
-      mload
-      swap3
+      0x1f
       dup4
-      swap2
+      mload
+      swap5
+      dup6
+      swap4
         /* "input.sol":745:765  type(C).creationCode */
       0x20
         /* "input.sol":669:772  contract D {... */
-      dup4
+      dup6
       mstore
       mload
       dup1
@@ -171,23 +172,21 @@ sub_0: assembly {
         /* "input.sol":745:765  type(C).creationCode */
       0x20
         /* "input.sol":669:772  contract D {... */
-      dup6
+      dup8
       add
       mstore
-      dup5
-      dup5
+      dup7
+      dup7
       add
       mcopy
       0x00
+      dup6
       dup3
-      dup3
+      dup7
       add
-      dup5
       add
       mstore
-      0x1f
       add
-      not(0x1f)
       and
       dup2
       add
@@ -209,26 +208,25 @@ sub_0: assembly {
             /* "input.sol":61:668  contract C {... */
           0x80
           jumpi(tag_7, callvalue)
-          0x1f
           bytecodeSize
+          dup1
           codesize
-          dup2
-          swap1
           sub
-          swap2
-          dup3
-          add
+          swap1
           not(0x1f)
+          0x1f
+          dup4
+          add
           and
           dup4
           add
           swap2
-          sub(shl(0x40, 0x01), 0x01)
           dup4
-          gt
-          dup5
-          dup5
+          dup4
           lt
+          sub(shl(0x40, 0x01), 0x01)
+          dup5
+          gt
           or
           tag_3
           jumpi

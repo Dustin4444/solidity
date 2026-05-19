@@ -13,7 +13,7 @@ object "C_15" {
             if iszero(outOfPlaceEncoding) { length := and(length, 0x7f) }
             if eq(outOfPlaceEncoding, lt(length, 32))
             {
-                mstore(0x00, shl(224, 0x4e487b71))
+                mstore(0x00, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                 mstore(4, 0x22)
                 revert(0x00, 0x24)
             }
@@ -45,7 +45,7 @@ object "C_15" {
                     if eq(0x26121ff0, shr(224, calldataload(0)))
                     {
                         if callvalue() { revert(0, 0) }
-                        if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
+                        if slt(add(calldatasize(), 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc), 0) { revert(0, 0) }
                         let ret := 0
                         let slotValue := sload(0)
                         let length := 0
@@ -54,7 +54,7 @@ object "C_15" {
                         if iszero(outOfPlaceEncoding) { length := and(length, 0x7f) }
                         if eq(outOfPlaceEncoding, lt(length, 32))
                         {
-                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                             mstore(4, 0x22)
                             revert(0, 0x24)
                         }
@@ -62,7 +62,7 @@ object "C_15" {
                         let updated_pos := add(_1, 32)
                         switch outOfPlaceEncoding
                         case 0 {
-                            mstore(updated_pos, and(slotValue, not(255)))
+                            mstore(updated_pos, and(slotValue, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00))
                             ret := add(add(_1, shl(5, iszero(iszero(length)))), 32)
                         }
                         case 1 {
@@ -76,16 +76,16 @@ object "C_15" {
                             }
                             ret := add(add(_1, i), 32)
                         }
-                        let newFreePtr := add(_1, and(add(sub(ret, _1), 31), not(31)))
+                        let newFreePtr := add(_1, and(add(sub(ret, _1), 31), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0))
                         if or(gt(newFreePtr, 0xffffffffffffffff), lt(newFreePtr, _1))
                         {
-                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                             mstore(4, 0x41)
                             revert(0, 0x24)
                         }
                         mstore(64, newFreePtr)
-                        mstore(0, add(keccak256(updated_pos, mload(_1)), not(0)))
-                        mstore(newFreePtr, and(keccak256(0, 32), not(255)))
+                        mstore(0, add(keccak256(updated_pos, mload(_1)), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))
+                        mstore(newFreePtr, and(keccak256(0, 32), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00))
                         return(newFreePtr, 32)
                     }
                 }

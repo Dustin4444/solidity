@@ -21,7 +21,7 @@ object "C_14" {
                     if eq(0x91e145ef, shr(224, calldataload(0)))
                     {
                         if callvalue() { revert(0, 0) }
-                        if slt(add(calldatasize(), not(3)), 32) { revert(0, 0) }
+                        if slt(add(calldatasize(), 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc), 32) { revert(0, 0) }
                         let offset := calldataload(4)
                         if gt(offset, 0xffffffffffffffff) { revert(0, 0) }
                         if iszero(slt(add(offset, 35), calldatasize())) { revert(0, 0) }
@@ -31,10 +31,10 @@ object "C_14" {
                         let _3 := gt(add(add(offset, length), 36), calldatasize())
                         if _3 { revert(0, 0) }
                         _2 := 0
-                        let newFreePtr := add(_1, and(add(and(add(length, 0x1f), not(31)), 63), not(31)))
+                        let newFreePtr := add(_1, and(add(and(add(length, 0x1f), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0), 63), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0))
                         if or(gt(newFreePtr, 0xffffffffffffffff), lt(newFreePtr, _1))
                         {
-                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                             mstore(4, 0x41)
                             revert(0, 36)
                         }
@@ -44,8 +44,8 @@ object "C_14" {
                         _3 := 0
                         calldatacopy(dst, add(offset, 36), length)
                         mstore(add(add(_1, length), 32), 0)
-                        mstore(0, add(keccak256(dst, mload(_1)), not(0)))
-                        let slot := and(keccak256(0, 32), not(255))
+                        mstore(0, add(keccak256(dst, mload(_1)), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))
+                        let slot := and(keccak256(0, 32), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00)
                         let memPos := mload(64)
                         mstore(memPos, slot)
                         return(memPos, 32)

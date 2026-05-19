@@ -169,9 +169,7 @@ sub_0: assembly {
       pop
       jump	// out
     tag_25:
-      0x4e487b71
-      0xe0
-      shl
+      shl(0xe0, 0x4e487b71)
       0x00
       mstore
       0x11
@@ -182,9 +180,9 @@ sub_0: assembly {
       revert
     tag_17:
       0x00
-      0x01
+      not(0x00)
       dup3
-      add
+      sub
       tag_31
       jumpi
       tag_31
@@ -229,8 +227,7 @@ sub_0: assembly {
       add
       mstore
       0x60
-      0x1f
-      not
+      not(0x1f)
       0x1f
       dup4
       add

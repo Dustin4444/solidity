@@ -62,7 +62,6 @@
 #include <libyul/optimiser/LoopInvariantCodeMotion.h>
 #include <libyul/optimiser/Metrics.h>
 #include <libyul/optimiser/NameSimplifier.h>
-#include <libyul/backends/evm/ConstantOptimiser.h>
 #include <libyul/AsmAnalysis.h>
 #include <libyul/AsmAnalysisInfo.h>
 #include <libyul/AsmPrinter.h>
@@ -89,7 +88,6 @@ using namespace solidity::yul;
 using namespace std::string_literals;
 
 void OptimiserSuite::run(
-	GasMeter const* _meter,
 	Object& _object,
 	bool _optimizeStackAllocation,
 	std::string_view _optimisationSequence,
@@ -156,11 +154,6 @@ void OptimiserSuite::run(
 
 	if (evmDialect)
 	{
-		yulAssert(_meter, "");
-		{
-			PROFILER_PROBE("ConstantOptimiser", probe);
-			ConstantOptimiser{*evmDialect, *_meter}(astRoot);
-		}
 		if (usesOptimizedCodeGenerator)
 		{
 			if (!evmDialect->eofVersion().has_value())

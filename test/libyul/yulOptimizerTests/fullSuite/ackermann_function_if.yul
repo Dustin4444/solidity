@@ -42,9 +42,9 @@
 //         }
 //         if iszero(n)
 //         {
-//             ret := A(add(m, not(0)), 1)
+//             ret := A(add(m, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff), 1)
 //             leave
 //         }
-//         ret := A(add(m, not(0)), A(m, add(n, not(0))))
+//         ret := A(add(m, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff), A(m, add(n, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)))
 //     }
 // }

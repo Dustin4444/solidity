@@ -51,16 +51,16 @@ contract test {
 // experimental: true
 // ----
 // constructor()
-// gas irOptimized: 177903
-// gas irOptimized code: 1674400
+// gas irOptimized: 177931
+// gas irOptimized code: 1675200
 // gas legacy: 209723
 // gas legacy code: 2205000
 // gas legacyOptimized: 178012
 // gas legacyOptimized code: 1669600
-// gas ssaCFGOptimized: 174817
-// gas ssaCFGOptimized code: 1636800
+// gas ssaCFGOptimized: 174833
+// gas ssaCFGOptimized code: 1637000
 // div(int256,int256): 3141592653589793238, 88714123 -> 35412542528203691288251815328
-// gas irOptimized: 22045
+// gas irOptimized: 22050
 // gas legacy: 22736
 // gas legacyOptimized: 22264
 // exp(int256): 3141592653589793238 -> 23140692632779268978
@@ -84,7 +84,7 @@ contract test {
 // gas legacy: 30979
 // gas legacyOptimized: 28357
 // mul(int256,int256): 3141592653589793238, 88714123 -> 278703637
-// gas irOptimized: 22147
+// gas irOptimized: 22152
 // gas legacy: 22775
 // gas legacyOptimized: 22288
 // pow(int256,uint256): 3141592653589793238, 5 -> 306019684785281453040
@@ -96,6 +96,6 @@ contract test {
 // gas legacy: 22784
 // gas legacyOptimized: 22420
 // benchmark(int256): 3141592653589793238 -> 998882724338592125, 1000000000000000000, 1000000000000000000
-// gas irOptimized: 34893
+// gas irOptimized: 34898
 // gas legacy: 35244
 // gas legacyOptimized: 33996

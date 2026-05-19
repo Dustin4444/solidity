@@ -301,7 +301,7 @@ Yul Control Flow Graph:
                     },
                     {
                         "exit": {
-                            "cond": "v20",
+                            "cond": "v19",
                             "targets": [
                                 "Block9",
                                 "Block8"
@@ -311,39 +311,30 @@ Yul Control Flow Graph:
                         "id": "Block6",
                         "instructions": [
                             {
-                                "in": [
-                                    "0x03"
-                                ],
-                                "op": "not",
+                                "in": [],
+                                "op": "calldatasize",
                                 "out": [
                                     "v17"
                                 ]
                             },
                             {
-                                "in": [],
-                                "op": "calldatasize",
-                                "out": [
-                                    "v18"
-                                ]
-                            },
-                            {
                                 "in": [
-                                    "v17",
-                                    "v18"
+                                    "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc",
+                                    "v17"
                                 ],
                                 "op": "add",
                                 "out": [
-                                    "v19"
+                                    "v18"
                                 ]
                             },
                             {
                                 "in": [
                                     "0x00",
-                                    "v19"
+                                    "v18"
                                 ],
                                 "op": "slt",
                                 "out": [
-                                    "v20"
+                                    "v19"
                                 ]
                             }
                         ],

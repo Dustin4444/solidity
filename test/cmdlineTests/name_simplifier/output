@@ -23,24 +23,24 @@ object "C_59" {
                     if eq(0xf8eddcc6, shr(224, calldataload(0)))
                     {
                         if callvalue() { revert(0, 0) }
-                        if slt(add(calldatasize(), not(3)), 32) { revert(0, 0) }
+                        if slt(add(calldatasize(), 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc), 32) { revert(0, 0) }
                         let offset := calldataload(4)
                         if gt(offset, 0xffffffffffffffff) { revert(0, 0) }
                         if iszero(slt(add(offset, 35), calldatasize())) { revert(0, 0) }
                         let length := calldataload(add(4, offset))
                         if gt(length, 0xffffffffffffffff)
                         {
-                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                             mstore(4, 0x41)
                             revert(0, 36)
                         }
                         let _1 := shl(5, length)
                         let memPtr := 0
                         memPtr := mload(64)
-                        let newFreePtr := add(memPtr, and(add(_1, 63), not(31)))
+                        let newFreePtr := add(memPtr, and(add(_1, 63), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0))
                         if or(gt(newFreePtr, 0xffffffffffffffff), lt(newFreePtr, memPtr))
                         {
-                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                             mstore(4, 0x41)
                             revert(0, 36)
                         }
@@ -60,7 +60,7 @@ object "C_59" {
                             let newFreePtr_1 := add(memPtr_1, 32)
                             if or(gt(newFreePtr_1, 0xffffffffffffffff), lt(newFreePtr_1, memPtr_1))
                             {
-                                mstore(0, shl(224, 0x4e487b71))
+                                mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                                 mstore(4, 0x41)
                                 revert(0, 36)
                             }
@@ -73,7 +73,7 @@ object "C_59" {
                         let addr := /** @src 0:346:625  "contract C {..." */ 0
                         if iszero(mload(memPtr))
                         {
-                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                             mstore(4, 0x32)
                             revert(0, 36)
                         }
@@ -83,7 +83,7 @@ object "C_59" {
                         let addr_1 := /** @src 0:346:625  "contract C {..." */ 0
                         if iszero(lt(/** @src 0:492:493  "1" */ 0x01, /** @src 0:346:625  "contract C {..." */ mload(memPtr)))
                         {
-                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                             mstore(4, 0x32)
                             revert(0, 36)
                         }
@@ -96,7 +96,7 @@ object "C_59" {
                         let newFreePtr_2 := add(memPtr_2, 160)
                         if or(gt(newFreePtr_2, 0xffffffffffffffff), lt(newFreePtr_2, memPtr_2))
                         {
-                            mstore(0, shl(224, 0x4e487b71))
+                            mstore(0, 35408467139433450592217433187231851964531694900788300625387963629091585785856)
                             mstore(4, 0x41)
                             revert(0, 36)
                         }
@@ -114,7 +114,7 @@ object "C_59" {
                         mstore(add(memPos, 64), length_1)
                         mcopy(add(memPos, 96), _3, length_1)
                         mstore(add(add(memPos, length_1), 96), 0)
-                        return(memPos, add(sub(add(memPos, and(add(length_1, 0x1f), not(31))), memPos), 96))
+                        return(memPos, add(sub(add(memPos, and(add(length_1, 0x1f), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0)), memPos), 96))
                     }
                 }
                 revert(0, 0)

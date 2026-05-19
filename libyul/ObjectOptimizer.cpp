@@ -67,7 +67,6 @@ void ObjectOptimizer::optimize(Object& _object, Settings const& _settings, bool 
 		}
 
 	EVMDialect const& dialect = EVMDialect::strictAssemblyForEVMObjects(_settings.evmVersion, _settings.eofVersion);
-	GasMeter const meter(dialect, _isCreation, _settings.expectedExecutionsPerDeployment);
 
 	std::optional<h256> cacheKey = calculateCacheKey(_object.code()->root(), *_object.debugData, _settings, _isCreation);
 	if (cacheKey.has_value() && m_cachedObjects.count(*cacheKey) != 0)
@@ -77,7 +76,6 @@ void ObjectOptimizer::optimize(Object& _object, Settings const& _settings, bool 
 	}
 
 	OptimiserSuite::run(
-		&meter,
 		_object,
 		_settings.optimizeStackAllocation,
 		_settings.yulOptimiserSteps,

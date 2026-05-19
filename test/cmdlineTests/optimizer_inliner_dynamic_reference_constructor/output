@@ -149,7 +149,7 @@ sub_0: assembly {
       jump	// in
     tag_21:
       jump	// out
-        /* "#utility.yul":196:418   */
+        /* "#utility.yul":196:475   */
     tag_19:
         /* "#utility.yul":261:270   */
       dup1
@@ -159,63 +159,53 @@ sub_0: assembly {
       dup1
       dup3
       gt
-        /* "#utility.yul":279:412   */
+        /* "#utility.yul":279:469   */
       iszero
       tag_26
       jumpi
-        /* "#utility.yul":334:344   */
-      0x4e487b71
-        /* "#utility.yul":329:332   */
-      0xe0
-        /* "#utility.yul":325:345   */
-      shl
+      shl(0xe0, 0x4e487b71)
         /* "#utility.yul":322:323   */
       0x00
-        /* "#utility.yul":315:346   */
+        /* "#utility.yul":315:403   */
       mstore
-        /* "#utility.yul":369:373   */
+        /* "#utility.yul":426:430   */
       0x11
-        /* "#utility.yul":366:367   */
+        /* "#utility.yul":423:424   */
       0x04
-        /* "#utility.yul":359:374   */
+        /* "#utility.yul":416:431   */
       mstore
-        /* "#utility.yul":397:401   */
+        /* "#utility.yul":454:458   */
       0x24
-        /* "#utility.yul":394:395   */
+        /* "#utility.yul":451:452   */
       0x00
-        /* "#utility.yul":387:402   */
+        /* "#utility.yul":444:459   */
       revert
-        /* "#utility.yul":279:412   */
+        /* "#utility.yul":279:469   */
     tag_26:
-        /* "#utility.yul":196:418   */
+        /* "#utility.yul":196:475   */
       swap3
       swap2
       pop
       pop
       jump	// out
-        /* "#utility.yul":423:550   */
+        /* "#utility.yul":480:664   */
     tag_22:
-        /* "#utility.yul":484:494   */
-      0x4e487b71
-        /* "#utility.yul":479:482   */
-      0xe0
-        /* "#utility.yul":475:495   */
-      shl
-        /* "#utility.yul":472:473   */
+      shl(0xe0, 0x4e487b71)
+        /* "#utility.yul":529:530   */
       0x00
-        /* "#utility.yul":465:496   */
+        /* "#utility.yul":522:610   */
       mstore
-        /* "#utility.yul":515:519   */
+        /* "#utility.yul":629:633   */
       0x51
-        /* "#utility.yul":512:513   */
+        /* "#utility.yul":626:627   */
       0x04
-        /* "#utility.yul":505:520   */
+        /* "#utility.yul":619:634   */
       mstore
-        /* "#utility.yul":539:543   */
+        /* "#utility.yul":653:657   */
       0x24
-        /* "#utility.yul":536:537   */
+        /* "#utility.yul":650:651   */
       0x00
-        /* "#utility.yul":529:544   */
+        /* "#utility.yul":643:658   */
       revert
 
     auxdata: <AUXDATA REMOVED>

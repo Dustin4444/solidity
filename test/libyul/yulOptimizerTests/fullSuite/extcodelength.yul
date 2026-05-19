@@ -25,11 +25,11 @@
 // {
 //     {
 //         let value := calldataload(4)
-//         if iszero(eq(value, and(value, sub(shl(160, 1), 1)))) { revert(0, 0) }
+//         if iszero(eq(value, and(value, 0xffffffffffffffffffffffffffffffffffffffff))) { revert(0, 0) }
 //         let length := extcodesize(value)
 //         if gt(length, 0xffffffffffffffff) { revert(0, 0) }
 //         let memPtr := mload(64)
-//         let newFreePtr := add(memPtr, and(add(and(add(length, 31), not(31)), 63), not(31)))
+//         let newFreePtr := add(memPtr, and(add(and(add(length, 31), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0), 63), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0))
 //         if or(gt(newFreePtr, 0xffffffffffffffff), lt(newFreePtr, memPtr)) { revert(0, 0) }
 //         mstore(64, newFreePtr)
 //         mstore(memPtr, length)

@@ -31,10 +31,10 @@
 //         if eq(0x26121ff0, shr(224, calldataload(0)))
 //         {
 //             if callvalue() { revert(0, 0) }
-//             if slt(add(calldatasize(), not(3)), 0) { revert(0, 0) }
+//             if slt(add(calldatasize(), 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc), 0) { revert(0, 0) }
 //             if iszero(lt(0x0a, sload(0)))
 //             {
-//                 mstore(0, shl(224, 0x4e487b71))
+//                 mstore(0, 0x4e487b7100000000000000000000000000000000000000000000000000000000)
 //                 mstore(4, 0x32)
 //                 revert(0, 0x24)
 //             }

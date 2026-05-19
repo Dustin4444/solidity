@@ -249,7 +249,7 @@
 //             mstore(0x00, 404)
 //             revert(0x00, 0x20)
 //         }
-//         let kn := calldataload(add(calldatasize(), not(191)))
+//         let kn := calldataload(add(calldatasize(), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff40))
 //         mstore(0x2a0, caller())
 //         mstore(0x2c0, kn)
 //         mstore(0x2e0, m)
@@ -319,7 +319,7 @@
 //             b := add(b, 0x40)
 //         }
 //         if lt(m, n) { validatePairing() }
-//         if iszero(eq(mod(keccak256(0x2a0, add(b, not(671))), 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001), challenge))
+//         if iszero(eq(mod(keccak256(0x2a0, add(b, 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd60)), 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001), challenge))
 //         {
 //             mstore(0, 404)
 //             revert(0, 0x20)

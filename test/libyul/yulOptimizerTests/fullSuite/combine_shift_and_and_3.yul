@@ -23,10 +23,10 @@
 //         let _1 := shl(8, x)
 //         let _2 := shr(8, x)
 //         sstore(15, x)
-//         sstore(16, and(_1, not(4095)))
-//         sstore(17, and(_2, sub(shl(248, 1), 16)))
-//         sstore(18, and(_2, sub(shl(244, 1), 1)))
-//         sstore(19, and(_1, sub(shl(252, 1), 256)))
+//         sstore(16, and(_1, 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000))
+//         sstore(17, and(_2, 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0))
+//         sstore(18, and(_2, 0x0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))
+//         sstore(19, and(_1, 0x0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00))
 //         sstore(20, 0)
 //     }
 // }

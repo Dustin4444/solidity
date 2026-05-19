@@ -66,9 +66,7 @@ sub_0: assembly {
       iszero
       tag_11
       jumpi
-      0x4e487b71
-      0xe0
-      shl
+      shl(0xe0, 0x4e487b71)
       0x00
       mstore
       0x11
