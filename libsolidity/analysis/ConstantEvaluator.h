@@ -49,17 +49,19 @@ public:
 	class TypedValue
 	{
 	public:
-		using Value = std::variant<std::monostate, rational, std::string>;
+		using Value = std::variant<std::monostate, rational, std::string, bytes>;
 
 		TypedValue(): m_type(nullptr), m_value(std::monostate()) {}
 		TypedValue(Type const* _type, Value _value);
 		bool empty() const { return std::holds_alternative<std::monostate>(m_value); }
 		bool isString() const { return std::holds_alternative<std::string>(m_value); }
 		bool isRational() const { return std::holds_alternative<rational>(m_value); }
+		bool isBytes() const { return std::holds_alternative<bytes>(m_value); }
 		Type const* type() const { return m_type; }
 		Value const& value() const { return m_value; }
 		std::string const& asString() const;
 		rational const& asRational() const;
+		bytes const& asBytes() const;
 	private:
 		// Type may be RationalType or IntegerType for value rational
 		Type const* m_type;

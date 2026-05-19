@@ -246,17 +246,65 @@ TypedValue convertType(rational const& _value, Type const& _type)
 		else
 			return TypedValue{&_type, _value.numerator() / _value.denominator()};
 	}
-	else
-		return TypedValue{};
+	else if (auto const* fixedBytesType = dynamic_cast<FixedBytesType const*>(&_type))
+	{
+		// Only bytes32 is supported for now.
+		if (fixedBytesType->numBytes() != 32)
+			return TypedValue{};
+
+		if (
+			_value.denominator() != 1 ||
+			_value.numerator() < 0 ||
+			_value.numerator() > TypeProvider::integer(fixedBytesType->numBytes() * 8, IntegerType::Modifier::Unsigned)->max()
+		)
+			return TypedValue{};
+
+		u256 integerValue = u256(_value.numerator());
+		// toBigEndian always returns 32 bytes, which is the only width supported.
+		// If support for narrower widths is added, then unused high bytes need to be erased
+		bytes bytesRepresentation = toBigEndian(integerValue);
+		return TypedValue{&_type, bytesRepresentation};
+	}
+
+	return TypedValue{};
 }
 
 TypedValue convertType(std::string const& _value, Type const& _type)
 {
 	if (
-		_type.category() != Type::Category::StringLiteral &&
-		_type.category() != Type::Category::Array
+		_type.category() == Type::Category::StringLiteral ||
+		_type.category() == Type::Category::Array
+	)
+		return TypedValue{&_type, _value};
+	else if (_type.category() == Type::Category::FixedBytes)
+	{
+		auto const& fixedBytes = dynamic_cast<FixedBytesType const&>(_type);
+		// Only bytes32 is supported for now.
+		if (fixedBytes.numBytes() != 32)
+			return TypedValue{};
+
+		if (_value.size() > fixedBytes.numBytes())
+			return TypedValue{};
+
+		// Right pad with zeros to the full width
+		auto bytesValue = asBytes(_value);
+		bytesValue.resize(fixedBytes.numBytes(), 0);
+		return TypedValue{&_type, bytesValue};
+	}
+
+	return TypedValue{};
+}
+
+TypedValue convertType(bytes const& _value, Type const& _type)
+{
+	auto const* fixedBytes = dynamic_cast<FixedBytesType const*>(&_type);
+	if (
+		!fixedBytes ||
+		_value.size() > fixedBytes->numBytes() ||
+		fixedBytes->numBytes() != 32  // Supports only bytes32 for now
 	)
 		return TypedValue{};
+
 	return TypedValue{&_type, _value};
 }
 
@@ -267,6 +315,9 @@ TypedValue convertType(TypedValue const& _value, Type const& _type)
 			return convertType(value, _type);
 		},
 		[&](rational const& value) {
+			return convertType(value, _type);
+		},
+		[&](bytes const& value) {
 			return convertType(value, _type);
 		},
 		[&](std::monostate const&) {
@@ -480,6 +531,9 @@ TypedValue::TypedValue(Type const* _type, TypedValue::Value _value)
 		[&](rational const&) {
 			solAssert(dynamic_cast<RationalNumberType const*>(_type) || dynamic_cast<IntegerType const*>(_type));
 		},
+		[&](bytes const&) {
+			solAssert(dynamic_cast<FixedBytesType const*>(_type));
+		},
 		[&](std::monostate const&) {
 			solAssert(!_type);
 		}
@@ -501,4 +555,11 @@ rational const& TypedValue::asRational() const
 	auto const* rationalValue = std::get_if<rational>(&m_value);
 	solAssert(rationalValue);
 	return *rationalValue;
+}
+
+bytes const& TypedValue::asBytes() const
+{
+	auto const* bytesValue = std::get_if<bytes>(&m_value);
+	solAssert(bytesValue);
+	return *bytesValue;
 }
