@@ -58,7 +58,6 @@
 #include <libyul/optimiser/StructuralSimplifier.h>
 #include <libyul/optimiser/StackCompressor.h>
 #include <libyul/optimiser/Suite.h>
-#include <libyul/backends/evm/ConstantOptimiser.h>
 #include <libyul/backends/evm/EVMDialect.h>
 #include <libyul/backends/evm/EVMMetrics.h>
 #include <libyul/AsmAnalysis.h>
@@ -99,13 +98,6 @@ YulOptimizerTestCommon::YulOptimizerTestCommon(std::shared_ptr<Object const> _ob
 			updateContext(block);
 			FunctionGrouper::run(*m_context, block);
 			BlockFlattener::run(*m_context, block);
-			return block;
-		}},
-		{"constantOptimiser", [&]() {
-			auto block = std::get<Block>(ASTCopier{}(m_object->code()->root()));
-			updateContext(block);
-			GasMeter meter(dynamic_cast<EVMDialect const&>(*m_object->dialect()), false, 200);
-			ConstantOptimiser{dynamic_cast<EVMDialect const&>(*m_object->dialect()), meter}(block);
 			return block;
 		}},
 		{"varDeclInitializer", [&]() {

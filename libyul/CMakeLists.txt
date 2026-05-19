@@ -47,8 +47,6 @@ add_library(yul
 	backends/evm/AbstractAssembly.h
 	backends/evm/AsmCodeGen.cpp
 	backends/evm/AsmCodeGen.h
-	backends/evm/ConstantOptimiser.cpp
-	backends/evm/ConstantOptimiser.h
 	backends/evm/ControlFlowGraph.h
 	backends/evm/ControlFlowGraphBuilder.cpp
 	backends/evm/ControlFlowGraphBuilder.h
