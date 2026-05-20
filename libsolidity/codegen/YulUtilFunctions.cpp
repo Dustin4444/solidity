@@ -663,7 +663,7 @@ std::string YulUtilFunctions::maskBytesFunctionDynamic()
 std::string YulUtilFunctions::maskLowerOrderBytesFunction(size_t _bytes)
 {
 	std::string functionName = "mask_lower_order_bytes_" + std::to_string(_bytes);
-	solAssert(_bytes <= 32, "");
+	solAssert(_bytes > 0 && _bytes <= 32, "");
 	return m_functionCollector.createFunction(functionName, [&]() {
 		return Whiskers(R"(
 			function <functionName>(data) -> result {
