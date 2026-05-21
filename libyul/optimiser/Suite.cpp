@@ -95,7 +95,8 @@ void OptimiserSuite::run(
 	std::string_view _optimisationSequence,
 	std::string_view _optimisationCleanupSequence,
 	std::optional<size_t> _expectedExecutionsPerDeployment,
-	std::set<YulName> const& _externallyUsedIdentifiers
+	std::set<YulName> const& _externallyUsedIdentifiers,
+	bool _viaSSACFG
 )
 {
 	yulAssert(_object.dialect());
@@ -163,8 +164,10 @@ void OptimiserSuite::run(
 		}
 		if (usesOptimizedCodeGenerator)
 		{
-			if (!evmDialect->eofVersion().has_value())
+			if (!evmDialect->eofVersion().has_value() && !_viaSSACFG)
 			{
+				// Via-SSA-CFG runs its own spilling at layout/codegen time; the legacy
+				// stack-compression and limit-evader passes are skipped for that pipeline.
 				{
 					PROFILER_PROBE("StackCompressor", probe);
 					_object.setCode(std::make_shared<AST>(dialect, std::move(astRoot)));

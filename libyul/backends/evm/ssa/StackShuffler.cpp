@@ -28,27 +28,33 @@ Target::Target(
 	StackData const& _args,
 	StackSlotLiveness const& _liveOut,
 	std::size_t const _targetSize,
-	spill::SpillSet const* _spilledVariables
+	spill::SpillSet const* _slots
 ):
 	args(_args),
 	liveOut(_liveOut),
-	spilledVariables(_spilledVariables),
+	slots(_slots),
 	size(_targetSize),
 	tailSize(_targetSize - _args.size())
 {
 	minCount.reserve(_args.size() + _liveOut.size());
+	// Spill set IS consulted here: spilled values don't contribute to required counts because
+	// the codegen MLOADs them on demand. This is part of the shuffler's contract with SLG —
+	// changing it would make many SLG layouts infeasible at their realized size and force
+	// significant rework in StackLayoutGenerator and StackUtils. The shuffler's heuristic
+	// decisions (shrink priority, expendability) are decoupled from spill membership, which
+	// is enough to keep traces stable in practice; see invariance note on StackShuffler.
 	for (auto const& arg: _args)
-		if (!arg.isJunk() && !slotIsSpilled(arg, _spilledVariables))
+		if (!arg.isJunk() && !slotIsSpilled(arg, _slots))
 			++minCount[arg];
 	for (auto const& liveSlot: _liveOut | ranges::views::keys)
-		if (!slotIsSpilled(liveSlot, _spilledVariables))
+		if (!slotIsSpilled(liveSlot, _slots))
 			++minCount[liveSlot];
 }
 
-State::State(StackData const& _stackData, Target const& _target, spill::SpillSet const* const _spilledVariables, std::size_t const _reachableStackDepth):
+State::State(StackData const& _stackData, Target const& _target, spill::SpillSet const* const _slots, std::size_t const _reachableStackDepth):
 	m_stackData(_stackData),
 	m_target(_target),
-	m_spilledVariables(_spilledVariables),
+	m_slots(_slots),
 	m_reachableStackDepth(_reachableStackDepth)
 {
 	m_histogram.reserve(_stackData.size());
@@ -135,7 +141,11 @@ bool State::requiredInTail(StackSlot const& _slot) const
 {
 	if (!_slot.isValue() || !m_target.liveOut.contains(_slot))
 		return false;
-	// Spilled values can be rematerialized, so they need not occupy a tail slot.
+	// Spilled values can be rematerialized via MLOAD, so they need not occupy a tail slot.
+	// This is part of the shuffler's contract with SLG: at realization time spilled values
+	// are accepted as absent from the tail, and codegen MLOADs them downstream. Reverting
+	// this would force significant rework in StackLayoutGenerator's realization and cost
+	// search to grow target sizes whenever a value is spilled — out of scope here.
 	return !slotIsSpilled(_slot);
 }
 

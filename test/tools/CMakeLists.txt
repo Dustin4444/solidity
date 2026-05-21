@@ -60,6 +60,8 @@ add_executable(isoltest
 	../libyul/ssa/ControlFlowGraphTest.h
 	../libyul/ssa/PrinterTest.cpp
 	../libyul/ssa/PrinterTest.h
+	../libyul/ssa/SpillCodegenTest.cpp
+	../libyul/ssa/SpillCodegenTest.h
 	../libyul/ssa/StackLayoutGeneratorTest.cpp
 	../libyul/ssa/StackLayoutGeneratorTest.h
 	../libyul/ssa/StackShufflerTest.cpp

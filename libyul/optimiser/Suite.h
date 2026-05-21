@@ -62,6 +62,8 @@ public:
 	OptimiserSuite(OptimiserStepContext& _context, Debug _debug = Debug::None): m_context(_context), m_debug(_debug) {}
 
 	/// The value nullopt for `_expectedExecutionsPerDeployment` represents creation code.
+	/// When `_viaSSACFG` is true, the suite skips the StackCompressor and StackLimitEvader
+	/// passes — the via-SSA-CFG codegen does its own stack-to-memory spilling at layout time.
 	static void run(
 		GasMeter const* _meter,
 		Object& _object,
@@ -69,7 +71,8 @@ public:
 		std::string_view _optimisationSequence,
 		std::string_view _optimisationCleanupSequence,
 		std::optional<size_t> _expectedExecutionsPerDeployment,
-		std::set<YulName> const& _externallyUsedIdentifiers = {}
+		std::set<YulName> const& _externallyUsedIdentifiers = {},
+		bool _viaSSACFG = false
 	);
 
 	/// Ensures that specified sequence of step abbreviations is well-formed and can be executed.

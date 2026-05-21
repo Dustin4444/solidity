@@ -32,7 +32,13 @@
 #include <range/v3/to_container.hpp>
 
 #include <boost/container/flat_map.hpp>
+
+#include <fmt/format.h>
+
+#include <cstdlib>
+#include <iostream>
 #include <queue>
+#include <set>
 
 using namespace solidity::yul::ssa;
 
@@ -199,6 +205,11 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 			{
 				auto proposalCopy = proposals[j];
 				Stack<GasAccumulatingCallbacks> stack(proposalCopy, {.cfg = m_cfg});
+				// Pass the current spill set so the precondition recognizes spilled values as
+				// MLOAD-able. Without it, args present in proposals[i] but absent from
+				// proposals[j]'s stack (because they were globally spilled after one of the
+				// proposals was recorded) would trip the precondition before the shuffler can
+				// surface them via MLOAD.
 				auto const shuffleResult = StackShuffler<GasAccumulatingCallbacks>::shuffle(
 					stack,
 					proposals[i],
@@ -233,6 +244,29 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 	StackType stack(currentStackData, {});
 	bool const junkCanBeAdded = m_junkAdmittingBlocksFinder->allowsAdditionOfJunk(_blockId);
 
+	bool const logSpills = std::getenv("SOLC_LOG_SPILL") != nullptr;
+
+	auto const snapshotSpills = [&]() -> std::set<InstId>
+	{
+		if (!logSpills)
+			return {};
+		return m_spillSet.spilledValues();
+	};
+	auto const logNewSpills = [&](std::set<InstId> const& _before)
+	{
+		if (!logSpills)
+			return;
+		for (auto const value: m_spillSet.spilledValues())
+			if (!_before.contains(value))
+				std::cerr << fmt::format(
+					"[spill] discovered: cfg='{}' block={} value={} (now {} in this CFG)\n",
+					m_cfg.name,
+					_blockId.value,
+					value,
+					m_spillSet.numSpilled()
+				);
+	};
+
 	auto const& operationsLiveOut = m_liveness.operationsLiveOut(_blockId);
 	blockLayout.operationIn.reserve(operationsLiveOut.size());
 	std::size_t operationIndex = 0;
@@ -263,6 +297,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 
 		StackSlotLiveness const opLiveOutSlots = toStackSlotLiveness(m_cfg, opLiveOutWithoutOutputs);
 		{
+			auto const before = snapshotSpills();
 			auto [target, plannedSpillSet] = findOptimalTarget(
 				stack.data(),
 				requiredStackTop,
@@ -276,7 +311,11 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 			m_spillSet = std::move(plannedSpillSet);
 			auto const shuffleResult = shuffleWithSpillDiscovery(currentStackData, target, m_spillSet);
 			yulAssert(shuffleResult.status == StackShufflerResult::Status::Admissible);
-			yulAssert(m_spillingAllowed || m_spillSet.numSpilled() == spillCountBefore, "Spilling not allowed, stack too deep.");
+			yulAssert(
+				m_spillingAllowed || m_spillSet.numSpilled() == spillCountBefore,
+				"Stack too deep, but spilling is disabled because the function is part of a recursive call chain."
+			);
+			logNewSpills(before);
 		}
 
 		blockLayout.operationIn.push_back(currentStackData);
@@ -288,6 +327,33 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 		++operationIndex;
 	});
 	yulAssert(operationIndex == operationsLiveOut.size());
+
+	// The Kahn traversal in the constructor ignores back-edges, so a back-edge target (loop
+	// header) has its `stackIn` fixed from its forward predecessors alone — the shuffle from
+	// this block's exit stack to that already-fixed `stackIn` is never validated by the
+	// forward-edge passes above. Mirror them here for back-edges: bring our exit stack to the
+	// target's pre-image and spill-discover any value too deep to reach, asserting the shuffle
+	// becomes admissible. (No loop-head re-derivation / fixpoint yet.)
+	auto const validateBackEdge = [&](SSACFG::BlockId const& _target) {
+		if (!m_liveness.topologicalSort().backEdge(_blockId, _target))
+			return;
+		yulAssert(m_resultLayout[_target], "Back-edge target must have its stackIn defined already.");
+		StackData target = stackPreImage(
+			m_cfg,
+			m_resultLayout[_target]->stackIn,
+			PhiInverse(m_cfg, _blockId, _target)
+		);
+		auto const before = snapshotSpills();
+		auto const spillCountBefore = m_spillSet.numSpilled();
+		StackData exitStack = currentStackData;
+		auto const shuffleResult = shuffleWithSpillDiscovery(exitStack, target, m_spillSet);
+		yulAssert(shuffleResult.status == StackShufflerResult::Status::Admissible);
+		yulAssert(
+			m_spillingAllowed || m_spillSet.numSpilled() == spillCountBefore,
+			"Stack too deep, but spilling is disabled because the function is part of a recursive call chain."
+		);
+		logNewSpills(before);
+	};
 
 	std::visit(
 		solidity::util::GenericVisitor{
@@ -303,6 +369,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				{
 					auto const condition = Slot::makeValue(m_cfg, _cJump.condition);
 					StackSlotLiveness const blockLiveOutSlots = toStackSlotLiveness(m_cfg, blockLiveOut);
+					auto const before = snapshotSpills();
 					auto [target, plannedSpillSet] = findOptimalTarget(
 						stack.data(),
 						{condition},
@@ -316,7 +383,11 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 					m_spillSet = std::move(plannedSpillSet);
 					auto const shuffleResult = shuffleWithSpillDiscovery(currentStackData, target, m_spillSet);
 					yulAssert(shuffleResult.status == StackShufflerResult::Status::Admissible);
-					yulAssert(m_spillingAllowed || m_spillSet.numSpilled() == spillCountBefore, "Spilling not allowed, stack too deep.");
+					yulAssert(
+						m_spillingAllowed || m_spillSet.numSpilled() == spillCountBefore,
+						"Stack too deep, but spilling is disabled because the function is part of a recursive call chain."
+					);
+					logNewSpills(before);
 				}
 
 				yulAssert(!stack.empty() && stack.top().isValue() && stack.top().value() == _cJump.condition);
@@ -331,21 +402,34 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				// Define successor stack-in layouts
 				m_inputStackProposalsPerBlock[_cJump.zero.value].emplace_back(_blockId, currentStackData);
 				m_inputStackProposalsPerBlock[_cJump.nonZero.value].emplace_back(_blockId, currentStackData);
+
+				validateBackEdge(_cJump.zero);
+				validateBackEdge(_cJump.nonZero);
 			},
 			[&](SSACFG::BasicBlock::FunctionReturn const& _functionReturn) {
 				yulAssert(m_hasFunctionReturnLabel, "When there is a proper function return, we need to have a label for it");
 				// in case there are return values, let's bring the function return label to the top
 				StackData returnStack = _functionReturn.returnValues | ranges::views::transform([this](InstId const _id) { return StackSlot::makeValue(m_cfg, _id); }) | ranges::to<std::vector>;
 				returnStack.push_back(StackSlot::makeFunctionReturnLabel(m_graphID));
+				// Spilling discovery may have added return values to the spill set during the
+				// per-operation shuffles above. The function-exit shuffler MLOADs them back
+				// onto the stack for the JUMP-back protocol.
+				auto const before = snapshotSpills();
 				auto const spillCountBefore = m_spillSet.numSpilled();
 				auto const shuffleResult = shuffleWithSpillDiscovery(currentStackData, returnStack, m_spillSet);
 				yulAssert(shuffleResult.status == StackShufflerResult::Status::Admissible);
-				yulAssert(m_spillingAllowed || m_spillSet.numSpilled() == spillCountBefore, "Spilling not allowed, stack too deep.");
+				yulAssert(
+					m_spillingAllowed || m_spillSet.numSpilled() == spillCountBefore,
+					"Stack too deep, but spilling is disabled because the function is part of a recursive call chain."
+				);
+				logNewSpills(before);
 				blockLayout.exitIn = currentStackData;
 			},
 			[&](SSACFG::BasicBlock::Jump const& _jump) {
 				blockLayout.exitIn = currentStackData;
 				m_inputStackProposalsPerBlock[_jump.target.value].emplace_back(_blockId, currentStackData);
+
+				validateBackEdge(_jump.target);
 			},
 			[&](SSACFG::BasicBlock::MainExit const&) {
 				blockLayout.exitIn = currentStackData;

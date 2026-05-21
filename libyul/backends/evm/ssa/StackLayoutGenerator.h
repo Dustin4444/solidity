@@ -18,10 +18,9 @@
 
 #pragma once
 
-#include <libyul/backends/evm/ssa/spill/SpillSet.h>
-
 #include <libyul/backends/evm/ssa/Stack.h>
 #include <libyul/backends/evm/ssa/StackLayout.h>
+#include <libyul/backends/evm/ssa/spill/SpillSet.h>
 
 #include <memory>
 
@@ -35,7 +34,9 @@ class StackLayoutGenerator
 public:
 	using Slot = StackSlot;
 
-	/// the per-block stack layout plus the set of values the layout generator decided to spill to memory
+	/// Per-CFG result of stack layout generation: the per-block stack layout plus the set of values
+	/// the layout decided to spill to memory. The spill set is finalized later
+	/// by `SpillSet::feasilize` (which may grow it for def-site feasibility).
 	struct Result
 	{
 		SSACFGStackLayout layout;
@@ -46,7 +47,7 @@ public:
 		LivenessAnalysis const& _liveness,
 		CallSites const& _callSites,
 		ControlFlowGraphs::FunctionGraphID _graphID,
-		bool _spillingAllowed
+		bool _spillingAllowed = true
 	);
 
 private:

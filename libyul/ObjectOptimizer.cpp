@@ -83,7 +83,8 @@ void ObjectOptimizer::optimize(Object& _object, Settings const& _settings, bool 
 		_settings.yulOptimiserSteps,
 		_settings.yulOptimiserCleanupSteps,
 		_isCreation ? std::nullopt : std::make_optional(_settings.expectedExecutionsPerDeployment),
-		{}
+		{},
+		_settings.viaSSACFG
 	);
 
 	if (cacheKey.has_value())
@@ -149,6 +150,10 @@ std::optional<h256> ObjectOptimizer::calculateCacheKey(
 	rawKey += FixedHash<1>(static_cast<uint8_t>(_settings.eofVersion ? *_settings.eofVersion : 0)).asBytes();
 	rawKey += keccak256(_settings.yulOptimiserSteps).asBytes();
 	rawKey += keccak256(_settings.yulOptimiserCleanupSteps).asBytes();
+	// viaSSACFG affects which optimizer passes run (StackCompressor/StackLimitEvader skipped),
+	// so it must be part of the cache key — otherwise the via-IR-cached AST gets reused for an
+	// SSA-CFG run with different optimization output.
+	rawKey += FixedHash<1>(static_cast<uint8_t>(_settings.viaSSACFG)).asBytes();
 
 	return h256(keccak256(rawKey));
 }

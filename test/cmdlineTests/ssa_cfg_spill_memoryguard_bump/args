@@ -1,0 +1,1 @@
+--strict-assembly --experimental --via-ssa-cfg --optimize --asm

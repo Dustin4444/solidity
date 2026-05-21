@@ -18,10 +18,9 @@
 
 #pragma once
 
-#include <libyul/backends/evm/ssa/spill/SpillSet.h>
-
 #include <libyul/backends/evm/ssa/Stack.h>
 #include <libyul/backends/evm/ssa/StackSlotLiveness.h>
+#include <libyul/backends/evm/ssa/spill/SpillSet.h>
 
 #include <boost/container/flat_map.hpp>
 
@@ -39,14 +38,21 @@ namespace solidity::yul::ssa
 namespace detail
 {
 
-inline bool slotIsSpilled(StackSlot const& _slot, spill::SpillSet const* const _spilledVariables)
+inline bool slotIsSpilled(StackSlot const& _slot, spill::SpillSet const* const _slots)
 {
-	return _spilledVariables && _slot.isValue() && _spilledVariables->isSpilled(_slot.value());
+	return _slots && _slot.isValue() && _slots->isSpilled(_slot.value());
 }
 
-inline bool slotCanBeLoadedOrPushed(StackSlot const& _slot, spill::SpillSet const* const _spilledVariables)
+/// True if `_slot` can be materialized at a structural leaf (PUSH for literals/junk/return
+/// labels, MLOAD for spilled values). The shuffler's heuristics MUST NOT consult this
+/// predicate — its sole legitimate use is at points where the algorithm has otherwise
+/// exhausted its options for producing `_slot` from the current stack (e.g. the arg is not
+/// on stack and not dup-reachable). Routing this predicate into any priority/expendability
+/// path makes the trace dependent on spill-set membership and violates the invariance
+/// contract documented on `StackShuffler::shuffle`.
+inline bool slotCanBeLoadedOrPushed(StackSlot const& _slot, spill::SpillSet const* const _slots)
 {
-	return Stack<>::canBeFreelyGenerated(_slot) || slotIsSpilled(_slot, _spilledVariables);
+	return Stack<>::canBeFreelyGenerated(_slot) || slotIsSpilled(_slot, _slots);
 }
 
 /// Contains information about the shuffling target, aggregates over args and live out to
@@ -57,12 +63,12 @@ struct Target
 		StackData const& _args,
 		StackSlotLiveness const& _liveOut,
 		std::size_t _targetSize,
-		spill::SpillSet const* _spilledVariables = nullptr
+		spill::SpillSet const* _slots = nullptr
 	);
 
 	StackData const& args;
 	StackSlotLiveness const& liveOut;
-	spill::SpillSet const* const spilledVariables;
+	spill::SpillSet const* const slots;
 	std::size_t const size;
 	std::size_t const tailSize;
 	boost::container::flat_map<StackSlot, size_t> minCount;
@@ -71,7 +77,7 @@ struct Target
 class State
 {
 public:
-	State(StackData const& _stackData, Target const& _target, spill::SpillSet const* _spilledVariables, std::size_t _reachableStackDepth);
+	State(StackData const& _stackData, Target const& _target, spill::SpillSet const* _slots, std::size_t _reachableStackDepth);
 
 	std::size_t size() const;
 	/// How many of `_slot` do we have on stack
@@ -149,18 +155,18 @@ public:
 
 	bool slotCanBeLoadedOrPushed(StackSlot const& _slot) const
 	{
-		return detail::slotCanBeLoadedOrPushed(_slot, m_spilledVariables);
+		return detail::slotCanBeLoadedOrPushed(_slot, m_slots);
 	}
 
 	bool slotIsSpilled(StackSlot const& _slot) const
 	{
-		return detail::slotIsSpilled(_slot, m_spilledVariables);
+		return detail::slotIsSpilled(_slot, m_slots);
 	}
 
 private:
 	StackData const& m_stackData;
 	Target const& m_target;
-	spill::SpillSet const* const m_spilledVariables;
+	spill::SpillSet const* const m_slots;
 	std::size_t const m_reachableStackDepth;
 	boost::container::flat_map<StackSlot, size_t> m_histogramTail;
 	boost::container::flat_map<StackSlot, size_t> m_histogramArgs;
@@ -176,6 +182,27 @@ struct StackShufflerResult
 	StackSlot culprit = StackSlot::makeJunk();
 };
 
+/// Greedy stack shuffler that drives the EVM stack from a source layout into a target
+/// layout via SWAP/DUP/POP/PUSH (and, when a spill set is provided, MLOAD).
+///
+/// Invariance contract (partial): heuristic decisions in this shuffler — `shrinkStack`'s
+/// pop priority, `fixTailSlot`'s "expendable" swap loop, and the last-resort top pop —
+/// are spill-set-independent. Two state-function inputs intentionally retain spill-set
+/// awareness because SLG depends on them for realization feasibility:
+///
+///   * `Target::minCount` skips spilled values (they don't contribute to required counts).
+///   * `State::requiredInTail` returns false for spilled values (they don't need tail
+///     slots; the codegen MLOADs them on demand).
+///
+/// Consequence: for spill assignments `S ⊆ S'`, traces agree on every choice that doesn't
+/// transit through one of those two state functions. In practice this kills the
+/// most-common divergence source (heuristic shrink/expendability flipping based on spill
+/// membership) and the oscillation patterns it produced, but doesn't promise strict
+/// invariance across all spill-set augmentations. The property test
+/// `StackShufflerInvariance` verifies this in the common cases.
+///
+/// MLOAD itself only appears at structural leaves where a target slot is needed and
+/// neither reachable via SWAP/DUP nor freely generatable as a literal/junk.
 template<StackManipulationCallbackConcept Callback, std::size_t ReachableStackDepth=16>
 class StackShuffler
 {
@@ -187,31 +214,31 @@ public:
 		StackData const& _args,
 		StackSlotLiveness const& _liveOut,
 		std::size_t _targetStackSize,
-		spill::SpillSet const* const _spilledVariables = nullptr
+		spill::SpillSet const* const _slots = nullptr
 	)
 	{
-		detail::Target const target(_args, _liveOut, _targetStackSize, _spilledVariables);
+		detail::Target const target(_args, _liveOut, _targetStackSize, _slots);
 		// If the caller has wired up a spill set, the shuffler can reduce the effective liveOut
 		// size by spilling; otherwise the liveOut must fit into the target up front.
-		if (!_spilledVariables)
+		if (!_slots)
 			yulAssert(_liveOut.size() <= target.size, "not enough tail space");
 		{
 			// check that all required values are on stack
-			detail::State const state(_stack.data(), target, _spilledVariables, ReachableStackDepth);
+			detail::State const state(_stack.data(), target, _slots, ReachableStackDepth);
 			for (auto const& liveSlot: _liveOut | ranges::views::keys)
 				yulAssert(
 					!_stack.canBeFreelyGenerated(liveSlot) &&
-					(ranges::contains(_stack.data(), liveSlot) || detail::slotIsSpilled(liveSlot, _spilledVariables))
+					(ranges::contains(_stack.data(), liveSlot) || detail::slotIsSpilled(liveSlot, _slots))
 				);
 			for (auto const& arg: _args)
-				yulAssert(detail::slotCanBeLoadedOrPushed(arg, _spilledVariables) || ranges::contains(_stack.data(), arg));
+				yulAssert(detail::slotCanBeLoadedOrPushed(arg, _slots) || ranges::contains(_stack.data(), arg));
 		}
 
 		static std::size_t constexpr maxIterations = 1000;
 		std::size_t i = 0;
 		while (true)
 		{
-			detail::State const state(_stack.data(), target, _spilledVariables, ReachableStackDepth);
+			detail::State const state(_stack.data(), target, _slots, ReachableStackDepth);
 			auto result = shuffleStep(_stack, state);
 			if (result.status == StackShufflerResult::Status::Admissible)
 			{
@@ -248,6 +275,29 @@ private:
 		StackSlot culprit = StackSlot::makeJunk();
 	};
 
+	/// Walks the stack from top toward bottom and returns the topmost slot that is a non-literal
+	/// value and not already in the spill set. Used when a shuffleStep early-exit needs to surface
+	/// a culprit for findOptimalTarget's outer spill-discovery loop: the natural site-specific
+	/// "trapped" slot (typically `_stack.top()`) may itself already be spilled under the strict
+	/// invariance contract, since the shrinkStack heuristics no longer prefer spilled-on-stack
+	/// values as pop victims. yulAsserts if no candidate exists, which indicates a trap that
+	/// further spilling cannot resolve — typically a stack-too-large condition that needs a
+	/// larger target size at a higher level.
+	static StackSlot nonSpilledTopmostCulprit(Stack<Callback> const& _stack, detail::State const& _state)
+	{
+		for (StackOffset const offset: _state.stackRange() | ranges::views::reverse)
+		{
+			Slot const& candidate = _stack[offset];
+			if (
+				candidate.isValue() &&
+				!candidate.isLiteralValue() &&
+				!_state.slotIsSpilled(candidate)
+			)
+				return candidate;
+		}
+		yulAssert(false, "no spillable culprit on stack — trap not resolvable by spilling alone");
+	}
+
 	/// Make a local step in stack space that should bring us closer to the target.
 	static StackShufflerResult shuffleStep(Stack<Callback>& _stack, detail::State const& _state)
 	{
@@ -257,7 +307,7 @@ private:
 			if (shrinkStack(_stack, _state))
 				return {StackShufflerResult::Status::Continue};
 			// couldn't shrink to required size, need to spill to memory or increase target size
-			return {StackShufflerResult::Status::StackTooDeep, _stack.top()};
+			return {StackShufflerResult::Status::StackTooDeep, nonSpilledTopmostCulprit(_stack, _state)};
 		}
 		yulAssert(_stack.size() <= _state.target().size, "I1 violated: Stack size too large");
 
@@ -272,7 +322,7 @@ private:
 			if (shrinkStack(_stack, _state))
 				return {StackShufflerResult::Status::Continue};
 
-			return {StackShufflerResult::Status::StackTooDeep, _stack.top()};
+			return {StackShufflerResult::Status::StackTooDeep, nonSpilledTopmostCulprit(_stack, _state)};
 		}
 
 		// this will either grow the tail as needed, swap down something from args that needs to be in the tail,
@@ -300,7 +350,11 @@ private:
 		// if there are no args, we should be done now
 		if (_state.target().args.empty())
 			return {StackShufflerResult::Status::Admissible};
-		yulAssert(_stack.size() == _state.target().size);
+		// fixArgsSlot may return NoAction even when stack is below target size — its push paths
+		// are guarded so that they don't lock in a misaligned prefix. In that case we fall through
+		// to shrinkStack below, which tears down enough of the stack for the rebuild to make
+		// progress on the next iteration.
+		yulAssert(_stack.size() <= _state.target().size);
 
 		// check whether we are done
 		if (_state.admissible())
@@ -312,18 +366,7 @@ private:
 			return {StackShufflerResult::Status::Continue};
 
 		// if we couldn't shrink the stack we surface this failed state as stack too deep
-		for (StackOffset const offset: _state.stackRange() | ranges::views::reverse)
-		{
-			Slot const& candidate = _stack[offset];
-			if (
-				candidate.isValue() &&
-				!candidate.isLiteralValue() &&
-				!_state.slotIsSpilled(candidate)
-			)
-				return {StackShufflerResult::Status::StackTooDeep, candidate};
-		}
-
-		yulAssert(false, "reached final and forbidden state");
+		return {StackShufflerResult::Status::StackTooDeep, nonSpilledTopmostCulprit(_stack, _state)};
 	}
 
 	/// Select an optimal slot to dup based on liveness analysis.
@@ -386,6 +429,9 @@ private:
 				if (shrinkStack(_stack, _state))
 					return {ShuffleHelperResult::Status::StackModified};
 
+				// Under the invariance contract a spilled trapped slot should have been handled by
+				// the leaf push path before reaching this trap.
+				yulAssert(!_state.slotIsSpilled(_stack[offset]), "trapped slot in dupDeepestRelevantTailSlot is already spilled");
 				return {ShuffleHelperResult::Status::StackTooDeep, _stack[offset]};
 			}
 		}
@@ -449,10 +495,32 @@ private:
 				if (shrinkStack(_stack, _state))
 					return {ShuffleHelperResult::Status::StackModified};
 
+				// Under the invariance contract a spilled endangered slot should have been handled
+				// by the leaf push path before reaching this trap.
+				yulAssert(!_state.slotIsSpilled(_stack.slot(*depth)), "endangered slot in dupDeepSlotIfRequired is already spilled");
 				return {ShuffleHelperResult::Status::StackTooDeep, _stack.slot(*depth)};
 			}
 		}
 		return {ShuffleHelperResult::Status::NoAction};
+	}
+
+	/// Whether the args-region prefix below `_upperBound` is "clean enough" to allow a push at
+	/// `offset = _upperBound`. A push grows the stack by 1, so an offset reachable today becomes
+	/// one slot deeper after; we therefore require every arg slot below that would be *unreachable
+	/// after the push* to already be in position. Reachable post-push misalignments can still be
+	/// fixed by SWAPs.
+	///
+	/// Without this guard, when every reachable slot is spilled and a deep arg slot is misaligned,
+	/// `fixArgsSlot` keeps re-pushing missing args while `shrinkStack`'s teardown branch keeps
+	/// popping them — oscillation. With it, pushes are blocked until the prefix has been torn
+	/// down enough for the rebuild to proceed cleanly.
+	static bool argsPrefixIsClean(Stack<Callback> const& _stack, detail::State const& _state, StackOffset _upperBound)
+	{
+		// post-push depth of offset p is `_stack.size() - p`; out of swap range when > ReachableStackDepth.
+		for (StackOffset p{_state.target().tailSize}; p < _upperBound; ++p.value)
+			if (_stack.size() - p.value > ReachableStackDepth && !_state.isArgsCompatible(p, p))
+				return false;
+		return true;
 	}
 
 	/// Tries to fix a slot in the args section of the stack
@@ -614,19 +682,35 @@ private:
 					auto const sourceDepth = _stack.findSlotDepth(_state.targetArg(targetOffset));
 					if (!sourceDepth)
 					{
-						_stack.push(_state.targetArg(targetOffset));
+						if (argsPrefixIsClean(_stack, _state, targetOffset))
+						{
+							_stack.push(_state.targetArg(targetOffset));
+							return {ShuffleHelperResult::Status::StackModified};
+						}
+						// Prefix is misaligned; fall through to the deepest-arg loop, which is
+						// also guarded and will likewise skip pushing — letting shrinkStack tear
+						// the prefix down.
+					}
+					else
+					{
+						if (!_stack.dupReachable(*sourceDepth))
+						{
+							// If the arg is spilled-on-stack, the leaf push path would have MLOADed
+							// it via the `!sourceDepth` branch above — but we got here because it
+							// IS on stack. Under the invariance contract this means further spilling
+							// of this arg won't help; the trap is structural (deep on stack).
+							yulAssert(!_state.slotIsSpilled(_state.targetArg(targetOffset)), "deep on-stack arg in fixArgsSlot is already spilled");
+							return {ShuffleHelperResult::Status::StackTooDeep, _state.targetArg(targetOffset)};
+						}
+						_stack.dup(*sourceDepth);
 						return {ShuffleHelperResult::Status::StackModified};
 					}
-
-					if (!_stack.dupReachable(*sourceDepth))
-						return {ShuffleHelperResult::Status::StackTooDeep, _state.targetArg(targetOffset)};
-					_stack.dup(*sourceDepth);
-					return {ShuffleHelperResult::Status::StackModified};
 				}
 			}
 
 			// if we can't directly produce targetOffset, take the deepest arg that we don't have enough of and dup/push that
 			// First, prioritize duping args that are on the stack over pushing freely-generatable ones
+			bool const canPushAtTop = argsPrefixIsClean(_stack, _state, StackOffset{_stack.size()});
 			for (StackOffset offset{_state.target().tailSize}; offset < _state.target().size; ++offset.value)
 			{
 				Slot const& arg = _state.targetArg(offset);
@@ -649,16 +733,23 @@ private:
 						return {ShuffleHelperResult::Status::StackTooDeep, arg};
 				}
 				yulAssert(_state.slotCanBeLoadedOrPushed(arg));
+				if (!canPushAtTop)
+					continue;
 				_stack.push(arg);
 				return {ShuffleHelperResult::Status::StackModified};
 			}
 
 			// Try to dup the optimal slot based on liveness analysis
 			if (auto slotToDup = selectOptimalSlotToDup(_stack, _state))
+			{
 				_stack.dup(*slotToDup);
-			else
-				// If no suitable slot found, push junk
-				_stack.push(Slot::makeJunk());
+				return {ShuffleHelperResult::Status::StackModified};
+			}
+			// If no suitable slot found, push junk — but only if the prefix below is clean.
+			// Otherwise return NoAction so the outer shuffleStep can run shrinkStack and unwind.
+			if (!canPushAtTop)
+				return {ShuffleHelperResult::Status::NoAction};
+			_stack.push(Slot::makeJunk());
 			return {ShuffleHelperResult::Status::StackModified};
 		}
 
@@ -673,12 +764,18 @@ private:
 					if (auto depth = _stack.findSlotDepth(arg))
 					{
 						if (_stack.isBeyondSwapRange(*depth))
+						{
+							yulAssert(!_state.slotIsSpilled(arg), "beyond-swap-range arg in fixArgsSlot-at-size is already spilled");
 							return {ShuffleHelperResult::Status::StackTooDeep, arg};
+						}
 						// if we can't outright dup the slot, let's shrink the stack first
 						if (!_stack.dupReachable(*depth))
 						{
 							if (!shrinkStack(_stack, _state))
+							{
+								yulAssert(!_state.slotIsSpilled(arg), "shrink-failure arg in fixArgsSlot-at-size is already spilled");
 								return {ShuffleHelperResult::Status::StackTooDeep, arg};
+							}
 							return {ShuffleHelperResult::Status::StackModified};
 						}
 						_stack.dup(*depth);
@@ -692,7 +789,13 @@ private:
 						if (result.status == ShuffleHelperResult::Status::StackTooDeep)
 							return result;
 						if (result.status == ShuffleHelperResult::Status::NoAction)
+						{
+							// Push at offset = _stack.size() (top); guard the same way as the
+							// other push paths so we don't lock in a misaligned prefix.
+							if (!argsPrefixIsClean(_stack, _state, StackOffset{_stack.size()}))
+								return {ShuffleHelperResult::Status::NoAction};
 							_stack.push(arg);
+						}
 						return {ShuffleHelperResult::Status::StackModified};
 					}
 				}
@@ -732,11 +835,14 @@ private:
 						return {ShuffleHelperResult::Status::StackModified};
 					}
 				}
-				// find the lowest swappable slot in tail that can be popped but is no literal, swap
+				// find the lowest swappable slot in tail that is freely generatable but not a
+				// literal (junk or function-return-label), swap. Spill-set membership is
+				// intentionally NOT consulted here — using it would let later-discovered spills
+				// perturb earlier-realized traces.
 				for (StackOffset tailOffset: _state.stackTailRange())
 					if (
 						_stack.isValidSwapTarget(tailOffset) &&
-						_state.slotCanBeLoadedOrPushed(_stack[tailOffset]) &&
+						_stack.canBeFreelyGenerated(_stack[tailOffset]) &&
 						!_stack[tailOffset].isLiteralValue()
 					)
 					{
@@ -762,6 +868,10 @@ private:
 						return {ShuffleHelperResult::Status::StackModified};
 					}
 				// we needed to bring the slot into tail but couldn't, not enough stack target space -> spill to memory
+				// Under the invariance contract, a spilled slot at this point would have been treated
+				// the same as a non-spilled one (requiredInTail no longer skips spilled), so further
+				// spilling of this slot won't change the situation — surface a non-spilled candidate.
+				yulAssert(!_state.slotIsSpilled(_stack[offset]), "tail-required slot in fixTailSlot is already spilled");
 				return {ShuffleHelperResult::Status::StackTooDeep, _stack[offset]};
 			}
 		}
@@ -858,6 +968,9 @@ private:
 				bool const isJunk = slot.isJunk();
 				bool const hasSurplus = _state.count(slot) > _state.targetMinCount(slot);
 				bool const hasReachableDuplicate = _state.countReachable(slot) > 1;
+				// Spill-set membership is intentionally NOT consulted: heuristic priorities must be
+				// invariant under spill-set growth so the produced trace is stable across SLG's
+				// progressive spill discovery (see shuffler-level invariance note).
 				bool const canBeFreelyGenerated = _stack.canBeFreelyGenerated(slot);
 				bool const isLit = slot.isLiteralValue();
 
@@ -890,6 +1003,21 @@ private:
 				return true;
 			}
 
+		}
+
+		// Last-resort teardown: the priority loop above couldn't find a candidate within swap range
+		// (e.g. every reachable slot is in args-position and not freely-generatable from the
+		// shuffler's POV). If the very top is freely-generatable (literal, junk, or
+		// function-return-label), pop it regardless of args-compatibility. The prefix-clean push
+		// guard in fixArgsSlot prevents re-installing it until the prefix below is clean, so this
+		// cannot oscillate; instead the stack tears down until the misaligned prefix becomes
+		// reachable, then rebuilds via push. Spill-set membership is intentionally NOT consulted:
+		// popping a spilled-on-stack top here would make the trace depend on a value being in
+		// spill, violating the invariance contract.
+		if (_stack.canBeFreelyGenerated(_stack[stackTop]))
+		{
+			_stack.pop();
+			return true;
 		}
 
 		return false;
@@ -957,7 +1085,7 @@ private:
 	StackData const& _args,
 	StackSlotLiveness const& _liveOut,
 	std::size_t const _targetStackSize,
-	spill::SpillSet& _spilledVariables
+	spill::SpillSet& _slots
 )
 {
 	StackData const initialData = _data;
@@ -966,7 +1094,7 @@ private:
 	{
 		_data = initialData;
 		Stack<> stack(_data, {});
-		result = StackShuffler<NoOpStackManipulationCallbacks>::shuffle(stack, _args, _liveOut, _targetStackSize, &_spilledVariables);
+		result = StackShuffler<NoOpStackManipulationCallbacks>::shuffle(stack, _args, _liveOut, _targetStackSize, &_slots);
 		switch (result.status)
 		{
 		case StackShufflerResult::Status::Continue:
@@ -976,8 +1104,8 @@ private:
 		case StackShufflerResult::Status::StackTooDeep:
 		{
 			yulAssert(result.culprit.isValue() && !result.culprit.isLiteralValue());
-			yulAssert(!_spilledVariables.isSpilled(result.culprit.value()));
-			_spilledVariables.add(result.culprit.value());
+			yulAssert(!_slots.isSpilled(result.culprit.value()));
+			_slots.add(result.culprit.value());
 			break;
 		}
 		case StackShufflerResult::Status::MaxIterationsReached:
@@ -991,9 +1119,9 @@ private:
 [[nodiscard]] inline StackShufflerResult shuffleWithSpillDiscovery(
 	StackData& _data,
 	StackData const& _target,
-	spill::SpillSet& _spilledVariables)
+	spill::SpillSet& _slots)
 {
-	return shuffleWithSpillDiscovery(_data, _target, {}, _target.size(), _spilledVariables);
+	return shuffleWithSpillDiscovery(_data, _target, {}, _target.size(), _slots);
 }
 
 

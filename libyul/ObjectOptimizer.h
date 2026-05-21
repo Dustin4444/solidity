@@ -54,6 +54,9 @@ public:
 		std::string yulOptimiserSteps;
 		std::string yulOptimiserCleanupSteps;
 		size_t expectedExecutionsPerDeployment;
+		/// When true, the OptimiserSuite skips StackCompressor + StackLimitEvader because the
+		/// via-SSA-CFG codegen does its own stack-to-memory spilling at layout/codegen time.
+		bool viaSSACFG = false;
 	};
 
 	/// Recursively optimizes a Yul object with given settings, reusing cached ASTs where possible

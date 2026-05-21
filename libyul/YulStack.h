@@ -111,7 +111,9 @@ public:
 
 	/// Run the optimizer suite. Can only be used with Yul or strict assembly.
 	/// If the settings (see constructor) disabled the optimizer, nothing is done here.
-	void optimize();
+	/// `_viaSSACFG` is forwarded to the optimizer suite so that StackCompressor and
+	/// StackLimitEvader can be skipped — the via-SSA-CFG codegen does its own spilling.
+	void optimize(bool _viaSSACFG = false);
 
 	/// Run the assembly step (should only be called after parseAndAnalyze).
 	MachineAssemblyObject assemble(Machine _machine, bool _viaSSACFG = false);

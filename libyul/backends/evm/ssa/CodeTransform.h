@@ -19,12 +19,23 @@
 #pragma once
 
 #include <libyul/backends/evm/ssa/PhiInverse.h>
+#include <libyul/backends/evm/ssa/spill/Emitter.h>
 #include <libyul/backends/evm/ssa/Stack.h>
 #include <libyul/backends/evm/ssa/StackLayout.h>
+#include <libyul/backends/evm/ssa/spill/MemoryAddressing.h>
+#include <libyul/backends/evm/ssa/spill/SpillSet.h>
 
 #include <libyul/backends/evm/AbstractAssembly.h>
 
 #include <libevmasm/Instruction.h>
+
+#include <libsolutil/Numeric.h>
+
+#include <fmt/format.h>
+
+#include <cstdlib>
+#include <iostream>
+#include <optional>
 
 namespace solidity::yul
 {
@@ -52,9 +63,17 @@ struct AssemblyCallbacks
 		case StackSlot::Kind::Value:
 		{
 			auto const id = _slot.value();
-			yulAssert(cfg->isLiteral(id), fmt::format("Tried bringing up non-const {}", id));
-			assembly->appendConstant(cfg->literalPayload(id));
-			return;
+			if (cfg->isLiteral(id))
+			{
+				assembly->appendConstant(cfg->literalPayload(id));
+				return;
+			}
+			if (spillEmitter && spillSet->isSpilled(id))
+			{
+				spillEmitter->emitLoad(id);
+				return;
+			}
+			yulAssert(false, fmt::format("Tried bringing up non-spilled non-const {}", id));
 		}
 		case StackSlot::Kind::Junk:
 		{
@@ -87,16 +106,41 @@ struct AssemblyCallbacks
 	AbstractAssembly* assembly{};
 	CallSites const* callSites{};
 	std::map<InstId, AbstractAssembly::LabelID> const* returnLabels{};
+	/// Spill-set membership oracle, consulted before `emitLoad` to decide whether a value
+	/// must be reloaded from memory. Always set; spilled values are loaded, others asserted on.
+	spill::SpillSet const* spillSet{};
+	/// Emitter for spilled-value MSTOREs and MLOADs. nullptr when this CFG has no spilling.
+	spill::Emitter const* spillEmitter{};
 };
 static_assert(StackManipulationCallbackConcept<AssemblyCallbacks>);
+
+/// Optional, test-only sink for the spill decisions `run` makes. When a non-null pointer is
+/// passed to `run`, it is filled with one entry per CFG describing the final (post-cascade)
+/// spill set and the memory address assigned to each spilled value. Production callers pass
+/// `nullptr` and pay nothing; the contents never feed back into codegen.
+struct SpillReport
+{
+	struct PerCFG
+	{
+		ControlFlowGraphs::FunctionGraphID graphID;
+		bool isMainGraph = false;
+		std::string functionName;
+		spill::SpillSet spillSet;
+		/// Spilled value -> reserved memory address, in `spilledValues()` order.
+		std::vector<std::pair<InstId, u256>> addresses;
+	};
+	std::vector<PerCFG> perCFG;
+};
 
 class CodeTransform
 {
 public:
 	static void run(
 		AbstractAssembly& _assembly,
+		ControlFlowGraphs& _controlFlowGraphs,
 		ControlFlowGraphsLiveness const& _liveness,
-		BuiltinContext& _builtinContext
+		BuiltinContext& _builtinContext,
+		SpillReport* _spillReport = nullptr
 	);
 
 private:
@@ -115,7 +159,9 @@ private:
 		CallSites const& _callSites,
 		SSACFG const& _cfg,
 		SSACFGStackLayout const& _stackLayout,
-		ControlFlowGraphs::FunctionGraphID _graphID);
+		spill::SpillSet const& _spillSet,
+		ControlFlowGraphs::FunctionGraphID _graphID,
+		spill::MemoryAddressing const& _addressing);
 
 	void operator()(SSACFG::BlockId _blockId);
 	void operator()(InstId _instId, StackData const& _operationInputLayout);
@@ -125,7 +171,10 @@ private:
 	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::FunctionReturn const& _functionReturn);
 	void operator()(SSACFG::BlockId const& _currentBlock, SSACFG::BasicBlock::Terminated const& _terminated);
 
-	void prepareBlockExitStack(StackData const& _target, PhiInverse const& _phiInverse);
+	void prepareBlockExitStack(
+		StackData const& _target,
+		PhiInverse const& _phiInverse
+	);
 
 	AbstractAssembly& m_assembly;
 	BuiltinContext& m_builtinContext;
@@ -134,10 +183,13 @@ private:
 	CallSites const& m_callSites;
 	SSACFG const& m_cfg;
 	SSACFGStackLayout const& m_stackLayout;
+	spill::SpillSet const& m_spillSet;
 	ControlFlowGraphs::FunctionGraphID const m_graphID;
 
 	std::vector<std::uint8_t> m_blockIsTransformed;
 	std::vector<AbstractAssembly::LabelID> m_blockLabels;
+	/// Constructed only when this CFG has any spilled values; otherwise nullopt.
+	std::optional<spill::Emitter> m_spillEmitter;
 	AssemblyCallbacks m_assemblyCallbacks;
 	StackData m_stackData;
 	Stack<AssemblyCallbacks> m_stack;

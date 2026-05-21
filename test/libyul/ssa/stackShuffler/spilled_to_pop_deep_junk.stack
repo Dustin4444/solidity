@@ -31,11 +31,15 @@ targetStackTop: [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v1
 //       SWAP13|      *    v18    v19    v17     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16     v3
 //       SWAP14|      *    v18     v3    v17     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v19
 //       SWAP13|      *    v18     v3    v19     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17
-//      PUSH v1|      *    v18     v3    v19     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17     v1
-//          POP|      *    v18     v3    v19     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17
-//      PUSH v1|      *    v18     v3    v19     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17     v1
-//          POP|      *    v18     v3    v19     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17
-//          ...|
+//       SWAP16|    v17    v18     v3    v19     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16      *
+//          POP|    v17    v18     v3    v19     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16
+//      PUSH v1|    v17    v18     v3    v19     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16     v1
+//       SWAP16|     v1    v18     v3    v19     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17
+//      PUSH v2|     v1    v18     v3    v19     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17     v2
+//       SWAP16|     v1     v2     v3    v19     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17    v18
+//      PUSH v4|     v1     v2     v3    v19     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17    v18     v4
+//       SWAP15|     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17    v18    v19
+//     PUSH v20|     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17    v18    v19    v20
 //             +-------------------------------------------------------------------------------------------------------------------------------------------- +-------
 //     (target)|     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17    v18    v19    v20 |
-// Status: MaxIterationsReached
+// Status: Admissible

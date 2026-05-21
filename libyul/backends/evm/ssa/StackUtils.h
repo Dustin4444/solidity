@@ -18,11 +18,10 @@
 
 #pragma once
 
-#include <libyul/backends/evm/ssa/spill/SpillSet.h>
-
 #include <libyul/backends/evm/ssa/PhiInverse.h>
 #include <libyul/backends/evm/ssa/Stack.h>
 #include <libyul/backends/evm/ssa/StackSlotLiveness.h>
+#include <libyul/backends/evm/ssa/spill/SpillSet.h>
 
 #include <string>
 #include <vector>

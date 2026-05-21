@@ -35,6 +35,8 @@
 
 #include <range/v3/view/split.hpp>
 
+#include <fmt/format.h>
+
 #ifdef ISOLTEST
 #include <boost/version.hpp>
 #if (BOOST_VERSION < 108800)
@@ -174,7 +176,7 @@ frontend::test::TestCase::TestResult StackLayoutGeneratorTest::run(std::ostream&
 		for (std::size_t index = 0; index < controlFlowGraphs->functionGraphs.size(); ++index)
 		{
 			auto const& cfg = *controlFlowGraphs->functionGraphs[index];
-			auto result = StackLayoutGenerator::generate(
+			auto const result = StackLayoutGenerator::generate(
 				LivenessAnalysis(cfg),
 				gatherCallSites(cfg),
 				static_cast<ControlFlowGraphs::FunctionGraphID>(index),
@@ -185,6 +187,19 @@ frontend::test::TestCase::TestResult StackLayoutGeneratorTest::run(std::ostream&
 				m_obtainedResult += exporter.exportFunction(cfg, false);
 			else
 				m_obtainedResult += exporter.exportBlocks(cfg.entry, false);
+			if (result.spillSet.numSpilled() > 0)
+			{
+				m_obtainedResult += fmt::format("// Spilled[{}]: {{", index);
+				bool first = true;
+				for (InstId const id: result.spillSet.spilledValues())
+				{
+					if (!first)
+						m_obtainedResult += ", ";
+					first = false;
+					m_obtainedResult += fmt::format("{}", id);
+				}
+				m_obtainedResult += "}\n";
+			}
 		}
 
 		m_obtainedResult += "}\n";

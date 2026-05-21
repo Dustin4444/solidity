@@ -181,8 +181,11 @@ set(libyul_sources
     libyul/ssa/ControlFlowGraphTest.h
     libyul/ssa/PrinterTest.cpp
     libyul/ssa/PrinterTest.h
+    libyul/ssa/SpillCodegenTest.cpp
+    libyul/ssa/SpillCodegenTest.h
     libyul/ssa/StackLayoutGeneratorTest.cpp
     libyul/ssa/StackLayoutGeneratorTest.h
+    libyul/ssa/StackShufflerInvarianceTest.cpp
     libyul/ssa/StackShufflerTest.cpp
     libyul/ssa/StackShufflerTest.h
     libyul/ssa/TarjanSCC.cpp

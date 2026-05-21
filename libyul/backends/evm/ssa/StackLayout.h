@@ -35,11 +35,14 @@ struct BlockLayout
 	StackData exitIn;
 };
 
-/// For each (reachable) block in the SSACFG one block layout
+/// For each (reachable) block in the SSACFG one block layout. Pure layout data;
+/// spilling is tracked by a separate `spill::SpillSet` alongside the layout.
 class SSACFGStackLayout
 {
 public:
-	SSACFGStackLayout(std::size_t const _numBlocks): m_blockLayouts(_numBlocks) {}
+	explicit SSACFGStackLayout(std::size_t const _numBlocks):
+		m_blockLayouts(_numBlocks)
+	{}
 
 	std::optional<BlockLayout>& operator[](SSACFG::BlockId const& _blockId)
 	{
