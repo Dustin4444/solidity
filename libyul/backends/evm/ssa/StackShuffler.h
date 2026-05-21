@@ -233,10 +233,11 @@ public:
 
 	[[nodiscard]] static StackShufflerResult shuffle(
 		Stack<Callback>& _stack,
-		StackData const& _target
+		StackData const& _target,
+		spill::SpillSet const* const _spilledVariables = nullptr
 	)
 	{
-		return shuffle(_stack, _target, {}, _target.size());
+		return shuffle(_stack, _target, {}, _target.size(), _spilledVariables);
 	}
 
 private:
