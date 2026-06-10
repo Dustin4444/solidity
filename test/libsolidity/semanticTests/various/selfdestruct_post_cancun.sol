@@ -71,8 +71,8 @@ contract D {
 // gas legacy code: 298200
 // gas legacyOptimized: 66516
 // gas legacyOptimized code: 168000
-// gas ssaCFGOptimized: 66800
-// gas ssaCFGOptimized code: 172400
+// gas ssaCFGOptimized: 66480
+// gas ssaCFGOptimized code: 168400
 // exists() -> false
 // test_create_and_terminate() ->
 // exists() -> false

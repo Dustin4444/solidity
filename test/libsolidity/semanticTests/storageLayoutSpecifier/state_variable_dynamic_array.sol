@@ -45,7 +45,7 @@ contract C is A layout at 42 {
 // gas irOptimized: 121281
 // gas legacy: 121937
 // gas legacyOptimized: 120853
-// gas ssaCFGOptimized: 121205
+// gas ssaCFGOptimized: 121322
 // clearA() ->
 // arrayC(uint256): 0 -> 3
 // arrayALength() -> 0

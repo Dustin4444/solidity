@@ -54,7 +54,7 @@ contract C {
 // gas irOptimized: 604108
 // gas legacy: 644983
 // gas legacyOptimized: 598016
-// gas ssaCFGOptimized: 602576
+// gas ssaCFGOptimized: 602558
 // fillArray()
 // gas irOptimized: 5782148
 // gas legacy: 6044562
@@ -64,7 +64,7 @@ contract C {
 // gas irOptimized: 604108
 // gas legacy: 644983
 // gas legacyOptimized: 598016
-// gas ssaCFGOptimized: 602576
+// gas ssaCFGOptimized: 602558
 // partialAssignArray()
 // gas irOptimized: 1067376
 // gas legacy: 1177356
@@ -74,7 +74,7 @@ contract C {
 // gas irOptimized: 604108
 // gas legacy: 644983
 // gas legacyOptimized: 598016
-// gas ssaCFGOptimized: 602576
+// gas ssaCFGOptimized: 602558
 // clearArray()
 // gas irOptimized: 580378
 // gas legacy: 582973
@@ -84,4 +84,4 @@ contract C {
 // gas irOptimized: 604108
 // gas legacy: 644983
 // gas legacyOptimized: 598016
-// gas ssaCFGOptimized: 602576
+// gas ssaCFGOptimized: 602558
