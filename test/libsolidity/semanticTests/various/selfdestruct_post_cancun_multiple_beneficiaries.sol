@@ -42,8 +42,8 @@ contract D {
 // gas legacy code: 253800
 // gas legacyOptimized: 109015
 // gas legacyOptimized code: 130800
-// gas ssaCFGOptimized: 107820
-// gas ssaCFGOptimized code: 115800
+// gas ssaCFGOptimized: 107681
+// gas ssaCFGOptimized code: 113600
 // balance: 0x1111111111111111111111111111111111111111 -> 0
 // balance: 0x2222222222222222222222222222222222222222 -> 0
 // balance -> 2000000000000000000
@@ -55,7 +55,7 @@ contract D {
 // gas legacy code: 43200
 // gas legacyOptimized: 121596
 // gas legacyOptimized code: 22800
-// gas ssaCFGOptimized: 121361
+// gas ssaCFGOptimized: 121355
 // gas ssaCFGOptimized code: 12400
 // exists() -> false
 // balance: 0x1111111111111111111111111111111111111111 -> 1000000000000000000
