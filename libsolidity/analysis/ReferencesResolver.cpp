@@ -110,7 +110,7 @@ void ReferencesResolver::endVisit(VariableDeclarationStatement const& _varDeclSt
 bool ReferencesResolver::visit(VariableDeclaration const& _varDecl)
 {
 	if (_varDecl.documentation())
-		resolveInheritDoc(*_varDecl.documentation(), _varDecl.annotation());
+		resolveInheritDoc(*_varDecl.documentation(), _varDecl.mutableAnnotation());
 
 	if (m_resolver.experimentalSolidity())
 	{
@@ -149,9 +149,9 @@ bool ReferencesResolver::visit(Identifier const& _identifier)
 		m_errorReporter.declarationError(7576_error, _identifier.location(), errorMessage);
 	}
 	else if (declarations.size() == 1)
-		_identifier.annotation().referencedDeclaration = declarations.front();
+		_identifier.mutableAnnotation().referencedDeclaration = declarations.front();
 	else
-		_identifier.annotation().candidateDeclarations = declarations;
+		_identifier.mutableAnnotation().candidateDeclarations = declarations;
 	return false;
 }
 
@@ -160,7 +160,7 @@ bool ReferencesResolver::visit(FunctionDefinition const& _functionDefinition)
 	m_functionDefinitions.push_back(&_functionDefinition);
 
 	if (_functionDefinition.documentation())
-		resolveInheritDoc(*_functionDefinition.documentation(), _functionDefinition.annotation());
+		resolveInheritDoc(*_functionDefinition.documentation(), _functionDefinition.mutableAnnotation());
 
 	return true;
 }
@@ -176,7 +176,7 @@ bool ReferencesResolver::visit(ModifierDefinition const& _modifierDefinition)
 	m_functionDefinitions.push_back(nullptr);
 
 	if (_modifierDefinition.documentation())
-		resolveInheritDoc(*_modifierDefinition.documentation(), _modifierDefinition.annotation());
+		resolveInheritDoc(*_modifierDefinition.documentation(), _modifierDefinition.mutableAnnotation());
 
 	return true;
 }
@@ -197,8 +197,8 @@ void ReferencesResolver::endVisit(IdentifierPath const& _path)
 		return;
 	}
 
-	_path.annotation().referencedDeclaration = declarations.back();
-	_path.annotation().pathDeclarations = std::move(declarations);
+	_path.mutableAnnotation().referencedDeclaration = declarations.back();
+	_path.mutableAnnotation().pathDeclarations = std::move(declarations);
 }
 
 bool ReferencesResolver::visit(UsingForDirective const& _usingFor)
@@ -223,8 +223,8 @@ bool ReferencesResolver::visit(UsingForDirective const& _usingFor)
 			break;
 		}
 
-		path->annotation().referencedDeclaration = declarations.back();
-		path->annotation().pathDeclarations = std::move(declarations);
+		path->mutableAnnotation().referencedDeclaration = declarations.back();
+		path->mutableAnnotation().pathDeclarations = std::move(declarations);
 	}
 
 	if (_usingFor.typeName())
@@ -235,7 +235,7 @@ bool ReferencesResolver::visit(UsingForDirective const& _usingFor)
 
 bool ReferencesResolver::visit(InlineAssembly const& _inlineAssembly)
 {
-	m_yulAnnotation = &_inlineAssembly.annotation();
+	m_yulAnnotation = &_inlineAssembly.mutableAnnotation();
 	(*this)(_inlineAssembly.operations().root());
 	m_yulAnnotation = nullptr;
 
@@ -245,8 +245,8 @@ bool ReferencesResolver::visit(InlineAssembly const& _inlineAssembly)
 bool ReferencesResolver::visit(Return const& _return)
 {
 	solAssert(!m_functionDefinitions.empty(), "");
-	_return.annotation().function = m_functionDefinitions.back();
-	_return.annotation().functionReturnParameters = m_functionDefinitions.back() ? m_functionDefinitions.back()->returnParameterList().get() : nullptr;
+	_return.mutableAnnotation().function = m_functionDefinitions.back();
+	_return.mutableAnnotation().functionReturnParameters = m_functionDefinitions.back() ? m_functionDefinitions.back()->returnParameterList().get() : nullptr;
 	return true;
 }
 

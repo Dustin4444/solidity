@@ -85,7 +85,7 @@ bool ContractLevelChecker::check(SourceUnit const& _sourceUnit)
 
 bool ContractLevelChecker::check(ContractDefinition const& _contract)
 {
-	_contract.annotation().unimplementedDeclarations = std::vector<Declaration const*>();
+	_contract.mutableAnnotation().unimplementedDeclarations = std::vector<Declaration const*>();
 
 	checkDuplicateFunctions(_contract);
 	checkDuplicateEvents(_contract);
@@ -323,7 +323,7 @@ void ContractLevelChecker::checkAbstractDefinitions(ContractDefinition const& _c
 	// Set to not fully implemented if at least one flag is false.
 	for (auto const& proxy: proxies)
 		if (proxy.unimplemented())
-			_contract.annotation().unimplementedDeclarations->push_back(proxy.declaration());
+			_contract.mutableAnnotation().unimplementedDeclarations->push_back(proxy.declaration());
 
 	if (_contract.abstract())
 	{
@@ -428,7 +428,7 @@ void ContractLevelChecker::annotateBaseConstructorArguments(
 	solAssert(_baseConstructor, "");
 	solAssert(_argumentNode, "");
 
-	auto insertionResult = _currentContract.annotation().baseConstructorArguments.insert(
+	auto insertionResult = _currentContract.mutableAnnotation().baseConstructorArguments.insert(
 		std::make_pair(_baseConstructor, _argumentNode)
 	);
 	if (!insertionResult.second)

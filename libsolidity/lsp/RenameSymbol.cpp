@@ -264,7 +264,7 @@ void RenameSymbol::extractNameAndDeclaration(IdentifierPath const& _identifierPa
 
 void RenameSymbol::Visitor::endVisit(IdentifierPath const& _node)
 {
-	std::vector<Declaration const*>& declarations = _node.annotation().pathDeclarations;
+	std::vector<Declaration const*>& declarations = _node.mutableAnnotation().pathDeclarations;
 	solAssert(declarations.size() == _node.path().size());
 
 	for (size_t i = 0; i < _node.path().size(); i++)

@@ -280,10 +280,10 @@ bool TypeInference::visit(InlineAssembly const& _inlineAssembly)
 			// TODO: do we need this?
 			// Hack until we can disallow any shadowing: If we found an internal reference,
 			// clear the external references, so that codegen does not use it.
-			_inlineAssembly.annotation().externalReferences.erase(& _identifier);
+			_inlineAssembly.mutableAnnotation().externalReferences.erase(& _identifier);
 			return false;
 		}
-		InlineAssemblyAnnotation::ExternalIdentifierInfo* identifierInfo = util::valueOrNullptr(_inlineAssembly.annotation().externalReferences, &_identifier);
+		InlineAssemblyAnnotation::ExternalIdentifierInfo* identifierInfo = util::valueOrNullptr(_inlineAssembly.mutableAnnotation().externalReferences, &_identifier);
 		if (!identifierInfo)
 			return false;
 		Declaration const* declaration = identifierInfo->declaration;
@@ -295,7 +295,7 @@ bool TypeInference::visit(InlineAssembly const& _inlineAssembly)
 		return true;
 	};
 	solAssert(!_inlineAssembly.annotation().analysisInfo, "");
-	_inlineAssembly.annotation().analysisInfo = std::make_shared<yul::AsmAnalysisInfo>();
+	_inlineAssembly.mutableAnnotation().analysisInfo = std::make_shared<yul::AsmAnalysisInfo>();
 	yul::AsmAnalyzer analyzer(
 		*_inlineAssembly.annotation().analysisInfo,
 		m_errorReporter,

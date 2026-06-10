@@ -47,8 +47,8 @@ bool Scoper::visitNode(ASTNode const& _node)
 {
 	if (auto const* scopable = dynamic_cast<Scopable const*>(&_node))
 	{
-		scopable->annotation().scope = m_scopes.empty() ? nullptr : m_scopes.back();
-		scopable->annotation().contract = m_contract;
+		scopable->mutableAnnotation().scope = m_scopes.empty() ? nullptr : m_scopes.back();
+		scopable->mutableAnnotation().contract = m_contract;
 	}
 	if (dynamic_cast<ScopeOpener const*>(&_node))
 		m_scopes.push_back(&_node);

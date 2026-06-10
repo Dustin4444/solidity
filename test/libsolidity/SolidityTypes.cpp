@@ -187,7 +187,7 @@ BOOST_AUTO_TEST_CASE(type_identifiers)
 	BOOST_CHECK_EQUAL(ContractType(c, true).identifier(), "t_super$_MyContract$$$_$2");
 
 	StructDefinition s(++id, {}, std::make_shared<std::string>("Struct"), {}, {}, {});
-	s.annotation().recursive = false;
+	s.mutableAnnotation().recursive = false;
 	BOOST_CHECK_EQUAL(s.type()->identifier(), "t_type$_t_struct$_Struct_$3_storage_ptr_$");
 
 	EnumDefinition e(++id, {}, std::make_shared<std::string>("Enum"), {}, {}, {});

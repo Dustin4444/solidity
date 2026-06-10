@@ -122,7 +122,7 @@ bool DocStringAnalyser::analyseDocStrings(SourceUnit const& _sourceUnit)
 bool DocStringAnalyser::visit(FunctionDefinition const& _function)
 {
 	if (!_function.isConstructor())
-		handleCallable(_function, _function, _function.annotation(), TypeProvider::function(_function));
+		handleCallable(_function, _function, _function.mutableAnnotation(), TypeProvider::function(_function));
 	return true;
 }
 
@@ -133,31 +133,31 @@ bool DocStringAnalyser::visit(VariableDeclaration const& _variable)
 
 	auto const* getterType = TypeProvider::function(_variable);
 
-	if (CallableDeclaration const* baseFunction = resolveInheritDoc(_variable.annotation().baseFunctions, _variable, _variable.annotation()))
-		copyMissingTags({baseFunction}, _variable.annotation(), getterType);
+	if (CallableDeclaration const* baseFunction = resolveInheritDoc(_variable.mutableAnnotation().baseFunctions, _variable, _variable.mutableAnnotation()))
+		copyMissingTags({baseFunction}, _variable.mutableAnnotation(), getterType);
 	else if (_variable.annotation().docTags.empty())
-		copyMissingTags(_variable.annotation().baseFunctions, _variable.annotation(), getterType);
+		copyMissingTags(_variable.mutableAnnotation().baseFunctions, _variable.mutableAnnotation(), getterType);
 
 	return false;
 }
 
 bool DocStringAnalyser::visit(ModifierDefinition const& _modifier)
 {
-	handleCallable(_modifier, _modifier, _modifier.annotation());
+	handleCallable(_modifier, _modifier, _modifier.mutableAnnotation());
 
 	return true;
 }
 
 bool DocStringAnalyser::visit(EventDefinition const& _event)
 {
-	handleCallable(_event, _event, _event.annotation());
+	handleCallable(_event, _event, _event.mutableAnnotation());
 
 	return true;
 }
 
 bool DocStringAnalyser::visit(ErrorDefinition const& _error)
 {
-	handleCallable(_error, _error, _error.annotation());
+	handleCallable(_error, _error, _error.mutableAnnotation());
 
 	return true;
 }

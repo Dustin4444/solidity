@@ -739,11 +739,11 @@ bool TypeChecker::visit(InlineAssembly const& _inlineAssembly)
 		{
 			// Hack until we can disallow any shadowing: If we found an internal reference,
 			// clear the external references, so that codegen does not use it.
-			_inlineAssembly.annotation().externalReferences.erase(& _identifier);
+			_inlineAssembly.mutableAnnotation().externalReferences.erase(& _identifier);
 			return false;
 		}
-		auto ref = _inlineAssembly.annotation().externalReferences.find(&_identifier);
-		if (ref == _inlineAssembly.annotation().externalReferences.end())
+		auto ref = _inlineAssembly.mutableAnnotation().externalReferences.find(&_identifier);
+		if (ref == _inlineAssembly.mutableAnnotation().externalReferences.end())
 			return false;
 		InlineAssemblyAnnotation::ExternalIdentifierInfo& identifierInfo = ref->second;
 		Declaration const* declaration = identifierInfo.declaration;
@@ -932,7 +932,7 @@ bool TypeChecker::visit(InlineAssembly const& _inlineAssembly)
 		return true;
 	};
 	solAssert(!_inlineAssembly.annotation().analysisInfo, "");
-	_inlineAssembly.annotation().analysisInfo = std::make_shared<yul::AsmAnalysisInfo>();
+	_inlineAssembly.mutableAnnotation().analysisInfo = std::make_shared<yul::AsmAnalysisInfo>();
 	yul::AsmAnalyzer analyzer(
 		*_inlineAssembly.annotation().analysisInfo,
 		m_errorReporter,
@@ -941,7 +941,7 @@ bool TypeChecker::visit(InlineAssembly const& _inlineAssembly)
 	);
 	if (!analyzer.analyze(_inlineAssembly.operations().root()))
 		solAssert(m_errorReporter.hasErrors());
-	_inlineAssembly.annotation().hasMemoryEffects =
+	_inlineAssembly.mutableAnnotation().hasMemoryEffects =
 		lvalueAccessToMemoryVariable ||
 		(analyzer.sideEffects().memory != yul::SideEffects::None);
 	return false;
@@ -984,7 +984,7 @@ void TypeChecker::endVisit(TryStatement const& _tryStatement)
 		return;
 	}
 
-	externalCall->annotation().tryCall = true;
+	externalCall->mutableAnnotation().tryCall = true;
 
 	solAssert(_tryStatement.clauses().size() >= 2, "");
 	solAssert(_tryStatement.clauses().front(), "");
@@ -1398,14 +1398,14 @@ bool TypeChecker::visit(Conditional const& _conditional)
 		}
 	}
 
-	_conditional.annotation().isConstant = false;
-	_conditional.annotation().type = commonType;
-	_conditional.annotation().isPure =
+	_conditional.mutableAnnotation().isConstant = false;
+	_conditional.mutableAnnotation().type = commonType;
+	_conditional.mutableAnnotation().isPure =
 		*_conditional.condition().annotation().isPure &&
 		*_conditional.trueExpression().annotation().isPure &&
 		*_conditional.falseExpression().annotation().isPure;
 
-	_conditional.annotation().isLValue = false;
+	_conditional.mutableAnnotation().isLValue = false;
 
 	if (_conditional.annotation().willBeWrittenTo)
 		m_errorReporter.typeError(
@@ -1455,10 +1455,10 @@ bool TypeChecker::visit(Assignment const& _assignment)
 {
 	requireLValue(_assignment.leftHandSide());
 	Type const* t = type(_assignment.leftHandSide());
-	_assignment.annotation().type = t;
-	_assignment.annotation().isPure = false;
-	_assignment.annotation().isLValue = false;
-	_assignment.annotation().isConstant = false;
+	_assignment.mutableAnnotation().type = t;
+	_assignment.mutableAnnotation().isPure = false;
+	_assignment.mutableAnnotation().isLValue = false;
+	_assignment.mutableAnnotation().isConstant = false;
 
 	checkExpressionAssignment(*t, _assignment.leftHandSide());
 
@@ -1471,7 +1471,7 @@ bool TypeChecker::visit(Assignment const& _assignment)
 				"Compound assignment is not allowed for tuple types."
 			);
 		// Sequenced assignments of tuples is not valid, make the result a "void" type.
-		_assignment.annotation().type = TypeProvider::emptyTuple();
+		_assignment.mutableAnnotation().type = TypeProvider::emptyTuple();
 
 		expectType(_assignment.rightHandSide(), *tupleType);
 	}
@@ -1503,7 +1503,7 @@ bool TypeChecker::visit(Assignment const& _assignment)
 
 bool TypeChecker::visit(TupleExpression const& _tuple)
 {
-	_tuple.annotation().isConstant = false;
+	_tuple.mutableAnnotation().isConstant = false;
 	std::vector<ASTPointer<Expression>> const& components = _tuple.components();
 	TypePointers types;
 
@@ -1520,12 +1520,12 @@ bool TypeChecker::visit(TupleExpression const& _tuple)
 			else
 				types.push_back(nullptr);
 		if (components.size() == 1)
-			_tuple.annotation().type = type(*components[0]);
+			_tuple.mutableAnnotation().type = type(*components[0]);
 		else
-			_tuple.annotation().type = TypeProvider::tuple(std::move(types));
+			_tuple.mutableAnnotation().type = TypeProvider::tuple(std::move(types));
 		// If some of the components are not LValues, the error is reported above.
-		_tuple.annotation().isLValue = true;
-		_tuple.annotation().isPure = false;
+		_tuple.mutableAnnotation().isLValue = true;
+		_tuple.mutableAnnotation().isPure = false;
 	}
 	else
 	{
@@ -1568,7 +1568,7 @@ bool TypeChecker::visit(TupleExpression const& _tuple)
 			if (!*components[i]->annotation().isPure)
 				isPure = false;
 		}
-		_tuple.annotation().isPure = isPure;
+		_tuple.mutableAnnotation().isPure = isPure;
 		if (_tuple.isInlineArray())
 		{
 			if (!inlineArrayType)
@@ -1586,17 +1586,17 @@ bool TypeChecker::visit(TupleExpression const& _tuple)
 					"Type " + inlineArrayType->humanReadableName() + " is only valid in storage."
 				);
 
-			_tuple.annotation().type = TypeProvider::array(DataLocation::Memory, inlineArrayType, types.size());
+			_tuple.mutableAnnotation().type = TypeProvider::array(DataLocation::Memory, inlineArrayType, types.size());
 		}
 		else
 		{
 			if (components.size() == 1)
-				_tuple.annotation().type = type(*components[0]);
+				_tuple.mutableAnnotation().type = type(*components[0]);
 			else
-				_tuple.annotation().type = TypeProvider::tuple(std::move(types));
+				_tuple.mutableAnnotation().type = TypeProvider::tuple(std::move(types));
 		}
 
-		_tuple.annotation().isLValue = false;
+		_tuple.mutableAnnotation().isLValue = false;
 	}
 	return false;
 }
@@ -1658,19 +1658,19 @@ bool TypeChecker::visit(UnaryOperation const& _operation)
 			m_errorReporter.typeError(4907_error, _operation.location(), description);
 	}
 
-	_operation.annotation().userDefinedFunction = operatorDefinition;
+	_operation.mutableAnnotation().userDefinedFunction = operatorDefinition;
 
 	if (operatorDefinition && !_operation.userDefinedFunctionType()->returnParameterTypes().empty())
 		// Use the actual result type from operator definition. Ignore all values but the
 		// first one - in valid code there will be only one anyway.
 		resultType = _operation.userDefinedFunctionType()->returnParameterTypes()[0];
-	_operation.annotation().type = resultType;
-	_operation.annotation().isConstant = false;
-	_operation.annotation().isPure =
+	_operation.mutableAnnotation().type = resultType;
+	_operation.mutableAnnotation().isConstant = false;
+	_operation.mutableAnnotation().isPure =
 		!modifying &&
 		*_operation.subExpression().annotation().isPure &&
 		(!_operation.userDefinedFunctionType() || _operation.userDefinedFunctionType()->isPure());
-	_operation.annotation().isLValue = false;
+	_operation.mutableAnnotation().isLValue = false;
 
 	return false;
 }
@@ -1725,8 +1725,8 @@ void TypeChecker::endVisit(BinaryOperation const& _operation)
 		commonType = leftType;
 	}
 
-	_operation.annotation().commonType = commonType;
-	_operation.annotation().userDefinedFunction = operatorDefinition;
+	_operation.mutableAnnotation().commonType = commonType;
+	_operation.mutableAnnotation().userDefinedFunction = operatorDefinition;
 	FunctionType const* userDefinedFunctionType = _operation.userDefinedFunctionType();
 
 	// By default use the type we'd expect from correct code. This way we can continue analysis
@@ -1763,13 +1763,13 @@ void TypeChecker::endVisit(BinaryOperation const& _operation)
 			resultType = returnParameterTypes[0];
 	}
 
-	_operation.annotation().type = resultType;
-	_operation.annotation().isPure =
+	_operation.mutableAnnotation().type = resultType;
+	_operation.mutableAnnotation().isPure =
 		*_operation.leftExpression().annotation().isPure &&
 		*_operation.rightExpression().annotation().isPure &&
 		(!userDefinedFunctionType || userDefinedFunctionType->isPure());
-	_operation.annotation().isLValue = false;
-	_operation.annotation().isConstant = false;
+	_operation.mutableAnnotation().isLValue = false;
+	_operation.mutableAnnotation().isConstant = false;
 
 	if (_operation.getOperator() == Token::Equal || _operation.getOperator() == Token::NotEqual)
 	{
@@ -2710,7 +2710,7 @@ bool TypeChecker::visit(FunctionCall const& _functionCall)
 		for (ASTPointer<Expression const> const& argument: arguments)
 			funcCallArgs.types.push_back(type(*argument));
 
-		_functionCall.expression().annotation().arguments = std::move(funcCallArgs);
+		_functionCall.expression().mutableAnnotation().arguments = std::move(funcCallArgs);
 	}
 
 	_functionCall.expression().accept(*this);
@@ -2718,7 +2718,7 @@ bool TypeChecker::visit(FunctionCall const& _functionCall)
 	Type const* expressionType = type(_functionCall.expression());
 
 	// Determine function call kind and function type for this FunctionCall node
-	FunctionCallAnnotation& funcCallAnno = _functionCall.annotation();
+	FunctionCallAnnotation& funcCallAnno = _functionCall.mutableAnnotation();
 	FunctionTypePointer functionType = nullptr;
 	funcCallAnno.isConstant = false;
 
@@ -2734,11 +2734,11 @@ bool TypeChecker::visit(FunctionCall const& _functionCall)
 		if (auto memberAccess = dynamic_cast<MemberAccess const*>(&_functionCall.expression()))
 		{
 			if (dynamic_cast<FunctionDefinition const*>(memberAccess->annotation().referencedDeclaration))
-				_functionCall.expression().annotation().calledDirectly = true;
+				_functionCall.expression().mutableAnnotation().calledDirectly = true;
 		}
 		else if (auto identifier = dynamic_cast<Identifier const*>(&_functionCall.expression()))
 			if (dynamic_cast<FunctionDefinition const*>(identifier->annotation().referencedDeclaration))
-				_functionCall.expression().annotation().calledDirectly = true;
+				_functionCall.expression().mutableAnnotation().calledDirectly = true;
 
 		// Purity for function calls also depends upon the callee and its FunctionType
 		funcCallAnno.isPure =
@@ -2885,13 +2885,13 @@ bool TypeChecker::visit(FunctionCallOptions const& _functionCallOptions)
 {
 	solAssert(_functionCallOptions.options().size() == _functionCallOptions.names().size(), "Lengths of name & value arrays differ!");
 
-	_functionCallOptions.expression().annotation().arguments = _functionCallOptions.annotation().arguments;
+	_functionCallOptions.expression().mutableAnnotation().arguments = _functionCallOptions.mutableAnnotation().arguments;
 
 	_functionCallOptions.expression().accept(*this);
 
-	_functionCallOptions.annotation().isPure = false;
-	_functionCallOptions.annotation().isConstant = false;
-	_functionCallOptions.annotation().isLValue = false;
+	_functionCallOptions.mutableAnnotation().isPure = false;
+	_functionCallOptions.mutableAnnotation().isConstant = false;
+	_functionCallOptions.mutableAnnotation().isLValue = false;
 
 	auto expressionFunctionType = dynamic_cast<FunctionType const*>(type(_functionCallOptions.expression()));
 	if (!expressionFunctionType)
@@ -3024,7 +3024,7 @@ bool TypeChecker::visit(FunctionCallOptions const& _functionCallOptions)
 			"Unsupported call option \"salt\" (requires Constantinople-compatible VMs)."
 		);
 
-	_functionCallOptions.annotation().type = expressionFunctionType->copyAndSetCallOptions(setGas, setValue, setSalt);
+	_functionCallOptions.mutableAnnotation().type = expressionFunctionType->copyAndSetCallOptions(setGas, setValue, setSalt);
 	return false;
 }
 
@@ -3033,8 +3033,8 @@ void TypeChecker::endVisit(NewExpression const& _newExpression)
 	Type const* type = _newExpression.typeName().annotation().type;
 	solAssert(!!type, "Type name not resolved.");
 
-	_newExpression.annotation().isConstant = false;
-	_newExpression.annotation().isLValue = false;
+	_newExpression.mutableAnnotation().isConstant = false;
+	_newExpression.mutableAnnotation().isLValue = false;
 
 	if (auto contractName = dynamic_cast<UserDefinedTypeName const*>(&_newExpression.typeName()))
 	{
@@ -3047,8 +3047,8 @@ void TypeChecker::endVisit(NewExpression const& _newExpression)
 		if (contract->abstract())
 			m_errorReporter.typeError(4614_error, _newExpression.location(), "Cannot instantiate an abstract contract.");
 
-		_newExpression.annotation().type = FunctionType::newExpressionType(*contract);
-		_newExpression.annotation().isPure = false;
+		_newExpression.mutableAnnotation().type = FunctionType::newExpressionType(*contract);
+		_newExpression.mutableAnnotation().isPure = false;
 	}
 	else if (type->category() == Type::Category::Array)
 	{
@@ -3065,7 +3065,7 @@ void TypeChecker::endVisit(NewExpression const& _newExpression)
 				"Length has to be placed in parentheses after the array type for new expression."
 			);
 		type = TypeProvider::withLocationIfReference(DataLocation::Memory, type);
-		_newExpression.annotation().type = TypeProvider::function(
+		_newExpression.mutableAnnotation().type = TypeProvider::function(
 			TypePointers{TypeProvider::uint256()},
 			TypePointers{type},
 			strings(1, ""),
@@ -3073,11 +3073,11 @@ void TypeChecker::endVisit(NewExpression const& _newExpression)
 			FunctionType::Kind::ObjectCreation,
 			StateMutability::Pure
 		);
-		_newExpression.annotation().isPure = true;
+		_newExpression.mutableAnnotation().isPure = true;
 	}
 	else
 	{
-		_newExpression.annotation().isPure = false;
+		_newExpression.mutableAnnotation().isPure = false;
 		m_errorReporter.fatalTypeError(8807_error, _newExpression.location(), "Contract or array type expected.");
 	}
 }
@@ -3298,11 +3298,11 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 	ASTString const& memberName = _memberAccess.memberName();
 
 	// TODO: This should be probably deprecated.
-	_memberAccess.annotation().isConstant = false;
+	_memberAccess.mutableAnnotation().isConstant = false;
 	MemberList::Member const possibleMember = resolveOverloads(_memberAccess);
 
-	_memberAccess.annotation().referencedDeclaration = possibleMember.declaration;
-	_memberAccess.annotation().type = possibleMember.type;
+	_memberAccess.mutableAnnotation().referencedDeclaration = possibleMember.declaration;
+	_memberAccess.mutableAnnotation().type = possibleMember.type;
 
 	// Lookup type required to find the function declaration.
 	VirtualLookup requiredLookup = VirtualLookup::Static;
@@ -3321,7 +3321,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 		checkAccessedMemberFunction(_memberAccess);
 	}
 
-	_memberAccess.annotation().requiredLookup = requiredLookup;
+	_memberAccess.mutableAnnotation().requiredLookup = requiredLookup;
 
 	switch (owningObjectType->category())
 	{
@@ -3329,7 +3329,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 	{
 		auto const* owningObjectStructType = dynamic_cast<StructType const*>(owningObjectType);
 		solAssert(owningObjectStructType);
-		_memberAccess.annotation().isLValue = !owningObjectStructType->dataStoredIn(DataLocation::CallData);
+		_memberAccess.mutableAnnotation().isLValue = !owningObjectStructType->dataStoredIn(DataLocation::CallData);
 		break;
 	}
 	case Type::Category::Function:
@@ -3349,7 +3349,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 						if (exprInt->name() == "this" || exprInt->name() == "super")
 							isPure = true;
 
-					_memberAccess.annotation().isPure = isPure;
+					_memberAccess.mutableAnnotation().isPure = isPure;
 				}
 			}
 			// In case of event or error definition, the selector is always compile-time constant, as it can be
@@ -3358,10 +3358,10 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 				dynamic_cast<EventDefinition const*>(&owningObjectFunctionType->declaration()) ||
 				dynamic_cast<ErrorDefinition const*>(&owningObjectFunctionType->declaration())
 			)
-				_memberAccess.annotation().isPure = true;
+				_memberAccess.mutableAnnotation().isPure = true;
 		}
 
-		_memberAccess.annotation().isLValue = false;
+		_memberAccess.mutableAnnotation().isLValue = false;
 		break;
 	}
 	case Type::Category::TypeType:
@@ -3383,25 +3383,25 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 				accessedMemberFunctionType->kind() == FunctionType::Kind::BytesConcat
 			));
 
-			_memberAccess.annotation().isPure = true;
-			_memberAccess.annotation().isLValue = false;
+			_memberAccess.mutableAnnotation().isPure = true;
+			_memberAccess.mutableAnnotation().isLValue = false;
 			break;
 		}
 		case Type::Category::Contract:
 		{
-			_memberAccess.annotation().isLValue = _memberAccess.annotation().referencedDeclaration->isLValue();
+			_memberAccess.mutableAnnotation().isLValue = _memberAccess.mutableAnnotation().referencedDeclaration->isLValue();
 			if (
 				auto const* accessedMemberFunctionType = dynamic_cast<FunctionType const*>(type(_memberAccess));
 				accessedMemberFunctionType &&
 				accessedMemberFunctionType->kind() == FunctionType::Kind::Declaration
 			)
-				_memberAccess.annotation().isPure = *_memberAccess.expression().annotation().isPure;
+				_memberAccess.mutableAnnotation().isPure = *_memberAccess.expression().mutableAnnotation().isPure;
 			break;
 		}
 		case Type::Category::Enum:
 		case Type::Category::UserDefinedValueType:
-			_memberAccess.annotation().isPure = true;
-			_memberAccess.annotation().isLValue = false;
+			_memberAccess.mutableAnnotation().isPure = true;
+			_memberAccess.mutableAnnotation().isLValue = false;
 			break;
 		case Type::Category::Address:
 		case Type::Category::Integer:
@@ -3420,7 +3420,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 		case Type::Category::Magic:
 		case Type::Category::Module:
 		case Type::Category::InaccessibleDynamic:
-			_memberAccess.annotation().isLValue = false;
+			_memberAccess.mutableAnnotation().isLValue = false;
 			break;
 		}
 		break;
@@ -3467,13 +3467,13 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 			break;
 		}
 		case MagicType::Kind::ABI:
-			_memberAccess.annotation().isPure = true;
+			_memberAccess.mutableAnnotation().isPure = true;
 			break;
 		case MagicType::Kind::MetaType:
 		{
 			if (memberName == "creationCode" || memberName == "runtimeCode")
 			{
-				_memberAccess.annotation().isPure = true;
+				_memberAccess.mutableAnnotation().isPure = true;
 				ContractType const& accessedContractType = dynamic_cast<ContractType const&>(*owningObjectMagicType->typeArgument());
 				solAssert(!accessedContractType.isSuper(), "");
 				if (
@@ -3492,7 +3492,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 				memberName == "min" ||
 				memberName == "max"
 			)
-				_memberAccess.annotation().isPure = true;
+				_memberAccess.mutableAnnotation().isPure = true;
 			break;
 		}
 		// Empty cases.
@@ -3502,12 +3502,12 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 			break;
 		}
 
-		_memberAccess.annotation().isLValue = false;
+		_memberAccess.mutableAnnotation().isLValue = false;
 		break;
 	}
 	case Type::Category::Module:
-		_memberAccess.annotation().isPure = *_memberAccess.expression().annotation().isPure;
-		_memberAccess.annotation().isLValue = false;
+		_memberAccess.mutableAnnotation().isPure = *_memberAccess.expression().mutableAnnotation().isPure;
+		_memberAccess.mutableAnnotation().isLValue = false;
 		break;
 	case Type::Category::Address:
 		if (memberName == "codehash" && !m_evmVersion.hasExtCodeHash())
@@ -3516,7 +3516,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 				_memberAccess.location(),
 				R"("codehash" is not supported by the VM version.)"
 			);
-		_memberAccess.annotation().isLValue = false;
+		_memberAccess.mutableAnnotation().isLValue = false;
 		break;
 	case Type::Category::Integer:
 	case Type::Category::RationalNumber:
@@ -3533,7 +3533,7 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 	case Type::Category::Mapping:
 	case Type::Category::Modifier:
 	case Type::Category::InaccessibleDynamic:
-		_memberAccess.annotation().isLValue = false;
+		_memberAccess.mutableAnnotation().isLValue = false;
 		break;
 	}
 
@@ -3549,19 +3549,19 @@ bool TypeChecker::visit(MemberAccess const& _memberAccess)
 	)
 	{
 		solAssert(owningObjectType->category() != Type::Category::Magic);
-		_memberAccess.annotation().isPure = true;
+		_memberAccess.mutableAnnotation().isPure = true;
 	}
 
 
 	if (!_memberAccess.annotation().isPure.set())
-		_memberAccess.annotation().isPure = false;
+		_memberAccess.mutableAnnotation().isPure = false;
 
 	return false;
 }
 
 bool TypeChecker::visit(IndexAccess const& _access)
 {
-	_access.annotation().isConstant = false;
+	_access.mutableAnnotation().isConstant = false;
 	_access.baseExpression().accept(*this);
 	Type const* baseType = type(_access.baseExpression());
 	Type const* resultType = nullptr;
@@ -3667,18 +3667,18 @@ bool TypeChecker::visit(IndexAccess const& _access)
 			"Indexed expression has to be a type, mapping or array (is " + baseType->humanReadableName() + ")"
 		);
 	}
-	_access.annotation().type = resultType;
-	_access.annotation().isLValue = isLValue;
+	_access.mutableAnnotation().type = resultType;
+	_access.mutableAnnotation().isLValue = isLValue;
 	if (index && !*index->annotation().isPure)
 		isPure = false;
-	_access.annotation().isPure = isPure;
+	_access.mutableAnnotation().isPure = isPure;
 
 	return false;
 }
 
 bool TypeChecker::visit(IndexRangeAccess const& _access)
 {
-	_access.annotation().isConstant = false;
+	_access.mutableAnnotation().isConstant = false;
 	_access.baseExpression().accept(*this);
 
 	bool isLValue = false; // TODO: set this correctly when implementing slices for memory and storage arrays
@@ -3697,14 +3697,14 @@ bool TypeChecker::visit(IndexRangeAccess const& _access)
 			isPure = false;
 	}
 
-	_access.annotation().isLValue = isLValue;
-	_access.annotation().isPure = isPure;
+	_access.mutableAnnotation().isLValue = isLValue;
+	_access.mutableAnnotation().isPure = isPure;
 
 	Type const* exprType = type(_access.baseExpression());
 	if (exprType->category() == Type::Category::TypeType)
 	{
 		m_errorReporter.typeError(1760_error, _access.location(), "Types cannot be sliced.");
-		_access.annotation().type = exprType;
+		_access.mutableAnnotation().type = exprType;
 		return false;
 	}
 
@@ -3718,7 +3718,7 @@ bool TypeChecker::visit(IndexRangeAccess const& _access)
 		m_errorReporter.typeError(1227_error, _access.location(), "Index range access is only supported for dynamic calldata arrays.");
 	else if (arrayType->baseType()->isDynamicallyEncoded())
 		m_errorReporter.typeError(2148_error, _access.location(), "Index range access is not supported for arrays with dynamically encoded base types.");
-	_access.annotation().type = TypeProvider::arraySlice(*arrayType);
+	_access.mutableAnnotation().type = TypeProvider::arraySlice(*arrayType);
 
 	return false;
 }
@@ -3770,7 +3770,7 @@ std::vector<Declaration const*> TypeChecker::cleanOverloadedDeclarations(
 
 bool TypeChecker::visit(Identifier const& _identifier)
 {
-	IdentifierAnnotation& annotation = _identifier.annotation();
+	IdentifierAnnotation& annotation = _identifier.mutableAnnotation();
 
 	if (!annotation.referencedDeclaration)
 	{
@@ -3910,23 +3910,23 @@ void TypeChecker::endVisit(IdentifierPath const& _identifierPath)
 		dynamic_cast<CallableDeclaration const*>(_identifierPath.annotation().referencedDeclaration) &&
 		_identifierPath.path().size() == 1
 	)
-		_identifierPath.annotation().requiredLookup = VirtualLookup::Virtual;
+		_identifierPath.mutableAnnotation().requiredLookup = VirtualLookup::Virtual;
 	else
-		_identifierPath.annotation().requiredLookup = VirtualLookup::Static;
+		_identifierPath.mutableAnnotation().requiredLookup = VirtualLookup::Static;
 }
 
 void TypeChecker::endVisit(UserDefinedTypeName const& _userDefinedTypeName)
 {
 	if (!_userDefinedTypeName.annotation().type)
-		_userDefinedTypeName.annotation().type = _userDefinedTypeName.pathNode().annotation().referencedDeclaration->type();
+		_userDefinedTypeName.mutableAnnotation().type = _userDefinedTypeName.pathNode().mutableAnnotation().referencedDeclaration->type();
 }
 
 void TypeChecker::endVisit(ElementaryTypeNameExpression const& _expr)
 {
-	_expr.annotation().type = TypeProvider::typeType(TypeProvider::fromElementaryTypeName(_expr.type().typeName(), _expr.type().stateMutability()));
-	_expr.annotation().isPure = true;
-	_expr.annotation().isLValue = false;
-	_expr.annotation().isConstant = false;
+	_expr.mutableAnnotation().type = TypeProvider::typeType(TypeProvider::fromElementaryTypeName(_expr.type().typeName(), _expr.type().stateMutability()));
+	_expr.mutableAnnotation().isPure = true;
+	_expr.mutableAnnotation().isLValue = false;
+	_expr.mutableAnnotation().isConstant = false;
 }
 
 void TypeChecker::endVisit(Literal const& _literal)
@@ -3934,7 +3934,7 @@ void TypeChecker::endVisit(Literal const& _literal)
 	if (_literal.looksLikeAddress())
 	{
 		// Assign type here if it even looks like an address. This prevents double errors for invalid addresses
-		_literal.annotation().type = TypeProvider::address();
+		_literal.mutableAnnotation().type = TypeProvider::address();
 
 		std::string msg;
 		if (_literal.valueWithoutUnderscores().length() != 42) // "0x" + 40 hex digits
@@ -3976,14 +3976,14 @@ void TypeChecker::endVisit(Literal const& _literal)
 		);
 
 	if (!_literal.annotation().type)
-		_literal.annotation().type = TypeProvider::forLiteral(_literal);
+		_literal.mutableAnnotation().type = TypeProvider::forLiteral(_literal);
 
 	if (!_literal.annotation().type)
 		m_errorReporter.fatalTypeError(2826_error, _literal.location(), "Invalid literal value.");
 
-	_literal.annotation().isPure = true;
-	_literal.annotation().isLValue = false;
-	_literal.annotation().isConstant = false;
+	_literal.mutableAnnotation().isPure = true;
+	_literal.mutableAnnotation().isLValue = false;
+	_literal.mutableAnnotation().isConstant = false;
 }
 
 void TypeChecker::endVisit(UsingForDirective const& _usingFor)
@@ -4331,7 +4331,7 @@ bool TypeChecker::expectType(Expression const& _expression, Type const& _expecte
 
 void TypeChecker::requireLValue(Expression const& _expression)
 {
-	_expression.annotation().willBeWrittenTo = true;
+	_expression.mutableAnnotation().willBeWrittenTo = true;
 	_expression.accept(*this);
 
 	if (*_expression.annotation().isLValue)

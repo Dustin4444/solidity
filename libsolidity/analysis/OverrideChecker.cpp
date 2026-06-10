@@ -244,13 +244,13 @@ void OverrideProxy::storeBaseFunction(OverrideProxy const& _base) const
 {
 	std::visit(GenericVisitor{
 		[&](FunctionDefinition const* _item) {
-			_item->annotation().baseFunctions.emplace(std::get<FunctionDefinition const*>(_base.m_item));
+			_item->mutableAnnotation().baseFunctions.emplace(std::get<FunctionDefinition const*>(_base.m_item));
 		},
 		[&](ModifierDefinition const* _item) {
-			_item->annotation().baseFunctions.emplace(std::get<ModifierDefinition const*>(_base.m_item));
+			_item->mutableAnnotation().baseFunctions.emplace(std::get<ModifierDefinition const*>(_base.m_item));
 		},
 		[&](VariableDeclaration const* _item) {
-			_item->annotation().baseFunctions.emplace(std::get<FunctionDefinition const*>(_base.m_item));
+			_item->mutableAnnotation().baseFunctions.emplace(std::get<FunctionDefinition const*>(_base.m_item));
 		}
 	}, m_item);
 }

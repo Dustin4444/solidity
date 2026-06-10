@@ -125,7 +125,7 @@ bool NameAndTypeResolver::performImports(SourceUnit& _sourceUnit, std::map<std::
 						))
 							error =  true;
 		}
-	_sourceUnit.annotation().exportedSymbols = m_scopes[&_sourceUnit]->declarations();
+	_sourceUnit.mutableAnnotation().exportedSymbols = m_scopes[&_sourceUnit]->declarations();
 	return !error;
 }
 
@@ -442,7 +442,7 @@ void NameAndTypeResolver::linearizeBaseContracts(ContractDefinition& _contract)
 	std::vector<ContractDefinition const*> result = cThreeMerge(input);
 	if (result.empty())
 		m_errorReporter.fatalTypeError(5005_error, _contract.location(), "Linearization of inheritance graph impossible");
-	_contract.annotation().linearizedBaseContracts = result;
+	_contract.mutableAnnotation().linearizedBaseContracts = result;
 }
 
 template <class T>
@@ -667,7 +667,7 @@ bool DeclarationRegistrationHelper::visitNode(ASTNode& _node)
 	if (auto* declaration = dynamic_cast<Declaration*>(&_node))
 		registerDeclaration(*declaration);
 
-	if (auto* annotation = dynamic_cast<TypeDeclarationAnnotation*>(&_node.annotation()))
+	if (auto* annotation = dynamic_cast<TypeDeclarationAnnotation*>(&_node.mutableAnnotation()))
 	{
 		std::string canonicalName = dynamic_cast<Declaration const&>(_node).name();
 		solAssert(!canonicalName.empty(), "");

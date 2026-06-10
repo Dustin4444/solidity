@@ -70,7 +70,7 @@ void SyntaxChecker::endVisit(SourceUnit const& _sourceUnit)
 		m_errorReporter.warning(3420_error, {-1, -1, _sourceUnit.location().sourceName}, errorString);
 	}
 	if (!m_sourceUnit->annotation().useABICoderV2.set())
-		m_sourceUnit->annotation().useABICoderV2 = true;
+		m_sourceUnit->mutableAnnotation().useABICoderV2 = true;
 	m_sourceUnit = nullptr;
 }
 
@@ -108,7 +108,7 @@ bool SyntaxChecker::visit(PragmaDirective const& _pragma)
 			else
 			{
 				auto feature = ExperimentalFeatureNames.at(literal);
-				m_sourceUnit->annotation().experimentalFeatures.insert(feature);
+				m_sourceUnit->mutableAnnotation().experimentalFeatures.insert(feature);
 				if (!ExperimentalFeatureWithoutWarning.count(feature))
 				{
 					if (!m_experimental)
@@ -133,7 +133,7 @@ bool SyntaxChecker::visit(PragmaDirective const& _pragma)
 							);
 					}
 					else
-						m_sourceUnit->annotation().useABICoderV2 = true;
+						m_sourceUnit->mutableAnnotation().useABICoderV2 = true;
 				}
 			}
 		}
@@ -157,7 +157,7 @@ bool SyntaxChecker::visit(PragmaDirective const& _pragma)
 				"ABI coder has already been selected for this source unit."
 			);
 		else
-			m_sourceUnit->annotation().useABICoderV2 = (_pragma.literals()[1] == "v2");
+			m_sourceUnit->mutableAnnotation().useABICoderV2 = (_pragma.literals()[1] == "v2");
 
 		if (
 			_pragma.literals().size() > 1 &&
@@ -368,7 +368,7 @@ bool SyntaxChecker::visit(InlineAssembly const& _inlineAssembly)
 						_inlineAssembly.location(),
 						"Inline assembly marked memory-safe multiple times."
 					);
-				_inlineAssembly.annotation().markedMemorySafe = true;
+				_inlineAssembly.mutableAnnotation().markedMemorySafe = true;
 			}
 			else
 				m_errorReporter.warning(

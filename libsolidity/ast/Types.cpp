@@ -2351,7 +2351,7 @@ bool StructType::containsNestedMapping() const
 
 			});
 
-		m_struct.annotation().containsNestedMapping = hasNestedMapping;
+		m_struct.mutableAnnotation().containsNestedMapping = hasNestedMapping;
 	}
 
 	return m_struct.annotation().containsNestedMapping.value();

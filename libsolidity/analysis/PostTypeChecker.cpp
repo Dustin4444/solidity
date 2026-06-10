@@ -519,7 +519,7 @@ struct SimpleCounterForLoopChecker: public PostTypeChecker::Checker
 	SimpleCounterForLoopChecker(ErrorReporter& _errorReporter): Checker(_errorReporter) {}
 	bool visit(ForStatement const& _forStatement) override
 	{
-		_forStatement.annotation().isSimpleCounterLoop = isSimpleCounterLoop(_forStatement);
+		_forStatement.mutableAnnotation().isSimpleCounterLoop = isSimpleCounterLoop(_forStatement);
 		return true;
 	}
 	bool isSimpleCounterLoop(ForStatement const& _forStatement) const

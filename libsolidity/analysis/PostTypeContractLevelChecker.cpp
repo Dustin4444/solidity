@@ -193,7 +193,7 @@ void PostTypeContractLevelChecker::checkStorageLayoutSpecifier(ContractDefinitio
 		);
 		return;
 	}
-	storageLayoutSpecifier->annotation().baseSlot = u256(baseSlot);
+	storageLayoutSpecifier->mutableAnnotation().baseSlot = u256(baseSlot);
 
 	bigint size = contractStorageSizeUpperBound(_contract, VariableDeclaration::Location::Unspecified);
 	solAssert(size < bigint(1) << 256);
@@ -210,7 +210,7 @@ namespace
 
 VariableDeclaration const* findLastStorageVariable(ContractDefinition const& _contract)
 {
-	for (ContractDefinition const* baseContract: ranges::actions::reverse(_contract.annotation().linearizedBaseContracts))
+	for (ContractDefinition const* baseContract: ranges::actions::reverse(_contract.mutableAnnotation().linearizedBaseContracts))
 		for (VariableDeclaration const* stateVariable: ranges::actions::reverse(baseContract->stateVariables()))
 			if (stateVariable->referenceLocation() == VariableDeclaration::Location::Unspecified)
 				return stateVariable;

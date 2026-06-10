@@ -113,7 +113,7 @@ bool DocStringTagParser::validateDocStringsUsingTypes(SourceUnit const& _sourceU
 bool DocStringTagParser::visit(ContractDefinition const& _contract)
 {
 	static std::set<std::string> const validTags = std::set<std::string>{"author", "title", "dev", "notice"};
-	parseDocStrings(_contract, _contract.annotation(), validTags, "contracts");
+	parseDocStrings(_contract, _contract.mutableAnnotation(), validTags, "contracts");
 
 	return true;
 }
@@ -121,9 +121,9 @@ bool DocStringTagParser::visit(ContractDefinition const& _contract)
 bool DocStringTagParser::visit(FunctionDefinition const& _function)
 {
 	if (_function.isConstructor())
-		handleConstructor(_function, _function, _function.annotation());
+		handleConstructor(_function, _function, _function.mutableAnnotation());
 	else
-		handleCallable(_function, _function, _function.annotation());
+		handleCallable(_function, _function, _function.mutableAnnotation());
 	return true;
 }
 
@@ -132,32 +132,32 @@ bool DocStringTagParser::visit(VariableDeclaration const& _variable)
 	if (_variable.isStateVariable())
 	{
 		if (_variable.isPublic())
-			parseDocStrings(_variable, _variable.annotation(), {"dev", "notice", "return", "inheritdoc"}, "public state variables");
+			parseDocStrings(_variable, _variable.mutableAnnotation(), {"dev", "notice", "return", "inheritdoc"}, "public state variables");
 		else
-			parseDocStrings(_variable, _variable.annotation(), {"dev", "notice", "inheritdoc"}, "non-public state variables");
+			parseDocStrings(_variable, _variable.mutableAnnotation(), {"dev", "notice", "inheritdoc"}, "non-public state variables");
 	}
 	else if (_variable.isFileLevelVariable())
-		parseDocStrings(_variable, _variable.annotation(), {"dev"}, "file-level variables");
+		parseDocStrings(_variable, _variable.mutableAnnotation(), {"dev"}, "file-level variables");
 	return false;
 }
 
 bool DocStringTagParser::visit(ModifierDefinition const& _modifier)
 {
-	handleCallable(_modifier, _modifier, _modifier.annotation());
+	handleCallable(_modifier, _modifier, _modifier.mutableAnnotation());
 
 	return true;
 }
 
 bool DocStringTagParser::visit(EventDefinition const& _event)
 {
-	handleCallable(_event, _event, _event.annotation());
+	handleCallable(_event, _event, _event.mutableAnnotation());
 
 	return true;
 }
 
 bool DocStringTagParser::visit(ErrorDefinition const& _error)
 {
-	handleCallable(_error, _error, _error.annotation());
+	handleCallable(_error, _error, _error.mutableAnnotation());
 
 	return true;
 }
@@ -210,7 +210,7 @@ bool DocStringTagParser::visit(InlineAssembly const& _assembly)
 								"If you are not concerned with backwards compatibility, only use the assembly block annotation, "
 								"otherwise only use the NatSpec tag."
 							);
-						_assembly.annotation().markedMemorySafe = true;
+						_assembly.mutableAnnotation().markedMemorySafe = true;
 						m_errorReporter.warning(
 							2424_error,
 							_assembly.location(),

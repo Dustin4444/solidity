@@ -114,8 +114,8 @@ public:
 	/// Returns the source code location of this node.
 	SourceLocation const& location() const { return m_location; }
 
-	///@todo make this const-safe by providing a different way to access the annotation
-	virtual ASTAnnotation& annotation() const;
+	virtual ASTAnnotation const& annotation() const;
+	virtual ASTAnnotation& mutableAnnotation() const;
 
 	///@{
 	///@name equality operators
@@ -183,7 +183,8 @@ public:
 
 	void accept(ASTVisitor& _visitor) override;
 	void accept(ASTConstVisitor& _visitor) const override;
-	SourceUnitAnnotation& annotation() const override;
+	SourceUnitAnnotation const& annotation() const override;
+	SourceUnitAnnotation& mutableAnnotation() const override;
 
 	std::optional<std::string> const& licenseString() const { return m_licenseString; }
 	std::vector<ASTPointer<ASTNode>> nodes() const { return m_nodes; }
@@ -226,7 +227,8 @@ public:
 	/// Can be combined with annotation().canonicalName (if present) to form a globally unique name.
 	std::string sourceUnitName() const;
 
-	virtual ScopableAnnotation& annotation() const = 0;
+	virtual ScopableAnnotation const& annotation() const = 0;
+	virtual ScopableAnnotation& mutableAnnotation() const = 0;
 };
 
 /**
@@ -333,7 +335,8 @@ public:
 	/// @returns null when it is not accessible as a function.
 	virtual FunctionTypePointer functionType(bool /*_internal*/) const { return {}; }
 
-	DeclarationAnnotation& annotation() const override;
+	DeclarationAnnotation const& annotation() const override;
+	DeclarationAnnotation& mutableAnnotation() const override;
 
 protected:
 	virtual Visibility defaultVisibility() const { return Visibility::Public; }
@@ -415,7 +418,8 @@ public:
 	{
 		return m_symbolAliases;
 	}
-	ImportAnnotation& annotation() const override;
+	ImportAnnotation const& annotation() const override;
+	ImportAnnotation& mutableAnnotation() const override;
 
 	Type const* type() const override;
 
@@ -610,7 +614,8 @@ public:
 
 	Type const* type() const override;
 
-	ContractDefinitionAnnotation& annotation() const override;
+	ContractDefinitionAnnotation const& annotation() const override;
+	ContractDefinitionAnnotation& mutableAnnotation() const override;
 
 	ContractKind contractKind() const { return m_contractKind; }
 
@@ -650,7 +655,8 @@ public:
 	void accept(ASTConstVisitor& _visitor) const override;
 
 	Expression const& baseSlotExpression() const { solAssert(m_baseSlotExpression); return *m_baseSlotExpression; }
-	StorageLayoutSpecifierAnnotation& annotation() const override;
+	StorageLayoutSpecifierAnnotation const& annotation() const override;
+	StorageLayoutSpecifierAnnotation& mutableAnnotation() const override;
 
 private:
 	ASTPointer<Expression> m_baseSlotExpression;
@@ -675,7 +681,11 @@ public:
 
 	std::vector<ASTString> const& path() const { return m_path; }
 	std::vector<SourceLocation > const& pathLocations() const { return m_pathLocations; }
-	IdentifierPathAnnotation& annotation() const override
+	IdentifierPathAnnotation const& annotation() const override
+	{
+		return mutableAnnotation();
+	}
+	IdentifierPathAnnotation& mutableAnnotation() const override
 	{
 		return initAnnotation<IdentifierPathAnnotation>();
 	}
@@ -810,7 +820,8 @@ public:
 	bool isVisibleInDerivedContracts() const override { return true; }
 	bool isVisibleViaContractTypeAccess() const override { return true; }
 
-	StructDeclarationAnnotation& annotation() const override;
+	StructDeclarationAnnotation const& annotation() const override;
+	StructDeclarationAnnotation& mutableAnnotation() const override;
 
 private:
 	std::vector<ASTPointer<VariableDeclaration>> m_members;
@@ -842,7 +853,8 @@ public:
 
 	Type const* type() const override;
 
-	TypeDeclarationAnnotation& annotation() const override;
+	TypeDeclarationAnnotation const& annotation() const override;
+	TypeDeclarationAnnotation& mutableAnnotation() const override;
 
 private:
 	std::vector<ASTPointer<EnumValue>> m_members;
@@ -895,7 +907,8 @@ public:
 
 	Type const* type() const override;
 
-	TypeDeclarationAnnotation& annotation() const override;
+	TypeDeclarationAnnotation const& annotation() const override;
+	TypeDeclarationAnnotation& mutableAnnotation() const override;
 
 	TypeName const* underlyingType() const { return m_underlyingType.get(); }
 	bool isVisibleViaContractTypeAccess() const override { return true; }
@@ -962,7 +975,8 @@ public:
 	bool markedVirtual() const { return m_isVirtual; }
 	virtual bool virtualSemantics() const { return markedVirtual(); }
 
-	CallableDeclarationAnnotation& annotation() const override = 0;
+	CallableDeclarationAnnotation const& annotation() const override = 0;
+	CallableDeclarationAnnotation& mutableAnnotation() const override = 0;
 
 	/// Performs virtual or super function/modifier lookup:
 	/// If @a _searchStart is nullptr, performs virtual function lookup, i.e.
@@ -1088,7 +1102,8 @@ public:
 	/// @returns null when it is not accessible as a function.
 	FunctionTypePointer functionType(bool /*_internal*/) const override;
 
-	FunctionDefinitionAnnotation& annotation() const override;
+	FunctionDefinitionAnnotation const& annotation() const override;
+	FunctionDefinitionAnnotation& mutableAnnotation() const override;
 
 	bool virtualSemantics() const override
 	{
@@ -1222,7 +1237,8 @@ public:
 	FunctionTypePointer functionType(bool /*_internal*/) const override;
 
 	ASTPointer<Expression> const& typeExpression() const { return m_typeExpression; }
-	VariableDeclarationAnnotation& annotation() const override;
+	VariableDeclarationAnnotation const& annotation() const override;
+	VariableDeclarationAnnotation& mutableAnnotation() const override;
 
 protected:
 	Visibility defaultVisibility() const override { return Visibility::Internal; }
@@ -1273,7 +1289,8 @@ public:
 
 	Visibility defaultVisibility() const override { return Visibility::Internal; }
 
-	ModifierDefinitionAnnotation& annotation() const override;
+	ModifierDefinitionAnnotation const& annotation() const override;
+	ModifierDefinitionAnnotation& mutableAnnotation() const override;
 
 	ModifierDefinition const& resolveVirtual(
 		ContractDefinition const& _mostDerivedContract,
@@ -1348,7 +1365,8 @@ public:
 	bool isVisibleInDerivedContracts() const override { return true; }
 	bool isVisibleViaContractTypeAccess() const override { return true; }
 
-	EventDefinitionAnnotation& annotation() const override;
+	EventDefinitionAnnotation const& annotation() const override;
+	EventDefinitionAnnotation& mutableAnnotation() const override;
 
 	CallableDeclaration const& resolveVirtual(
 		ContractDefinition const&,
@@ -1392,7 +1410,8 @@ public:
 	bool isVisibleInDerivedContracts() const override { return true; }
 	bool isVisibleViaContractTypeAccess() const override { return true; }
 
-	ErrorDefinitionAnnotation& annotation() const override;
+	ErrorDefinitionAnnotation const& annotation() const override;
+	ErrorDefinitionAnnotation& mutableAnnotation() const override;
 
 	CallableDeclaration const& resolveVirtual(
 		ContractDefinition const&,
@@ -1445,7 +1464,8 @@ protected:
 	explicit TypeName(int64_t _id, SourceLocation const& _location): ASTNode(_id, _location) {}
 
 public:
-	TypeNameAnnotation& annotation() const override;
+	TypeNameAnnotation const& annotation() const override;
+	TypeNameAnnotation& mutableAnnotation() const override;
 };
 
 /**
@@ -1622,7 +1642,8 @@ public:
 		ASTPointer<ASTString> const& _docString
 	): ASTNode(_id, _location), Documented(_docString) {}
 
-	StatementAnnotation& annotation() const override;
+	StatementAnnotation const& annotation() const override;
+	StatementAnnotation& mutableAnnotation() const override;
 };
 
 /**
@@ -1651,7 +1672,8 @@ public:
 	yul::AST const& operations() const { return *m_operations; }
 	ASTPointer<std::vector<ASTPointer<ASTString>>> const& flags() const { return m_flags; }
 
-	InlineAssemblyAnnotation& annotation() const override;
+	InlineAssemblyAnnotation const& annotation() const override;
+	InlineAssemblyAnnotation& mutableAnnotation() const override;
 
 private:
 	yul::Dialect const& m_dialect;
@@ -1682,7 +1704,8 @@ public:
 	std::vector<ASTPointer<Statement>> const& statements() const { return m_statements; }
 	bool unchecked() const { return m_unchecked; }
 
-	BlockAnnotation& annotation() const override;
+	BlockAnnotation const& annotation() const override;
+	BlockAnnotation& mutableAnnotation() const override;
 
 private:
 	std::vector<ASTPointer<Statement>> m_statements;
@@ -1767,7 +1790,8 @@ public:
 	ParameterList const* parameters() const { return m_parameters.get(); }
 	Block const& block() const { return *m_block; }
 
-	TryCatchClauseAnnotation& annotation() const override;
+	TryCatchClauseAnnotation const& annotation() const override;
+	TryCatchClauseAnnotation& mutableAnnotation() const override;
 
 private:
 	ASTPointer<ASTString> m_errorName;
@@ -1889,7 +1913,8 @@ public:
 	ExpressionStatement const* loopExpression() const { return m_loopExpression.get(); }
 	Statement const& body() const { return *m_body; }
 
-	ForStatementAnnotation& annotation() const override;
+	ForStatementAnnotation const& annotation() const override;
+	ForStatementAnnotation& mutableAnnotation() const override;
 
 private:
 	/// For statement's initialization expression. for (XXX; ; ). Can be empty
@@ -1934,7 +1959,8 @@ public:
 
 	Expression const* expression() const { return m_expression.get(); }
 
-	ReturnAnnotation& annotation() const override;
+	ReturnAnnotation const& annotation() const override;
+	ReturnAnnotation& mutableAnnotation() const override;
 
 private:
 	ASTPointer<Expression> m_expression; ///< value to return, optional
@@ -2071,7 +2097,8 @@ class Expression: public ASTNode
 public:
 	explicit Expression(int64_t _id, SourceLocation const& _location): ASTNode(_id, _location) {}
 
-	ExpressionAnnotation& annotation() const override;
+	ExpressionAnnotation const& annotation() const override;
+	ExpressionAnnotation& mutableAnnotation() const override;
 };
 
 class Conditional: public Expression
@@ -2195,7 +2222,8 @@ public:
 
 	FunctionType const* userDefinedFunctionType() const;
 
-	OperationAnnotation& annotation() const override;
+	OperationAnnotation const& annotation() const override;
+	OperationAnnotation& mutableAnnotation() const override;
 
 private:
 	Token m_operator;
@@ -2231,7 +2259,8 @@ public:
 
 	FunctionType const* userDefinedFunctionType() const;
 
-	BinaryOperationAnnotation& annotation() const override;
+	BinaryOperationAnnotation const& annotation() const override;
+	BinaryOperationAnnotation& mutableAnnotation() const override;
 
 private:
 	ASTPointer<Expression> m_left;
@@ -2272,7 +2301,8 @@ public:
 	std::vector<ASTPointer<ASTString>> const& names() const { return m_names; }
 	std::vector<SourceLocation> const& nameLocations() const { return m_nameLocations; }
 
-	FunctionCallAnnotation& annotation() const override;
+	FunctionCallAnnotation const& annotation() const override;
+	FunctionCallAnnotation& mutableAnnotation() const override;
 
 private:
 	ASTPointer<Expression> m_expression;
@@ -2357,7 +2387,8 @@ public:
 	ASTString const& memberName() const { return *m_memberName; }
 	SourceLocation const& memberLocation() const { return m_memberLocation; }
 
-	MemberAccessAnnotation& annotation() const override;
+	MemberAccessAnnotation const& annotation() const override;
+	MemberAccessAnnotation& mutableAnnotation() const override;
 
 private:
 	ASTPointer<Expression> m_expression;
@@ -2443,7 +2474,8 @@ public:
 
 	ASTString const& name() const { return *m_name; }
 
-	IdentifierAnnotation& annotation() const override;
+	IdentifierAnnotation const& annotation() const override;
+	IdentifierAnnotation& mutableAnnotation() const override;
 
 private:
 	ASTPointer<ASTString> m_name;
@@ -2557,7 +2589,8 @@ public:
 	VariableDeclaration const& typeVariable() const { return *m_typeVariable; }
 	std::vector<ASTPointer<ASTNode>> const& subNodes() const { return m_subNodes; }
 
-	TypeClassDefinitionAnnotation& annotation() const override;
+	TypeClassDefinitionAnnotation const& annotation() const override;
+	TypeClassDefinitionAnnotation& mutableAnnotation() const override;
 
 	Type const* type() const override { solAssert(false, "Requested type of experimental solidity node."); }
 
@@ -2625,7 +2658,8 @@ public:
 
 	Type const* type() const override { return nullptr; }
 
-	TypeDeclarationAnnotation& annotation() const override;
+	TypeDeclarationAnnotation const& annotation() const override;
+	TypeDeclarationAnnotation& mutableAnnotation() const override;
 
 	ParameterList const* arguments() const { return m_arguments.get(); }
 	Expression const* typeExpression() const { return m_typeExpression.get(); }
@@ -2712,7 +2746,8 @@ public:
 
 	void accept(ASTVisitor& _visitor) override;
 	void accept(ASTConstVisitor& _visitor) const override;
-	ForAllQuantifierAnnotation& annotation() const override { return initAnnotation<ForAllQuantifierAnnotation>(); }
+	ForAllQuantifierAnnotation const& annotation() const override { return mutableAnnotation(); }
+	ForAllQuantifierAnnotation& mutableAnnotation() const override { return initAnnotation<ForAllQuantifierAnnotation>(); }
 
 	bool experimentalSolidityOnly() const override { return true; }
 

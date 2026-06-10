@@ -115,14 +115,24 @@ FunctionDefinition const* ASTNode::resolveFunctionCall(FunctionCall const& _func
 	return functionDef;
 }
 
-ASTAnnotation& ASTNode::annotation() const
+ASTAnnotation const& ASTNode::annotation() const
+{
+	return ASTNode::mutableAnnotation();
+}
+
+ASTAnnotation& ASTNode::mutableAnnotation() const
 {
 	if (!m_annotation)
 		m_annotation = std::make_unique<ASTAnnotation>();
 	return *m_annotation;
 }
 
-SourceUnitAnnotation& SourceUnit::annotation() const
+SourceUnitAnnotation const& SourceUnit::annotation() const
+{
+	return SourceUnit::mutableAnnotation();
+}
+
+SourceUnitAnnotation& SourceUnit::mutableAnnotation() const
 {
 	return initAnnotation<SourceUnitAnnotation>();
 }
@@ -149,7 +159,12 @@ void SourceUnit::referencedSourceUnits(std::set<SourceUnit const*>& _referencedS
 	}
 }
 
-ImportAnnotation& ImportDirective::annotation() const
+ImportAnnotation const& ImportDirective::annotation() const
+{
+	return ImportDirective::mutableAnnotation();
+}
+
+ImportAnnotation& ImportDirective::mutableAnnotation() const
 {
 	return initAnnotation<ImportAnnotation>();
 }
@@ -325,7 +340,12 @@ Type const* ContractDefinition::type() const
 	return TypeProvider::typeType(TypeProvider::contract(*this));
 }
 
-ContractDefinitionAnnotation& ContractDefinition::annotation() const
+ContractDefinitionAnnotation const& ContractDefinition::annotation() const
+{
+	return ContractDefinition::mutableAnnotation();
+}
+
+ContractDefinitionAnnotation& ContractDefinition::mutableAnnotation() const
 {
 	return initAnnotation<ContractDefinitionAnnotation>();
 }
@@ -383,12 +403,22 @@ StorageLayoutSpecifier::StorageLayoutSpecifier(
 	solAssert(_location.contains(m_baseSlotExpression->location()));
 }
 
-StorageLayoutSpecifierAnnotation& StorageLayoutSpecifier::annotation() const
+StorageLayoutSpecifierAnnotation const& StorageLayoutSpecifier::annotation() const
+{
+	return StorageLayoutSpecifier::mutableAnnotation();
+}
+
+StorageLayoutSpecifierAnnotation& StorageLayoutSpecifier::mutableAnnotation() const
 {
 	return initAnnotation<StorageLayoutSpecifierAnnotation>();
 }
 
-TypeNameAnnotation& TypeName::annotation() const
+TypeNameAnnotation const& TypeName::annotation() const
+{
+	return TypeName::mutableAnnotation();
+}
+
+TypeNameAnnotation& TypeName::mutableAnnotation() const
 {
 	return initAnnotation<TypeNameAnnotation>();
 }
@@ -399,7 +429,12 @@ Type const* UserDefinedValueTypeDefinition::type() const
 	return TypeProvider::typeType(TypeProvider::userDefinedValueType(*this));
 }
 
-TypeDeclarationAnnotation& UserDefinedValueTypeDefinition::annotation() const
+TypeDeclarationAnnotation const& UserDefinedValueTypeDefinition::annotation() const
+{
+	return UserDefinedValueTypeDefinition::mutableAnnotation();
+}
+
+TypeDeclarationAnnotation& UserDefinedValueTypeDefinition::mutableAnnotation() const
 {
 	return initAnnotation<TypeDeclarationAnnotation>();
 }
@@ -415,7 +450,12 @@ Type const* StructDefinition::type() const
 	return TypeProvider::typeType(TypeProvider::structType(*this, DataLocation::Storage));
 }
 
-StructDeclarationAnnotation& StructDefinition::annotation() const
+StructDeclarationAnnotation const& StructDefinition::annotation() const
+{
+	return StructDefinition::mutableAnnotation();
+}
+
+StructDeclarationAnnotation& StructDefinition::mutableAnnotation() const
 {
 	return initAnnotation<StructDeclarationAnnotation>();
 }
@@ -432,7 +472,12 @@ Type const* EnumDefinition::type() const
 	return TypeProvider::typeType(TypeProvider::enumType(*this));
 }
 
-TypeDeclarationAnnotation& EnumDefinition::annotation() const
+TypeDeclarationAnnotation const& EnumDefinition::annotation() const
+{
+	return EnumDefinition::mutableAnnotation();
+}
+
+TypeDeclarationAnnotation& EnumDefinition::mutableAnnotation() const
 {
 	return initAnnotation<TypeDeclarationAnnotation>();
 }
@@ -556,7 +601,12 @@ std::string FunctionDefinition::externalIdentifierHex() const
 	return TypeProvider::function(*this)->externalIdentifierHex();
 }
 
-FunctionDefinitionAnnotation& FunctionDefinition::annotation() const
+FunctionDefinitionAnnotation const& FunctionDefinition::annotation() const
+{
+	return FunctionDefinition::mutableAnnotation();
+}
+
+FunctionDefinitionAnnotation& FunctionDefinition::mutableAnnotation() const
 {
 	return initAnnotation<FunctionDefinitionAnnotation>();
 }
@@ -611,7 +661,12 @@ Type const* ModifierDefinition::type() const
 	return TypeProvider::modifier(*this);
 }
 
-ModifierDefinitionAnnotation& ModifierDefinition::annotation() const
+ModifierDefinitionAnnotation const& ModifierDefinition::annotation() const
+{
+	return ModifierDefinition::mutableAnnotation();
+}
+
+ModifierDefinitionAnnotation& ModifierDefinition::mutableAnnotation() const
 {
 	return initAnnotation<ModifierDefinitionAnnotation>();
 }
@@ -653,7 +708,12 @@ FunctionTypePointer EventDefinition::functionType(bool _internal) const
 		return nullptr;
 }
 
-EventDefinitionAnnotation& EventDefinition::annotation() const
+EventDefinitionAnnotation const& EventDefinition::annotation() const
+{
+	return EventDefinition::mutableAnnotation();
+}
+
+EventDefinitionAnnotation& EventDefinition::mutableAnnotation() const
 {
 	return initAnnotation<EventDefinitionAnnotation>();
 }
@@ -671,7 +731,12 @@ FunctionTypePointer ErrorDefinition::functionType(bool _internal) const
 		return nullptr;
 }
 
-ErrorDefinitionAnnotation& ErrorDefinition::annotation() const
+ErrorDefinitionAnnotation const& ErrorDefinition::annotation() const
+{
+	return ErrorDefinition::mutableAnnotation();
+}
+
+ErrorDefinitionAnnotation& ErrorDefinition::mutableAnnotation() const
 {
 	return initAnnotation<ErrorDefinitionAnnotation>();
 }
@@ -736,7 +801,12 @@ bool Declaration::isVisibleAsUnqualifiedName() const
 	return true;
 }
 
-DeclarationAnnotation& Declaration::annotation() const
+DeclarationAnnotation const& Declaration::annotation() const
+{
+	return Declaration::mutableAnnotation();
+}
+
+DeclarationAnnotation& Declaration::mutableAnnotation() const
 {
 	return initAnnotation<DeclarationAnnotation>();
 }
@@ -936,52 +1006,102 @@ FunctionTypePointer VariableDeclaration::functionType(bool _internal) const
 	return nullptr;
 }
 
-VariableDeclarationAnnotation& VariableDeclaration::annotation() const
+VariableDeclarationAnnotation const& VariableDeclaration::annotation() const
+{
+	return VariableDeclaration::mutableAnnotation();
+}
+
+VariableDeclarationAnnotation& VariableDeclaration::mutableAnnotation() const
 {
 	return initAnnotation<VariableDeclarationAnnotation>();
 }
 
-StatementAnnotation& Statement::annotation() const
+StatementAnnotation const& Statement::annotation() const
+{
+	return Statement::mutableAnnotation();
+}
+
+StatementAnnotation& Statement::mutableAnnotation() const
 {
 	return initAnnotation<StatementAnnotation>();
 }
 
-InlineAssemblyAnnotation& InlineAssembly::annotation() const
+InlineAssemblyAnnotation const& InlineAssembly::annotation() const
+{
+	return InlineAssembly::mutableAnnotation();
+}
+
+InlineAssemblyAnnotation& InlineAssembly::mutableAnnotation() const
 {
 	return initAnnotation<InlineAssemblyAnnotation>();
 }
 
-BlockAnnotation& Block::annotation() const
+BlockAnnotation const& Block::annotation() const
+{
+	return Block::mutableAnnotation();
+}
+
+BlockAnnotation& Block::mutableAnnotation() const
 {
 	return initAnnotation<BlockAnnotation>();
 }
 
-TryCatchClauseAnnotation& TryCatchClause::annotation() const
+TryCatchClauseAnnotation const& TryCatchClause::annotation() const
+{
+	return TryCatchClause::mutableAnnotation();
+}
+
+TryCatchClauseAnnotation& TryCatchClause::mutableAnnotation() const
 {
 	return initAnnotation<TryCatchClauseAnnotation>();
 }
 
-ForStatementAnnotation& ForStatement::annotation() const
+ForStatementAnnotation const& ForStatement::annotation() const
+{
+	return ForStatement::mutableAnnotation();
+}
+
+ForStatementAnnotation& ForStatement::mutableAnnotation() const
 {
 	return initAnnotation<ForStatementAnnotation>();
 }
 
-ReturnAnnotation& Return::annotation() const
+ReturnAnnotation const& Return::annotation() const
+{
+	return Return::mutableAnnotation();
+}
+
+ReturnAnnotation& Return::mutableAnnotation() const
 {
 	return initAnnotation<ReturnAnnotation>();
 }
 
-ExpressionAnnotation& Expression::annotation() const
+ExpressionAnnotation const& Expression::annotation() const
+{
+	return Expression::mutableAnnotation();
+}
+
+ExpressionAnnotation& Expression::mutableAnnotation() const
 {
 	return initAnnotation<ExpressionAnnotation>();
 }
 
-MemberAccessAnnotation& MemberAccess::annotation() const
+MemberAccessAnnotation const& MemberAccess::annotation() const
+{
+	return MemberAccess::mutableAnnotation();
+}
+
+MemberAccessAnnotation& MemberAccess::mutableAnnotation() const
 {
 	return initAnnotation<MemberAccessAnnotation>();
 }
 
-OperationAnnotation& UnaryOperation::annotation() const
+OperationAnnotation const& UnaryOperation::annotation() const
+{
+	return UnaryOperation::mutableAnnotation();
+}
+
+OperationAnnotation& UnaryOperation::mutableAnnotation() const
 {
 	return initAnnotation<OperationAnnotation>();
 }
@@ -1004,12 +1124,22 @@ FunctionType const* BinaryOperation::userDefinedFunctionType() const
 	return dynamic_cast<FunctionType const*>(userDefinedFunction->typeWhenAttached());
 }
 
-BinaryOperationAnnotation& BinaryOperation::annotation() const
+BinaryOperationAnnotation const& BinaryOperation::annotation() const
+{
+	return BinaryOperation::mutableAnnotation();
+}
+
+BinaryOperationAnnotation& BinaryOperation::mutableAnnotation() const
 {
 	return initAnnotation<BinaryOperationAnnotation>();
 }
 
-FunctionCallAnnotation& FunctionCall::annotation() const
+FunctionCallAnnotation const& FunctionCall::annotation() const
+{
+	return FunctionCall::mutableAnnotation();
+}
+
+FunctionCallAnnotation& FunctionCall::mutableAnnotation() const
 {
 	return initAnnotation<FunctionCallAnnotation>();
 }
@@ -1052,7 +1182,12 @@ std::vector<ASTPointer<Expression const>> FunctionCall::sortedArguments() const
 	return sorted;
 }
 
-IdentifierAnnotation& Identifier::annotation() const
+IdentifierAnnotation const& Identifier::annotation() const
+{
+	return Identifier::mutableAnnotation();
+}
+
+IdentifierAnnotation& Identifier::mutableAnnotation() const
 {
 	return initAnnotation<IdentifierAnnotation>();
 }
@@ -1117,11 +1252,21 @@ TryCatchClause const* TryStatement::fallbackClause() const {
 
 /// Experimental Solidity nodes
 /// @{
-TypeClassDefinitionAnnotation& TypeClassDefinition::annotation() const
+TypeClassDefinitionAnnotation const& TypeClassDefinition::annotation() const
+{
+	return TypeClassDefinition::mutableAnnotation();
+}
+
+TypeClassDefinitionAnnotation& TypeClassDefinition::mutableAnnotation() const
 {
 	return initAnnotation<TypeClassDefinitionAnnotation>();
 }
-TypeDeclarationAnnotation& TypeDefinition::annotation() const
+TypeDeclarationAnnotation const& TypeDefinition::annotation() const
+{
+	return TypeDefinition::mutableAnnotation();
+}
+
+TypeDeclarationAnnotation& TypeDefinition::mutableAnnotation() const
 {
 	return initAnnotation<TypeDeclarationAnnotation>();
 }

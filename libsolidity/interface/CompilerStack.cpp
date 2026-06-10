@@ -137,7 +137,7 @@ void CompilerStack::createAndAssignCallGraphs()
 		for (ContractDefinition const* contract: ASTNode::filteredNodes<ContractDefinition>(source->ast->nodes()))
 		{
 			ContractDefinitionAnnotation& annotation =
-				m_contracts.at(contract->fullyQualifiedName()).contract->annotation();
+				m_contracts.at(contract->fullyQualifiedName()).contract->mutableAnnotation();
 
 			annotation.creationCallGraph = std::make_unique<CallGraph>(
 				FunctionCallGraphBuilder::buildCreationGraph(*contract)
@@ -378,7 +378,7 @@ bool CompilerStack::parse()
 				solAssert(Error::containsErrors(m_errorReporter.errors()), "Parser returned null but did not report error.");
 			else
 			{
-				source.ast->annotation().path = path;
+				source.ast->mutableAnnotation().path = path;
 
 				for (auto const& import: ASTNode::filteredNodes<ImportDirective>(source.ast->nodes()))
 				{
@@ -396,7 +396,7 @@ bool CompilerStack::parse()
 					// The current value of `path` is the absolute path as seen from this source file.
 					// We first have to apply remappings before we can store the actual absolute path
 					// as seen globally.
-					import->annotation().absolutePath = applyRemapping(util::absolutePath(
+					import->mutableAnnotation().absolutePath = applyRemapping(util::absolutePath(
 						import->path(),
 						path
 					), path);
@@ -1402,7 +1402,7 @@ bool CompilerStack::resolveImports()
 			{
 				std::string const& path = *import->annotation().absolutePath;
 				solAssert(m_sources.count(path), "");
-				import->annotation().sourceUnit = m_sources[path].ast.get();
+				import->mutableAnnotation().sourceUnit = m_sources[path].ast.get();
 				toposort(&m_sources[path]);
 			}
 		sourceOrder.push_back(_source);
@@ -1466,7 +1466,7 @@ void CompilerStack::annotateInternalFunctionIDs()
 		for (ContractDefinition const* contract: ASTNode::filteredNodes<ContractDefinition>(source->ast->nodes()))
 		{
 			uint64_t internalFunctionID = 1;
-			ContractDefinitionAnnotation& annotation = contract->annotation();
+			ContractDefinitionAnnotation& annotation = contract->mutableAnnotation();
 
 			if (auto const* deployTimeInternalDispatch = util::valueOrNullptr((*annotation.deployedCallGraph)->edges, CallGraph::SpecialNode::InternalDispatch))
 				for (auto const& node: *deployTimeInternalDispatch)
@@ -1474,7 +1474,7 @@ void CompilerStack::annotateInternalFunctionIDs()
 						if (auto const* function = dynamic_cast<FunctionDefinition const*>(*callable))
 						{
 							solAssert(contract->annotation().internalFunctionIDs.count(function) == 0);
-							contract->annotation().internalFunctionIDs[function] = internalFunctionID++;
+							contract->mutableAnnotation().internalFunctionIDs[function] = internalFunctionID++;
 						}
 			if (auto const* creationTimeInternalDispatch = util::valueOrNullptr((*annotation.creationCallGraph)->edges, CallGraph::SpecialNode::InternalDispatch))
 				for (auto const& node: *creationTimeInternalDispatch)

@@ -37,7 +37,7 @@ bool DeclarationTypeChecker::visit(ElementaryTypeName const& _typeName)
 	if (_typeName.annotation().type)
 		return false;
 
-	_typeName.annotation().type = TypeProvider::fromElementaryTypeName(_typeName.typeName());
+	_typeName.mutableAnnotation().type = TypeProvider::fromElementaryTypeName(_typeName.typeName());
 	if (_typeName.stateMutability().has_value())
 	{
 		// for non-address types this was already caught by the parser
@@ -45,10 +45,10 @@ bool DeclarationTypeChecker::visit(ElementaryTypeName const& _typeName)
 		switch (*_typeName.stateMutability())
 		{
 			case StateMutability::Payable:
-				_typeName.annotation().type = TypeProvider::payableAddress();
+				_typeName.mutableAnnotation().type = TypeProvider::payableAddress();
 				break;
 			case StateMutability::NonPayable:
-				_typeName.annotation().type = TypeProvider::address();
+				_typeName.mutableAnnotation().type = TypeProvider::address();
 				break;
 			default:
 				m_errorReporter.typeError(
@@ -85,7 +85,7 @@ bool DeclarationTypeChecker::visit(StructDefinition const& _struct)
 
 	if (m_currentStructsSeen.count(&_struct))
 	{
-		_struct.annotation().recursive = true;
+		_struct.mutableAnnotation().recursive = true;
 		m_recursiveStructSeen = true;
 		return false;
 	}
@@ -105,7 +105,7 @@ bool DeclarationTypeChecker::visit(StructDefinition const& _struct)
 	}
 
 	if (!_struct.annotation().recursive.has_value())
-		_struct.annotation().recursive = hasRecursiveChild;
+		_struct.mutableAnnotation().recursive = hasRecursiveChild;
 	m_recursiveStructSeen = previousRecursiveStructSeen || *_struct.annotation().recursive;
 	m_currentStructsSeen.erase(&_struct);
 	if (m_currentStructsSeen.empty())
@@ -175,17 +175,17 @@ void DeclarationTypeChecker::endVisit(UserDefinedTypeName const& _typeName)
 	{
 		if (!m_insideFunctionType && !m_currentStructsSeen.empty())
 			structDef->accept(*this);
-		_typeName.annotation().type = TypeProvider::structType(*structDef, DataLocation::Storage);
+		_typeName.mutableAnnotation().type = TypeProvider::structType(*structDef, DataLocation::Storage);
 	}
 	else if (EnumDefinition const* enumDef = dynamic_cast<EnumDefinition const*>(declaration))
-		_typeName.annotation().type = TypeProvider::enumType(*enumDef);
+		_typeName.mutableAnnotation().type = TypeProvider::enumType(*enumDef);
 	else if (ContractDefinition const* contract = dynamic_cast<ContractDefinition const*>(declaration))
-		_typeName.annotation().type = TypeProvider::contract(*contract);
+		_typeName.mutableAnnotation().type = TypeProvider::contract(*contract);
 	else if (auto userDefinedValueType = dynamic_cast<UserDefinedValueTypeDefinition const*>(declaration))
-		_typeName.annotation().type = TypeProvider::userDefinedValueType(*userDefinedValueType);
+		_typeName.mutableAnnotation().type = TypeProvider::userDefinedValueType(*userDefinedValueType);
 	else
 	{
-		_typeName.annotation().type = TypeProvider::emptyTuple();
+		_typeName.mutableAnnotation().type = TypeProvider::emptyTuple();
 		m_errorReporter.fatalTypeError(
 			5172_error,
 			_typeName.location(),
@@ -238,7 +238,7 @@ bool DeclarationTypeChecker::visit(FunctionTypeName const& _typeName)
 		);
 		return false;
 	}
-	_typeName.annotation().type = TypeProvider::function(_typeName);
+	_typeName.mutableAnnotation().type = TypeProvider::function(_typeName);
 	return false;
 }
 
@@ -276,7 +276,7 @@ void DeclarationTypeChecker::endVisit(Mapping const& _mapping)
 
 	// Convert value type to storage reference.
 	valueType = TypeProvider::withLocationIfReference(DataLocation::Storage, valueType);
-	_mapping.annotation().type = TypeProvider::mapping(keyType, keyName, valueType, valueName);
+	_mapping.mutableAnnotation().type = TypeProvider::mapping(keyType, keyName, valueType, valueName);
 
 	// Check if parameter names are conflicting.
 	if (!keyName.empty())
@@ -362,14 +362,14 @@ void DeclarationTypeChecker::endVisit(ArrayTypeName const& _typeName)
 				"Array length too large, maximum is 2**256 - 1."
 			);
 
-		_typeName.annotation().type = TypeProvider::array(
+		_typeName.mutableAnnotation().type = TypeProvider::array(
 			DataLocation::Storage,
 			baseType,
 			lengthValue ? u256(lengthValue->numerator()) : u256(0)
 		);
 	}
 	else
-		_typeName.annotation().type = TypeProvider::array(DataLocation::Storage, baseType);
+		_typeName.mutableAnnotation().type = TypeProvider::array(DataLocation::Storage, baseType);
 }
 
 void DeclarationTypeChecker::endVisit(VariableDeclaration const& _variable)
@@ -537,7 +537,7 @@ void DeclarationTypeChecker::endVisit(VariableDeclaration const& _variable)
 	if (!type->isValueType())
 		solUnimplementedAssert(typeLoc != DataLocation::Transient, "Transient data location is only supported for value types.");
 
-	_variable.annotation().type = type;
+	_variable.mutableAnnotation().type = type;
 }
 
 bool DeclarationTypeChecker::visit(UsingForDirective const& _usingFor)

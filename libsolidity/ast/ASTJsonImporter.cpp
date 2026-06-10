@@ -283,7 +283,7 @@ ASTPointer<SourceUnit> ASTJsonImporter::createSourceUnit(Json const& _node, std:
 		nodes.emplace_back(convertJsonToASTNode(child));
 
 	ASTPointer<SourceUnit> tmp = createASTNode<SourceUnit>(_node, license, nodes, experimentalSolidity);
-	tmp->annotation().path = _srcName;
+	tmp->mutableAnnotation().path = _srcName;
 	return tmp;
 }
 
@@ -326,7 +326,7 @@ ASTPointer<ImportDirective> ASTJsonImporter::createImportDirective(Json const& _
 
 	astAssert(_node["absolutePath"].is_string(), "Expected 'absolutePath' to be a string!");
 
-	tmp->annotation().absolutePath = _node["absolutePath"].get<std::string>();
+	tmp->mutableAnnotation().absolutePath = _node["absolutePath"].get<std::string>();
 	return tmp;
 }
 
