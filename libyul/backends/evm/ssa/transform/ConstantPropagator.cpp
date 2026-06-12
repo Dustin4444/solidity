@@ -274,3 +274,25 @@ void transform::propagateConstants(SSACFG& _cfg)
 		_cfg.replaceWithIdentity(instId, constInstId);
 	}
 }
+
+void transform::pruneConstantConditionBranches(SSACFG& _cfg)
+{
+	for (auto const bid : _cfg.liveBlocks())
+	{
+		auto& block =_cfg.block(bid);
+		if (auto const* conditionalJump = std::get_if<SSACFG::BasicBlock::ConditionalJump>(&block.exit))
+		{
+			auto const iid = conditionalJump->condition;
+			auto const& inst = _cfg.inst(iid);
+			if (!inst.isLiteral())
+				continue;
+			bool const isZero = _cfg.literalPayload(iid).is_zero();
+			auto& prunedBlock = _cfg.block(isZero ? conditionalJump->nonZero : conditionalJump->zero);
+			auto it = std::find(prunedBlock.entries.begin(), prunedBlock.entries.end(), bid);
+			yulAssert(it != prunedBlock.entries.end());
+			prunedBlock.entries.erase(it);
+			block.exit = SSACFG::BasicBlock::Jump{.target = isZero ? conditionalJump->zero : conditionalJump->nonZero};
+
+		}
+	}
+}

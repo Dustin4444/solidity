@@ -36,6 +36,10 @@ void transform::optimize(ControlFlowGraphs& _cfgs)
 		transform::eliminateTrivialPhis(*cfg);
 		transform::propagateConstants(*cfg);
 		transform::removeIdentitiesAndNops(*cfg);
+		transform::pruneConstantConditionBranches(*cfg);
+		transform::cleanUnreachableBlocks(*cfg);
+		transform::eliminateTrivialPhis(*cfg);
+		transform::removeIdentitiesAndNops(*cfg);
 	}
 	// transform::runOutliner(_cfgs);
 }

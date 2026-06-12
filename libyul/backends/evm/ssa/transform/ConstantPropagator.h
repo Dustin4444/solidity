@@ -27,6 +27,8 @@ class SSACFG;
 namespace transform
 {
 void propagateConstants(SSACFG& _cfg);
+
+void pruneConstantConditionBranches(SSACFG& _cfg);
 }
 
 }
