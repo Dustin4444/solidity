@@ -7,6 +7,7 @@ Language Features:
 
 Compiler Features:
 * Commandline Interface: Remove support for the experimental Language Server Protocol (LSP) mode.
+* EVM: Deprecate support for "constantinople", "petersburg", "istanbul" and "berlin" EVM versions.
 * EVM-ASM Optimizer: Improve performance of block deduplicator.
 * General: Improve performance throughout the compiler using Boost's flat versions of unordered set and map.
 * General: Remove support for the experimental Generic Solidity prototype (`pragma experimental solidity`).

@@ -907,11 +907,11 @@ std::variant<StandardCompiler::InputsAndSettings, Json> StandardCompiler::parseI
 		std::optional<langutil::EVMVersion> version = langutil::EVMVersion::fromString(settings["evmVersion"].get<std::string>());
 		if (!version)
 			return formatFatalError(Error::Type::JSONError, "Invalid EVM version requested.");
-		if (version < EVMVersion::constantinople())
+		if (version < EVMVersion::london())
 			ret.errors.emplace_back(formatError(
 				Error::Type::Warning,
 				"general",
-				"Support for EVM versions older than constantinople is deprecated and will be removed in the future."
+				"Support for EVM versions older than london is deprecated and will be removed in the future."
 			));
 		if (version->isExperimental() && !ret.experimental)
 			return formatFatalError(

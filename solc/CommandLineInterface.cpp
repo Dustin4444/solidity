@@ -823,10 +823,10 @@ bool CommandLineInterface::parseArguments(int _argc, char const* const* _argv)
 
 void CommandLineInterface::processInput()
 {
-	if (m_options.output.evmVersion < EVMVersion::constantinople())
+	if (m_options.output.evmVersion < EVMVersion::london())
 		report(
 			Error::Severity::Warning,
-			"Support for EVM versions older than constantinople is deprecated and will be removed in the future."
+			"Support for EVM versions older than london is deprecated and will be removed in the future."
 		);
 
 	switch (m_options.input.mode)
