@@ -348,6 +348,7 @@ bool Scanner::tryScanEndOfLine()
 size_t Scanner::scanSingleLineDocComment()
 {
 	LiteralScope literal(this, LITERAL_TYPE_COMMENT);
+	size_t const startPosition = m_source.position();
 	size_t endPosition = m_source.position();
 
 	skipWhitespaceExceptUnicodeLinebreak();
@@ -385,12 +386,15 @@ size_t Scanner::scanSingleLineDocComment()
 		advance();
 	}
 	literal.complete();
+	ScannerError const unicodeDirectionError = validateBiDiMarkup(m_source, startPosition);
+	if (unicodeDirectionError != ScannerError::NoError)
+		m_skippedComments[NextNext].error = unicodeDirectionError;
 	return endPosition;
 }
 
 Token Scanner::skipMultiLineComment()
 {
-	size_t startPosition = m_source.position();
+	size_t const startPosition = m_source.position();
 	while (!isSourcePastEndOfInput())
 	{
 		char prevChar = m_char;
@@ -416,6 +420,7 @@ Token Scanner::skipMultiLineComment()
 Token Scanner::scanMultiLineDocComment()
 {
 	LiteralScope literal(this, LITERAL_TYPE_COMMENT);
+	size_t const startPosition = m_source.position();
 	bool endFound = false;
 	bool charsAdded = false;
 
@@ -464,8 +469,10 @@ Token Scanner::scanMultiLineDocComment()
 	literal.complete();
 	if (!endFound)
 		return setError(ScannerError::IllegalCommentTerminator);
-	else
-		return Token::CommentLiteral;
+	ScannerError const unicodeDirectionError = validateBiDiMarkup(m_source, startPosition);
+	if (unicodeDirectionError != ScannerError::NoError)
+		return setError(unicodeDirectionError);
+	return Token::CommentLiteral;
 }
 
 Token Scanner::scanSlash()
@@ -488,6 +495,8 @@ Token Scanner::scanSlash()
 			m_skippedComments[NextNext].location.sourceName = m_sourceName;
 			m_skippedComments[NextNext].token = Token::CommentLiteral;
 			m_skippedComments[NextNext].location.end = static_cast<int>(scanSingleLineDocComment());
+			if (m_skippedComments[NextNext].error != ScannerError::NoError)
+				return setError(m_skippedComments[NextNext].error);
 			return Token::Whitespace;
 		}
 		else

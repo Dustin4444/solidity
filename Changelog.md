@@ -8,6 +8,7 @@ Compiler Features:
 
 Bugfixes:
 * NatSpec: Disallow `@return` tag in event documentation.
+* Parser: Detect unbalanced Unicode direction override markers (e.g. `U+202E`) in documentation comments (`///` and `/** */`)
 * SMTChecker: Fix incorrect handling of constant operands of unary operations.
 
 
