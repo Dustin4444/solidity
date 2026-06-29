@@ -248,3 +248,7 @@ endif()
 
 add_subdirectory(tools)
 add_subdirectory(evmc)
+
+if (PROPERTY_BASED_TESTS)
+    add_subdirectory(fuzztest)
+endif()
