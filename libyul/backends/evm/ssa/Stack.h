@@ -165,6 +165,71 @@ struct StackDepth
 constexpr auto operator<=>(StackDepth const lhs, size_t const rhs) noexcept { return lhs.value <=> rhs; }
 constexpr auto operator<=>(size_t const lhs, StackDepth const rhs) noexcept { return lhs <=> rhs.value; }
 
+
+
+class StackView
+{
+public:
+	StackView(StackData const& _data) : m_data(_data) {}
+
+	static size_t constexpr reachableStackDepth = 16;
+
+	using Slot = StackSlot;
+	using Data = StackData;
+	using Depth = StackDepth;
+	using Offset = StackOffset;
+
+	StackSlot const& top() const
+	{
+		yulAssert(!m_data.empty());
+		return m_data.back();
+	}
+
+	bool dupReachable(Offset const& _offset) const noexcept { return dupReachable(offsetToDepth(_offset)); }
+	bool dupReachable(Depth const& _depth) const noexcept { return _depth < size() && _depth.value + 1 <= reachableStackDepth; }
+	bool isValidSwapTarget(Offset const& _offset) const noexcept { return isValidSwapTarget(offsetToDepth(_offset)); }
+	bool isValidSwapTarget(Depth const& _depth) const noexcept { return _depth < size() && 1 <= _depth.value && _depth.value <= reachableStackDepth; }
+	bool isBeyondSwapRange(Offset const& _offset) const noexcept { return isBeyondSwapRange(offsetToDepth(_offset)); }
+	bool isBeyondSwapRange(Depth const& _depth) const noexcept { return _depth > reachableStackDepth; }
+
+	Slot const& slot(Depth const& _depth) const { return m_data[depthToOffset(_depth).value]; }
+	Slot const& slot(Offset const& _offset) const { return slot(offsetToDepth(_offset)); }
+	bool empty() const noexcept { return m_data.empty(); }
+	size_t size() const noexcept { return m_data.size(); }
+
+	/// index scheme conversion offset -> depth
+	Depth offsetToDepth(Offset const& _offset) const
+	{
+		yulAssert(_offset < size(), "Offset out of range");
+		return Depth{size() - _offset.value - 1};
+	}
+	/// index scheme conversion depth -> offset
+	Offset depthToOffset(Depth const& _depth) const
+	{
+		yulAssert(_depth < size(), "Depth out of range");
+		return Offset{size() - _depth.value - 1};
+	}
+
+	Slot const& operator[](Offset const& _index) const noexcept { return m_data[_index.value]; }
+	auto begin() const { return ranges::begin(m_data); }
+	auto end() const { return ranges::end(m_data); }
+
+	std::optional<Depth> findSlotDepth(Slot const& _value) const
+	{
+		auto rview = *this | ranges::views::reverse;
+		auto it = ranges::find(rview, _value);
+
+		if (it == ranges::end(rview))
+			return std::nullopt;
+
+		return Depth{static_cast<size_t>(std::distance(ranges::begin(rview), it))};
+	}
+
+	Data const& data() const { return m_data; }
+private:
+	StackData const& m_data;
+};
+
 template<typename StackManipulationCallback>
 concept StackManipulationCallbackConcept = requires(
 	StackManipulationCallback& _callback,
@@ -190,30 +255,19 @@ static_assert(StackManipulationCallbackConcept<NoOpStackManipulationCallbacks>);
 template<
 	StackManipulationCallbackConcept CallbacksType = NoOpStackManipulationCallbacks
 >
-class Stack
+class Stack : public StackView
 {
-	static size_t constexpr reachableStackDepth = 16;
 public:
 	using Callbacks = CallbacksType;
-
-	using Slot = StackSlot;
-	using Data = StackData;
-	using Depth = StackDepth;
-	using Offset = StackOffset;
 
 	Stack(
 		Data& _data,
 		Callbacks _callbacks
 	):
+		StackView(_data),
 		m_data(&_data),
 		m_callbacks(std::move(_callbacks))
 	{}
-
-	Slot const& top() const
-	{
-		yulAssert(!m_data->empty());
-		return m_data->back();
-	}
 
 	void swap(Depth const& _depth) { swap(depthToOffset(_depth)); }
 	void swap(Offset const& _offset)
@@ -256,60 +310,15 @@ public:
 			m_callbacks.dup(StackDepth{depth.value + 1});
 	}
 
-	bool dupReachable(Offset const& _offset) const noexcept { return dupReachable(offsetToDepth(_offset)); }
-	bool dupReachable(Depth const& _depth) const noexcept { return _depth < size() && _depth.value + 1 <= reachableStackDepth; }
-	bool isValidSwapTarget(Offset const& _offset) const noexcept { return isValidSwapTarget(offsetToDepth(_offset)); }
-	bool isValidSwapTarget(Depth const& _depth) const noexcept { return _depth < size() && 1 <= _depth.value && _depth.value <= reachableStackDepth; }
-	bool isBeyondSwapRange(Offset const& _offset) const noexcept { return isBeyondSwapRange(offsetToDepth(_offset)); }
-	bool isBeyondSwapRange(Depth const& _depth) const noexcept { return _depth > reachableStackDepth; }
-
 	void declareJunk(Offset const& _offset) { (*m_data)[_offset.value] = Slot::makeJunk(); }
 	void declareJunk(Depth const& _depth) { declareJunk(depthToOffset(_depth)); }
-
-	Slot const& slot(Depth const& _depth) const { return (*m_data)[depthToOffset(_depth).value]; }
-	Slot const& slot(Offset const& _offset) const { return slot(offsetToDepth(_offset)); }
-	bool empty() const noexcept { return size() == 0; }
-	size_t size() const noexcept { return m_data->size(); }
-
-	std::optional<Depth> findSlotDepth(Slot const& _value) const
-	{
-		auto rview = *this | ranges::views::reverse;
-		auto it = ranges::find(rview, _value);
-
-		if (it == ranges::end(rview))
-			return std::nullopt;
-
-		return Depth{static_cast<size_t>(std::distance(ranges::begin(rview), it))};
-	}
 
 	static bool constexpr canBeFreelyGenerated(Slot const& _slot)
 	{
 		return _slot.isLiteralValue() || _slot.isJunk() || _slot.isFunctionCallReturnLabel();
 	}
 
-	Slot const& operator[](Offset const& _index) const noexcept { return (*m_data)[_index.value]; }
-	auto begin() const { return ranges::begin(*m_data); }
-	auto end() const { return ranges::end(*m_data); }
-
-	Data const& data() const
-	{
-		return *m_data;
-	}
-
 	Callbacks const& callbacks() const { return m_callbacks; }
-
-	/// index scheme conversion offset -> depth
-	Depth offsetToDepth(Offset const& _offset) const
-	{
-		yulAssert(_offset < size(), "Offset out of range");
-		return Depth{size() - _offset.value - 1};
-	}
-	/// index scheme conversion depth -> offset
-	Offset depthToOffset(Depth const& _depth) const
-	{
-		yulAssert(_depth < size(), "Depth out of range");
-		return Offset{size() - _depth.value - 1};
-	}
 
 private:
 	Data* m_data;
