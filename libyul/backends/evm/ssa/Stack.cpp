@@ -54,4 +54,6 @@ std::string stackToString(StackData const& _stackData)
 	);
 }
 
+std::string StackView::toString() const { return stackToString(m_data); }
+
 }

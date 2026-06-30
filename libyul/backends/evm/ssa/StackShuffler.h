@@ -310,10 +310,10 @@ private:
 		for (auto const& liveSlot: _liveOut | ranges::views::keys)
 			yulAssert(
 				!_stack.canBeFreelyGenerated(liveSlot) &&
-				(ranges::contains(_stack.data(), liveSlot) || detail::slotIsSpilled(liveSlot, _spilledVariables))
+				(ranges::contains(_stack, liveSlot) || detail::slotIsSpilled(liveSlot, _spilledVariables))
 			);
 		for (auto const& arg: _args)
-			yulAssert(detail::slotCanBeLoadedOrPushed(arg, _spilledVariables) || ranges::contains(_stack.data(), arg));
+			yulAssert(detail::slotCanBeLoadedOrPushed(arg, _spilledVariables) || ranges::contains(_stack, arg));
 	}
 
 	/// A single read-only stepping iteration toward the target. Never mutates the spill set; both shuffle

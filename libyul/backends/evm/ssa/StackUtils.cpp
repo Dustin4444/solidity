@@ -220,22 +220,22 @@ std::string ValidationResult::formatErrors() const
 	return fmt::format("{}", fmt::join(m_errors, "\n"));
 }
 
-ValidationResult solidity::yul::ssa::checkLayoutCompatibility(StackData const& _current, StackData const& _desired)
+ValidationResult solidity::yul::ssa::checkLayoutCompatibility(StackView const& _current, StackView const& _desired)
 {
 	ValidationResult result;
 	if (_current.size() != _desired.size())
 		return result.addError(fmt::format(
 			"size mismatch: {} = len({}) =/= len({}) = {}",
-			_current.size(), stackToString(_current), stackToString(_desired), _desired.size()
+			_current.size(), _current.toString(), _desired.toString(), _desired.size()
 		));
 	for (auto&& [index, currentSlot, desiredSlot]: ranges::zip_view(ranges::views::iota(0), _current, _desired))
 		if (!desiredSlot.isJunk() && currentSlot != desiredSlot)
 			result.addError(fmt::format(
 				"stack element mismatch: {} = {}[{}] =/= {}[{}] = {}",
 				slotToString(currentSlot),
-				stackToString(_current),
+				_current.toString(),
 				index,
-				stackToString(_desired),
+				_desired.toString(),
 				index,
 				slotToString(desiredSlot)
 			));

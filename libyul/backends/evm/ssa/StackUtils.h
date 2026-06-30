@@ -91,6 +91,6 @@ CallSites gatherCallSites(SSACFG const& _cfg);
 
 /// Checks that _current and _desired have the same size and that each slot matches,
 /// treating junk slots in _desired as wildcards.
-ValidationResult checkLayoutCompatibility(StackData const& _current, StackData const& _desired);
+ValidationResult checkLayoutCompatibility(StackView const& _current, StackView const& _desired);
 
 }

@@ -35,7 +35,7 @@ using namespace solidity::yul::ssa;
 
 namespace
 {
-void assertLayoutCompatibility(StackData const& _layout1, StackData const& _layout2)
+void assertLayoutCompatibility(StackView const& _layout1, StackView const& _layout2)
 {
 	auto const compatibility = checkLayoutCompatibility(_layout1, _layout2);
 	yulAssert(compatibility.ok(), compatibility.formatErrors());
@@ -199,7 +199,7 @@ CodeTransform::CodeTransform(
 		expectedStackTop.push_back(StackSlot::makeFunctionReturnLabel(m_graphID));
 	for (auto const& arg: m_cfg.arguments | ranges::views::reverse)
 		expectedStackTop.push_back(StackSlot::makeValue(_cfg, arg));
-	assertLayoutCompatibility(m_stack.data(), expectedStackTop);
+	assertLayoutCompatibility(m_stack, expectedStackTop);
 
 	// Spilled function args need an `mstore` at function entry so later `mload`s see a populated slot
 	if (m_spillEmitter && isFunctionGraph)
@@ -216,7 +216,7 @@ void CodeTransform::operator()(SSACFG::BlockId const _blockId)
 
 	auto const& blockLayout = m_stackLayout[_blockId];
 	yulAssert(blockLayout);
-	assertLayoutCompatibility(m_stack.data(), blockLayout->stackIn);
+	assertLayoutCompatibility(m_stack, blockLayout->stackIn);
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 
 	auto const& block = m_cfg.block(_blockId);
@@ -277,7 +277,7 @@ void CodeTransform::operator()(InstId _instId, StackData const& _operationInputL
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 
 	// check that the stack is compatible with the operation input layout
-	assertLayoutCompatibility(m_stack.data(), _operationInputLayout);
+	assertLayoutCompatibility(m_stack, _operationInputLayout);
 
 	// Assert that we have the inputs of the operation on stack top.
 	yulAssert(m_stack.size() >= _inst.inputs.size());
@@ -439,7 +439,7 @@ void CodeTransform::operator()(SSACFG::BlockId const& _currentBlock, SSACFG::Bas
 			m_stackLayout[_conditionalJump.zero]->stackIn,
 			PhiInverse(m_cfg, _currentBlock, _conditionalJump.zero)
 		);
-		assertLayoutCompatibility(m_stack.data(), m_stackLayout[_conditionalJump.zero]->stackIn);
+		assertLayoutCompatibility(m_stack, m_stackLayout[_conditionalJump.zero]->stackIn);
 		m_assembly.appendJumpTo(m_blockLabels[_conditionalJump.zero.value]);
 
 		if (!m_blockIsTransformed[_conditionalJump.zero.value])
@@ -453,7 +453,7 @@ void CodeTransform::operator()(SSACFG::BlockId const& _currentBlock, SSACFG::Bas
 			m_stackLayout[_conditionalJump.nonZero]->stackIn,
 			PhiInverse(m_cfg, _currentBlock, _conditionalJump.nonZero)
 		);
-		assertLayoutCompatibility(m_stack.data(), m_stackLayout[_conditionalJump.nonZero]->stackIn);
+		assertLayoutCompatibility(m_stack, m_stackLayout[_conditionalJump.nonZero]->stackIn);
 		if (!m_blockIsTransformed[_conditionalJump.nonZero.value])
 			(*this)(_conditionalJump.nonZero);
 	}
@@ -464,7 +464,7 @@ void CodeTransform::operator()(SSACFG::BlockId const& _currentBlock, SSACFG::Bas
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 	yulAssert(m_stackLayout[_jump.target]);
 	prepareBlockExitStack(m_stackLayout[_jump.target]->stackIn, PhiInverse(m_cfg, _currentBlock, _jump.target));
-	assertLayoutCompatibility(m_stack.data(), m_stackLayout[_jump.target]->stackIn);
+	assertLayoutCompatibility(m_stack, m_stackLayout[_jump.target]->stackIn);
 	m_assembly.appendJumpTo(m_blockLabels[_jump.target.value]);
 	if (!m_blockIsTransformed[_jump.target.value])
 		(*this)(_jump.target);
@@ -529,7 +529,7 @@ void CodeTransform::prepareBlockExitStack(StackData const& _target, PhiInverse c
 		yulAssert(shuffleResult.status == StackShufflerResult::Status::Admissible);
 	}
 	// check that shuffling was successful
-	assertLayoutCompatibility(m_stack.data(), pulledBackTarget);
+	assertLayoutCompatibility(m_stack, pulledBackTarget);
 	// now we can simply set the target to the actual one which will take care of the application of phi functions
 	m_stackData = _target;
 }

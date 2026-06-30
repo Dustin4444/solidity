@@ -225,6 +225,7 @@ public:
 		return Depth{static_cast<size_t>(std::distance(ranges::begin(rview), it))};
 	}
 
+	std::string toString() const;
 	Data const& data() const { return m_data; }
 private:
 	StackData const& m_data;
