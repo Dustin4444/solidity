@@ -44,17 +44,17 @@ Target::Target(
 			++minCount[liveSlot];
 }
 
-State::State(StackData const& _stackData, Target const& _target, spill::SpillSet const* const _spilledVariables, std::size_t const _reachableStackDepth):
-	m_stackData(_stackData),
+State::State(StackView const& _stackView, Target const& _target, spill::SpillSet const* const _spilledVariables, std::size_t const _reachableStackDepth):
+	m_stackView(_stackView),
 	m_target(_target),
 	m_spilledVariables(_spilledVariables),
 	m_reachableStackDepth(_reachableStackDepth)
 {
-	m_histogram.reserve(_stackData.size());
-	m_histogramReachable.reserve(_stackData.size());
-	m_histogramTail.reserve(_stackData.size());
+	m_histogram.reserve(_stackView.size());
+	m_histogramReachable.reserve(_stackView.size());
+	m_histogramTail.reserve(_stackView.size());
 	m_histogramArgs.reserve(_target.args.size());
-	for (auto const& [i, slot]: _stackData | ranges::views::enumerate)
+	for (auto const& [i, slot]: _stackView | ranges::views::enumerate)
 	{
 		// we don't care about junk in the tail
 		if (i < _target.tailSize && slot.isJunk())
@@ -68,14 +68,9 @@ State::State(StackData const& _stackData, Target const& _target, spill::SpillSet
 			++m_histogramTail[slot];
 		else if (i < _target.size)
 			++m_histogramArgs[slot];
-		if (_stackData.size() - i - 1 < _reachableStackDepth)
+		if (_stackView.size() - i - 1 < _reachableStackDepth)
 			++m_histogramReachable[slot];
 	}
-}
-
-std::size_t State::size() const
-{
-	return m_stackData.size();
 }
 
 std::size_t State::count(StackSlot const& _slot) const
@@ -110,12 +105,12 @@ std::size_t State::targetArgsCount(StackSlot const& _slot) const
 
 bool State::admissible() const
 {
-	if (m_target.size != m_stackData.size())
+	if (m_target.size != m_stackView.size())
 		return false;
 
 	// check if the args are correct
 	for (size_t i = 0; i < m_target.args.size(); ++i)
-		if (!isArgsCompatible(StackOffset{m_stackData.size() - i - 1}, StackOffset{m_stackData.size() - i - 1}))
+		if (!isArgsCompatible(StackOffset{m_stackView.size() - i - 1}, StackOffset{m_stackView.size() - i - 1}))
 			return false;
 
 	// check if the distribution is correct (implying that the stack is admissible as JUNK target args are not counted)
@@ -151,10 +146,10 @@ StackSlot const& State::targetArg(StackOffset const _targetOffset) const
 
 bool State::isArgsCompatible(StackOffset const _sourceOffset, StackOffset const _targetOffset) const
 {
-	if (_sourceOffset >= m_stackData.size() || !offsetInTargetArgsRegion(_targetOffset))
+	if (_sourceOffset >= m_stackView.size() || !offsetInTargetArgsRegion(_targetOffset))
 		return false;
 	auto const& arg = targetArg(_targetOffset);
-	return arg.isJunk() || m_stackData[_sourceOffset.value] == arg;
+	return arg.isJunk() || m_stackView[_sourceOffset] == arg;
 }
 
 bool State::targetArbitrary(StackOffset const _targetOffset) const
@@ -164,18 +159,18 @@ bool State::targetArbitrary(StackOffset const _targetOffset) const
 
 bool State::isSourceCompatible(StackOffset const _sourceOffset1, StackOffset const _sourceOffset2) const
 {
-	return _sourceOffset1 < m_stackData.size() &&
-		_sourceOffset2 < m_stackData.size() &&
-		m_stackData[_sourceOffset1.value] == m_stackData[_sourceOffset2.value];
+	return _sourceOffset1 < m_stackView.size() &&
+		_sourceOffset2 < m_stackView.size() &&
+		m_stackView[_sourceOffset1] == m_stackView[_sourceOffset2];
 }
 
 bool State::isSafeToSwapWithTop(StackOffset const _offset) const
 {
-	auto const& top = m_stackData.back();
-	yulAssert(_offset.value < size());
-	auto const& slot = m_stackData[_offset.value];
+	auto const& top = m_stackView.top();
+	yulAssert(_offset.value < m_stackView.size());
+	auto const& slot = m_stackView[_offset];
 	return !isArgsCompatible(_offset, _offset) && // the offset isn't already in the right position wrt args
-		!isArgsCompatible(StackOffset{size() - 1}, StackOffset{size() - 1}) && // the top isn't already in the right position wrt args
+		!isArgsCompatible(StackOffset{m_stackView.size() - 1}, StackOffset{m_stackView.size() - 1}) && // the top isn't already in the right position wrt args
 		(
 			!requiredInArgs(top) || // current top can go into tail, ie it's not required as arg or
 			countReachable(top) > 1 // there's more of it in reachable stack depth
@@ -189,12 +184,12 @@ bool State::isSafeToSwapWithTop(StackOffset const _offset) const
 
 std::optional<StackOffset> State::canSwapWithNonTopArg(StackOffset const _offset) const
 {
-	auto const& slot = m_stackData[_offset.value];
+	auto const& slot = m_stackView[_offset];
 	for (auto argOffset: stackArgsRange())
 	{
-		if (argOffset.value == m_stackData.size() - 1)
+		if (argOffset.value == m_stackView.size() - 1)
 			continue;
-		auto const& argSlot = m_stackData[argOffset.value];
+		auto const& argSlot = m_stackView[argOffset];
 		if (slot == argSlot)
 			continue;
 		bool const goodCandidateForSwap = !isArgsCompatible(argOffset, argOffset) && !requiredInArgs(argSlot);
@@ -220,7 +215,7 @@ bool State::willRequireShrinking() const
 		if (currentCount < minCount)
 			deficit += minCount - currentCount;
 	}
-	return deficit + size() > target().size;
+	return deficit + m_stackView.size() > target().size;
 }
 
 std::optional<StackDepth> State::findDeepestIncorrectArgSlot() const
@@ -228,7 +223,7 @@ std::optional<StackDepth> State::findDeepestIncorrectArgSlot() const
 	for (StackOffset const offset: stackArgsRange())
 	{
 		if (!isArgsCompatible(offset, offset))
-			return StackDepth{m_stackData.size() - offset.value};
+			return StackDepth{m_stackView.size() - offset.value};
 	}
 	return std::nullopt;
 }

@@ -81,9 +81,8 @@ struct Target
 class State
 {
 public:
-	State(StackData const& _stackData, Target const& _target, spill::SpillSet const* _spilledVariables, std::size_t _reachableStackDepth);
+	State(StackView const& _stackView, Target const& _target, spill::SpillSet const* _spilledVariables, std::size_t _reachableStackDepth);
 
-	std::size_t size() const;
 	/// How many of `_slot` do we have on stack
 	std::size_t count(StackSlot const& _slot) const;
 	/// How many of `_slot` do we have in the args section of the stack
@@ -129,31 +128,31 @@ public:
 	/// A range of offsets `[argsBegin, argsEnd)` intersected with the current stack size
 	auto stackArgsRange() const
 	{
-		return ranges::views::iota(std::min(m_target.tailSize, m_stackData.size()), std::min(m_target.size, m_stackData.size())) | ranges::views::transform([](auto _i) { return StackOffset{_i}; });
+		return ranges::views::iota(std::min(m_target.tailSize, m_stackView.size()), std::min(m_target.size, m_stackView.size())) | ranges::views::transform([](auto _i) { return StackOffset{_i}; });
 	}
 
 	/// A range of offsets `[0, argsBegin)` intersected with the current stack size
 	auto stackTailRange() const
 	{
-		return ranges::views::iota(0u, std::min(m_target.tailSize, m_stackData.size())) | ranges::views::transform([](auto _i) { return StackOffset{_i}; });
+		return ranges::views::iota(0u, std::min(m_target.tailSize, m_stackView.size())) | ranges::views::transform([](auto _i) { return StackOffset{_i}; });
 	}
 
 	/// A range of offsets `[0, stackSize)`
 	auto stackRange() const
 	{
-		return ranges::views::iota(0u, m_stackData.size()) | ranges::views::transform([&](auto _i) { return StackOffset{_i}; });
+		return ranges::views::iota(0u, m_stackView.size()) | ranges::views::transform([&](auto _i) { return StackOffset{_i}; });
 	}
 
 	/// A reversed range of offsets `[stackSize - reachableStackDepth - 1, stackSize)`
 	auto stackSwapReachableRange() const
 	{
-		return ranges::views::iota(0u, std::min(m_stackData.size(), m_reachableStackDepth + 1)) | ranges::views::transform([&](auto _i) { return StackOffset{m_stackData.size() - _i - 1}; });
+		return ranges::views::iota(0u, std::min(m_stackView.size(), m_reachableStackDepth + 1)) | ranges::views::transform([&](auto _i) { return StackOffset{m_stackView.size() - _i - 1}; });
 	}
 
 	/// A reversed range of offsets `[stackSize - reachableStackDepth - 1, stackSize)`
 	auto stackDupReachableRange() const
 	{
-		return ranges::views::iota(0u, std::min(m_stackData.size(), m_reachableStackDepth)) | ranges::views::transform([&](auto _i) { return StackOffset{m_stackData.size() - _i - 1}; });
+		return ranges::views::iota(0u, std::min(m_stackView.size(), m_reachableStackDepth)) | ranges::views::transform([&](auto _i) { return StackOffset{m_stackView.size() - _i - 1}; });
 	}
 
 	/// Depth of the deepest arg slot incompatible with target or Nothing for no incompatibility in current state
@@ -170,7 +169,7 @@ public:
 	}
 
 private:
-	StackData const& m_stackData;
+	StackView const& m_stackView;
 	Target const& m_target;
 	spill::SpillSet const* const m_spilledVariables;
 	std::size_t const m_reachableStackDepth;
@@ -327,7 +326,7 @@ private:
 	)
 	{
 		detail::Target const target(_args, _liveOut, _targetStackSize, _spilledVariables);
-		detail::State const state(_stack.data(), target, _spilledVariables, ReachableStackDepth);
+		detail::State const state(_stack, target, _spilledVariables, ReachableStackDepth);
 		auto const result = shuffleStep(_stack, state);
 		if (result.status == StackShufflerResult::Status::Admissible)
 			yulAssert(state.admissible());
