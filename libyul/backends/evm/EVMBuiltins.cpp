@@ -236,6 +236,19 @@ BuiltinFunctionForEVM loadimmutableBuiltin()
 }
 }
 
+void yul::generateBuiltinCode(
+	BuiltinFunctionForEVM const& _builtin,
+	std::vector<LiteralValue> const& _literalArguments,
+	AbstractAssembly& _assembly,
+	BuiltinContext& _context
+)
+{
+	if (_builtin.instruction)
+		_assembly.appendInstruction(*_builtin.instruction);
+	else
+		_builtin.generateCode(_literalArguments, _assembly, _context);
+}
+
 EVMBuiltins::EVMBuiltins()
 {
 	for (auto const& [name, opcode]: evmasm::c_instructions)

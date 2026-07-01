@@ -56,6 +56,17 @@ struct BuiltinFunctionForEVM: public BuiltinFunction
 	std::function<void(std::vector<LiteralValue> const&, AbstractAssembly&, BuiltinContext&)> generateCode;
 };
 
+/// Appends the code for a call to @a _builtin to @a _assembly. For builtins that map to a single EVM
+/// instruction this appends it directly (from the `instruction` field), avoiding the generateCode
+/// indirection; all other builtins are emitted via generateCode. @a _literalArguments carries the values
+/// of the literal-kind arguments; all non-literal arguments are expected to already be on the stack.
+void generateBuiltinCode(
+	BuiltinFunctionForEVM const& _builtin,
+	std::vector<LiteralValue> const& _literalArguments,
+	AbstractAssembly& _assembly,
+	BuiltinContext& _context
+);
+
 /// Collection of all possible EVM builtin functions.
 /// Each builtin can have one (or multiple) scopes, which define whether, e.g., it requires object access.
 /// Using this class as single source of truth for builtin functions makes sure that these are consistent over

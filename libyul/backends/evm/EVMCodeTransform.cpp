@@ -236,7 +236,7 @@ void CodeTransform::operator()(FunctionCall const& _call)
 			if (!builtin->literalArgument(i))
 				visitExpression(arg);
 		m_assembly.setSourceLocation(originLocationOf(_call));
-		builtin->generateCode(literalArgumentValues(*builtin, _call), m_assembly, m_builtinContext);
+		generateBuiltinCode(*builtin, literalArgumentValues(*builtin, _call), m_assembly, m_builtinContext);
 	}
 	else
 	{
