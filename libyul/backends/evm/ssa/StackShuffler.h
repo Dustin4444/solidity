@@ -205,10 +205,11 @@ public:
 	)
 	{
 		checkPreconditions(_stack, _args, _liveOut, _targetStackSize, _spilledVariables);
+		detail::Target const target(_args, _liveOut, _targetStackSize, _spilledVariables);
 		std::size_t i = 0;
 		while (true)
 		{
-			auto result = runStep(_stack, _args, _liveOut, _targetStackSize, _spilledVariables);
+			auto result = runStep(_stack, target, _spilledVariables);
 			if (result.status == StackShufflerResult::Status::Admissible)
 				return result;
 			if (result.status == StackShufflerResult::Status::StackTooDeep)
@@ -251,10 +252,16 @@ public:
 	)
 	{
 		checkPreconditions(_stack, _args, _liveOut, _targetStackSize, &_spilledVariables);
+		std::optional<detail::Target> target = std::make_optional<detail::Target>(
+			_args,
+			_liveOut,
+			_targetStackSize,
+			&_spilledVariables
+		);
 		std::size_t i = 0;
 		while (true)
 		{
-			auto result = runStep(_stack, _args, _liveOut, _targetStackSize, &_spilledVariables);
+			auto result = runStep(_stack, *target, &_spilledVariables);
 			if (result.status == StackShufflerResult::Status::Admissible)
 				return result;
 			if (result.status == StackShufflerResult::Status::StackTooDeep)
@@ -264,10 +271,11 @@ public:
 					!detail::slotIsSpilled(result.culprit, &_spilledVariables),
 					"stuck on an already active spill - the shuffle step should have recovered"
 				);
-				// Spill the culprit and continue the same loop; the next step rebuilds target/state and so
-				// observes the new spill without restarting the shuffle.
+				// Spill the culprit and continue the same loop; rebuild the target so the next step observes
+				// the new spill without restarting the shuffle.
 				yulAssert(result.culprit.isValue() && !result.culprit.isLiteralValue());
 				_spilledVariables.add(result.culprit.value());
+				target.emplace(_args, _liveOut, _targetStackSize, &_spilledVariables);
 				result.status = StackShufflerResult::Status::Continue;
 			}
 			yulAssert(result.status == StackShufflerResult::Status::Continue);
@@ -320,14 +328,11 @@ private:
 	/// loops decide what to do with a returned `StackTooDeep`.
 	[[nodiscard]] static StackShufflerResult runStep(
 		Stack<Callback>& _stack,
-		StackData const& _args,
-		StackSlotLiveness const& _liveOut,
-		std::size_t const _targetStackSize,
+		detail::Target const& _target,
 		spill::SpillSet const* const _spilledVariables
 	)
 	{
-		detail::Target const target(_args, _liveOut, _targetStackSize, _spilledVariables);
-		detail::State const state(_stack.data(), target, _spilledVariables, ReachableStackDepth);
+		detail::State const state(_stack.data(), _target, _spilledVariables, ReachableStackDepth);
 		auto const result = shuffleStep(_stack, state);
 		if (result.status == StackShufflerResult::Status::Admissible)
 			yulAssert(state.admissible());
