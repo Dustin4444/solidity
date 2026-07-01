@@ -43,7 +43,7 @@ struct OptimiserSettings
 	static char constexpr DefaultYulOptimiserSteps[] =
 		"dfDvulfnTUtnIf"               // None of these can make stack problems worse
 
-		"xa[r]EscLM"                   // Turn into SSA and simplify
+		"xBa[r]EscLM"                  // Turn into SSA and simplify
 		"Vcul [j]"                     // Reverse SSA
 
 		// should have good "compilability" property here.
@@ -55,7 +55,7 @@ struct OptimiserSettings
 
 		"scCTUt"
 		"vifM"                         // Run full inliner
-		"x[scCTUt] TOntnfDIul"         // Perform structural simplification
+		"x[scCTUtB] TOntnfDIul"        // Perform structural simplification
 		"vifM"                         // Run full inliner
 
 		"jmul[jul] VcTOcul jmul";      // Make source short and pretty

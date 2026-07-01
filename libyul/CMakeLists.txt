@@ -237,6 +237,8 @@ add_library(yul
 	optimiser/StackToMemoryMover.h
 	optimiser/StructuralSimplifier.cpp
 	optimiser/StructuralSimplifier.h
+	optimiser/SwitchSplitter.cpp
+	optimiser/SwitchSplitter.h
 	optimiser/Substitution.cpp
 	optimiser/Substitution.h
 	optimiser/Suite.cpp

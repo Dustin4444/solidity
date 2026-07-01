@@ -54,6 +54,7 @@
 #include <libyul/optimiser/StackCompressor.h>
 #include <libyul/optimiser/StackLimitEvader.h>
 #include <libyul/optimiser/StructuralSimplifier.h>
+#include <libyul/optimiser/SwitchSplitter.h>
 #include <libyul/optimiser/SyntacticalEquality.h>
 #include <libyul/optimiser/UnusedAssignEliminator.h>
 #include <libyul/optimiser/UnusedStoreEliminator.h>
@@ -254,6 +255,7 @@ std::map<std::string, std::unique_ptr<OptimiserStep>> const& OptimiserSuite::all
 			SSAReverser,
 			SSATransform,
 			StructuralSimplifier,
+			SwitchSplitter,
 			UnusedFunctionParameterPruner,
 			UnusedPruner,
 			VarDeclInitializer
@@ -295,6 +297,7 @@ std::map<std::string, char> const& OptimiserSuite::stepNameToAbbreviationMap()
 		{SSAReverser::name,                   'V'},
 		{SSATransform::name,                  'a'},
 		{StructuralSimplifier::name,          't'},
+		{SwitchSplitter::name,                'B'},
 		{UnusedFunctionParameterPruner::name, 'p'},
 		{UnusedPruner::name,                  'u'},
 		{VarDeclInitializer::name,            'd'},

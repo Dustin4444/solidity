@@ -56,6 +56,7 @@
 #include <libyul/optimiser/UnusedAssignEliminator.h>
 #include <libyul/optimiser/UnusedStoreEliminator.h>
 #include <libyul/optimiser/StructuralSimplifier.h>
+#include <libyul/optimiser/SwitchSplitter.h>
 #include <libyul/optimiser/StackCompressor.h>
 #include <libyul/optimiser/Suite.h>
 #include <libyul/backends/evm/ConstantOptimiser.h>
@@ -367,6 +368,13 @@ YulOptimizerTestCommon::YulOptimizerTestCommon(std::shared_ptr<Object const> _ob
 			FunctionHoister::run(*m_context, block);
 			LiteralRematerialiser::run(*m_context, block);
 			StructuralSimplifier::run(*m_context, block);
+			return block;
+		}},
+		{"switchSplitter", [&]() {
+			auto block = disambiguate();
+			updateContext(block);
+			ExpressionSplitter::run(*m_context, block);
+			SwitchSplitter::run(*m_context, block);
 			return block;
 		}},
 		{"equivalentFunctionCombiner", [&]() {
