@@ -18,7 +18,6 @@
 
 #include <libyul/backends/evm/EVMBuiltins.h>
 
-#include <libyul/AST.h>
 #include <libyul/Object.h>
 #include <libyul/Utilities.h>
 
@@ -41,7 +40,7 @@ BuiltinFunctionForEVM createFunction(
 	SideEffects _sideEffects,
 	ControlFlowSideEffects _controlFlowSideEffects,
 	std::vector<std::optional<LiteralKind>> _literalArguments,
-	std::function<void(FunctionCall const&, AbstractAssembly&, BuiltinContext&)> _generateCode
+	std::function<void(std::vector<LiteralValue> const&, AbstractAssembly&, BuiltinContext&)> _generateCode
 )
 {
 	yulAssert(_literalArguments.size() == _params || _literalArguments.empty(), "");
@@ -72,7 +71,7 @@ BuiltinFunctionForEVM instructionBuiltin(evmasm::Instruction const& _instruction
 	f.literalArguments.clear();
 	f.instruction = _instruction;
 	f.generateCode = [_instruction](
-		FunctionCall const&,
+		std::vector<LiteralValue> const&,
 		AbstractAssembly& _assembly,
 		BuiltinContext&
 	)
@@ -91,10 +90,9 @@ BuiltinFunctionForEVM linkersymbolBuiltin()
 		SideEffects{},
 		ControlFlowSideEffects{},
 		{LiteralKind::String},
-		[](FunctionCall const& _call, AbstractAssembly& _assembly, BuiltinContext&) {
-			yulAssert(_call.arguments.size() == 1, "");
-			Expression const& arg = _call.arguments.front();
-			_assembly.appendLinkerSymbol(formatLiteral(std::get<Literal>(arg)));
+		[](std::vector<LiteralValue> const& _literalArgs, AbstractAssembly& _assembly, BuiltinContext&) {
+			yulAssert(_literalArgs.size() == 1, "");
+			_assembly.appendLinkerSymbol(formatLiteral(_literalArgs.front()));
 		}
 	);
 }
@@ -108,11 +106,9 @@ BuiltinFunctionForEVM memoryguardBuiltin()
 		SideEffects{},
 		ControlFlowSideEffects{},
 		{LiteralKind::Number},
-		[](FunctionCall const& _call, AbstractAssembly& _assembly, BuiltinContext&) {
-			yulAssert(_call.arguments.size() == 1, "");
-			Literal const* literal = std::get_if<Literal>(&_call.arguments.front());
-			yulAssert(literal, "");
-			_assembly.appendConstant(literal->value.value());
+		[](std::vector<LiteralValue> const& _literalArgs, AbstractAssembly& _assembly, BuiltinContext&) {
+			yulAssert(_literalArgs.size() == 1, "");
+			_assembly.appendConstant(_literalArgs.front().value());
 		}
 	);
 }
@@ -126,11 +122,10 @@ BuiltinFunctionForEVM datasizeBuiltin()
 		SideEffects{},
 		ControlFlowSideEffects{},
 		{LiteralKind::String},
-		[](FunctionCall const& _call, AbstractAssembly& _assembly, BuiltinContext& _context) {
+		[](std::vector<LiteralValue> const& _literalArgs, AbstractAssembly& _assembly, BuiltinContext& _context) {
 			yulAssert(_context.currentObject, "No object available.");
-			yulAssert(_call.arguments.size() == 1, "");
-			Expression const& arg = _call.arguments.front();
-			YulName const dataName (formatLiteral(std::get<Literal>(arg)));
+			yulAssert(_literalArgs.size() == 1, "");
+			YulName const dataName (formatLiteral(_literalArgs.front()));
 			if (_context.currentObject->name == dataName.str())
 				_assembly.appendAssemblySize();
 			else
@@ -149,14 +144,13 @@ BuiltinFunctionForEVM datasizeBuiltin()
 BuiltinFunctionForEVM dataoffsetBuiltin()
 {
 	return createFunction("dataoffset", 1, 1, SideEffects{}, ControlFlowSideEffects{}, {LiteralKind::String}, [](
-		FunctionCall const& _call,
+		std::vector<LiteralValue> const& _literalArgs,
 		AbstractAssembly& _assembly,
 		BuiltinContext& _context
 	) {
 		yulAssert(_context.currentObject, "No object available.");
-		yulAssert(_call.arguments.size() == 1, "");
-		Expression const& arg = _call.arguments.front();
-		YulName const dataName (formatLiteral(std::get<Literal>(arg)));
+		yulAssert(_literalArgs.size() == 1, "");
+		YulName const dataName (formatLiteral(_literalArgs.front()));
 		if (_context.currentObject->name == dataName.str())
 			_assembly.appendConstant(0);
 		else
@@ -181,7 +175,7 @@ BuiltinFunctionForEVM datacopyBuiltin()
 		ControlFlowSideEffects::fromInstruction(evmasm::Instruction::CODECOPY),
 		{},
 		[](
-			FunctionCall const&,
+			std::vector<LiteralValue> const&,
 			AbstractAssembly& _assembly,
 			BuiltinContext&
 		) {
@@ -210,12 +204,12 @@ BuiltinFunctionForEVM setimmutableBuiltin()
 		ControlFlowSideEffects{},
 		{std::nullopt, LiteralKind::String, std::nullopt},
 		[](
-			FunctionCall const& _call,
+			std::vector<LiteralValue> const& _literalArgs,
 			AbstractAssembly& _assembly,
 			BuiltinContext&
 		) {
-			yulAssert(_call.arguments.size() == 3, "");
-			auto const identifier = (formatLiteral(std::get<Literal>(_call.arguments[1])));
+			yulAssert(_literalArgs.size() == 1, "");
+			auto const identifier = formatLiteral(_literalArgs.front());
 			_assembly.appendImmutableAssignment(identifier);
 		}
 	);
@@ -231,12 +225,12 @@ BuiltinFunctionForEVM loadimmutableBuiltin()
 		ControlFlowSideEffects{},
 		{LiteralKind::String},
 		[](
-			FunctionCall const& _call,
+			std::vector<LiteralValue> const& _literalArgs,
 			AbstractAssembly& _assembly,
 			BuiltinContext&
 		) {
-			yulAssert(_call.arguments.size() == 1, "");
-			_assembly.appendImmutable(formatLiteral(std::get<Literal>(_call.arguments.front())));
+			yulAssert(_literalArgs.size() == 1, "");
+			_assembly.appendImmutable(formatLiteral(_literalArgs.front()));
 		}
 	);
 }
@@ -288,15 +282,14 @@ BuiltinFunctionForEVM EVMBuiltins::createVerbatimFunction(size_t const _argument
 		ControlFlowSideEffects::worst(), // Worst control flow side effects because verbatim can do anything.
 		std::vector<std::optional<LiteralKind>>{LiteralKind::String} + std::vector<std::optional<LiteralKind>>(_arguments),
 		[=](
-			FunctionCall const& _call,
+			std::vector<LiteralValue> const& _literalArgs,
 			AbstractAssembly& _assembly,
 			BuiltinContext&
 		) {
-			yulAssert(_call.arguments.size() == (1 + _arguments), "");
-			Expression const& bytecode = _call.arguments.front();
+			yulAssert(_literalArgs.size() == 1, "");
 
 			_assembly.appendVerbatim(
-				util::asBytes(formatLiteral(std::get<Literal>(bytecode))),
+				util::asBytes(formatLiteral(_literalArgs.front())),
 				_arguments,
 				_returnVariables
 			);

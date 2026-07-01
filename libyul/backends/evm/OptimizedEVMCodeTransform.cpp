@@ -137,8 +137,9 @@ void OptimizedEVMCodeTransform::operator()(CFG::BuiltinCall const& _call)
 	// Emit code.
 	{
 		m_assembly.setSourceLocation(originLocationOf(_call));
-		static_cast<BuiltinFunctionForEVM const&>(_call.builtin.get()).generateCode(
-			_call.functionCall,
+		auto const& builtin = static_cast<BuiltinFunctionForEVM const&>(_call.builtin.get());
+		builtin.generateCode(
+			literalArgumentValues(builtin, _call.functionCall),
 			m_assembly,
 			m_builtinContext
 		);

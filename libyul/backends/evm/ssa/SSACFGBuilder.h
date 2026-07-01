@@ -36,6 +36,7 @@
 */
 #pragma once
 
+#include <libyul/AST.h>
 #include <libyul/ControlFlowSideEffectsCollector.h>
 
 #include <libyul/backends/evm/EVMDialect.h>

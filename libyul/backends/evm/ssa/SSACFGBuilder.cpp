@@ -471,12 +471,12 @@ InstId SSACFGBuilder::visitFunctionCall(FunctionCall const& _call)
 
 			auto const& builtin = m_dialect.builtin(_builtinName.handle);
 			yulAssert(_call.arguments.size() == builtin.numParameters);
-			std::vector<Literal> literalArguments;
+			std::vector<LiteralValue> literalArguments;
 			for (auto&& [kind, arg]: ranges::views::zip(builtin.literalArguments, _call.arguments))
 				if (kind.has_value())
 				{
 					yulAssert(std::holds_alternative<Literal>(arg));
-					literalArguments.emplace_back(std::get<Literal>(arg));
+					literalArguments.emplace_back(std::get<Literal>(arg).value);
 				}
 			// Arguments must be evaluated from right to left, according to Yul specification
 			std::vector<InstId> inputs;

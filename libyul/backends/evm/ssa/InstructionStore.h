@@ -31,8 +31,8 @@
 #include <libyul/backends/evm/ssa/util/TLSFFreeList.h>
 #include <libyul/backends/evm/ssa/SSACFGTypes.h>
 
-#include <libyul/AST.h>
 #include <libyul/Builtins.h>
+#include <libyul/LiteralValue.h>
 #include <libyul/Exceptions.h>
 
 #include <libsolutil/Numeric.h>
@@ -58,8 +58,8 @@ public:
 	struct BuiltinCall
 	{
 		BuiltinHandle builtin;
-		/// Literal-kind arguments
-		std::vector<Literal> literalArguments;
+		/// Values of the literal-kind arguments, in argument order.
+		std::vector<LiteralValue> literalArguments;
 	};
 	struct Call
 	{

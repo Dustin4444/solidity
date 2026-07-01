@@ -30,6 +30,7 @@ add_library(yul
 	Exceptions.h
 	FunctionReferenceResolver.cpp
 	FunctionReferenceResolver.h
+	LiteralValue.h
 	Object.cpp
 	Object.h
 	ObjectOptimizer.cpp

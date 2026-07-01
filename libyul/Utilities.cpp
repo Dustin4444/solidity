@@ -148,6 +148,26 @@ std::string solidity::yul::formatLiteral(solidity::yul::Literal const& _literal,
 	return _literal.value.value().str();
 }
 
+std::string solidity::yul::formatLiteral(LiteralValue const& _value)
+{
+	if (_value.unlimited())
+		return _value.builtinStringLiteralValue();
+
+	if (_value.hint())
+		return *_value.hint();
+
+	return _value.value().str();
+}
+
+std::vector<LiteralValue> solidity::yul::literalArgumentValues(BuiltinFunction const& _builtin, FunctionCall const& _call)
+{
+	std::vector<LiteralValue> values;
+	for (size_t i = 0; i < _call.arguments.size(); ++i)
+		if (_builtin.literalArgument(i).has_value())
+			values.emplace_back(std::get<Literal>(_call.arguments[i]).value);
+	return values;
+}
+
 bool solidity::yul::validLiteral(solidity::yul::Literal const& _literal)
 {
 	switch (_literal.kind)

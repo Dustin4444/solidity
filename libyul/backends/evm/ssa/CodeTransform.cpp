@@ -340,17 +340,7 @@ void CodeTransform::operator()(InstId _instId, StackData const& _operationInputL
 	{
 		SSACFG::BuiltinCall const& builtinCall = m_cfg.builtinPayload(_instId);
 		auto const& builtin = m_cfg.evmDialect.builtin(builtinCall.builtin);
-		// build up the call with transient args to handle literal arguments as needed
-		std::vector<Expression> transientArgs;
-		transientArgs.reserve(builtin.literalArguments.size());
-		auto litIt = builtinCall.literalArguments.begin();
-		for (size_t i = 0; i < builtin.literalArguments.size(); ++i)
-			if (builtin.literalArgument(i).has_value())
-				transientArgs.emplace_back(*litIt++);
-			else
-				transientArgs.emplace_back(Identifier{});
-		FunctionCall const transient{{}, BuiltinName{{}, builtinCall.builtin}, std::move(transientArgs)};
-		builtin.generateCode(transient, m_assembly, m_builtinContext);
+		builtin.generateCode(builtinCall.literalArguments, m_assembly, m_builtinContext);
 		break;
 	}
 	case InstOpcode::MemoryGuard:

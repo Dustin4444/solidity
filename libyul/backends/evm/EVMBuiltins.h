@@ -21,6 +21,7 @@
 #include <libyul/backends/evm/AbstractAssembly.h>
 
 #include <libyul/Dialect.h>
+#include <libyul/LiteralValue.h>
 #include <libyul/Scope.h>
 
 #include <bitset>
@@ -48,11 +49,11 @@ struct BuiltinContext
 struct BuiltinFunctionForEVM: public BuiltinFunction
 {
 	std::optional<evmasm::Instruction> instruction;
-	/// Function to generate code for the given function call and append it to the abstract
-	/// assembly. Expects all non-literal arguments of the call to be on stack in reverse order
-	/// (i.e. right-most argument pushed first).
+	/// Function to generate code for a call to this builtin and append it to the abstract assembly.
+	/// Receives the values of the literal-kind arguments (in argument order); all non-literal arguments
+	/// are expected to be on stack in reverse order (i.e. right-most argument pushed first).
 	/// Expects the caller to set the source location.
-	std::function<void(FunctionCall const&, AbstractAssembly&, BuiltinContext&)> generateCode;
+	std::function<void(std::vector<LiteralValue> const&, AbstractAssembly&, BuiltinContext&)> generateCode;
 };
 
 /// Collection of all possible EVM builtin functions.

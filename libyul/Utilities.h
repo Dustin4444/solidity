@@ -26,6 +26,7 @@
 #include <libyul/ASTForward.h>
 
 #include <string_view>
+#include <vector>
 
 namespace solidity::yul
 {
@@ -52,6 +53,15 @@ bool validBoolLiteral(Literal const& _literal);
 /// @param _validated whether the Literal was already validated, i.e., assumptions are asserted in the method
 /// @returns the literal's string representation
 std::string formatLiteral(Literal const& _literal, bool _validated = true);
+
+/// Produces a string representation of a LiteralValue. Unlike the Literal overload this does not have
+/// access to the literal kind, so it cannot, e.g., format booleans as "true"/"false".
+/// @returns the value's string representation
+std::string formatLiteral(LiteralValue const& _value);
+
+/// Extracts the values of the literal-kind arguments of @a _call (in argument order), as determined by
+/// the literal-argument metadata of @a _builtin.
+std::vector<LiteralValue> literalArgumentValues(BuiltinFunction const& _builtin, FunctionCall const& _call);
 
 /**
  * Linear order on Yul AST nodes.
