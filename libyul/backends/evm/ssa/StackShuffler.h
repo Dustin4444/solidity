@@ -111,6 +111,7 @@ public:
 	bool offsetInTargetArgsRegion(StackOffset _offset) const;
 	/// Retrieves the required argument slot for a specific stack offset
 	StackSlot const& targetArg(StackOffset _targetOffset) const;
+	StackSlot const& sourceSlot(StackOffset _sourceOffset) const;
 	/// Checks the current stack offset is args-compatible with a target stack offset, meaning the target offset is
 	/// in the target args region and either a wildcard slot (JUNK) or a precise match for the slot at `_sourceOffset`
 	bool isArgsCompatible(StackOffset _sourceOffset, StackOffset _targetOffset) const;
@@ -155,6 +156,11 @@ public:
 		return ranges::views::iota(0u, std::min(m_stackView.size(), m_reachableStackDepth)) | ranges::views::transform([&](auto _i) { return StackOffset{m_stackView.size() - _i - 1}; });
 	}
 
+	auto currentUnreachableSlots() const
+	{
+		return ranges::views::iota(0u, m_stackView.size() <= m_reachableStackDepth ? 0u : (m_stackView.size() - (m_reachableStackDepth + 1))) | ranges::views::transform([&](auto _i) { return StackOffset{_i}; });
+	}
+
 	/// Depth of the deepest arg slot incompatible with target or Nothing for no incompatibility in current state
 	std::optional<StackDepth> findDeepestIncorrectArgSlot() const;
 
@@ -167,6 +173,10 @@ public:
 	{
 		return detail::slotIsSpilled(_slot, m_spilledVariables);
 	}
+
+	bool slotRequiredInTargetArgsAboveOffset(StackSlot const& _slot, StackOffset _targetOffset) const;
+
+	std::optional<StackSlot> checkUnreachableStackPart() const;
 
 private:
 	StackView const& m_stackView;
@@ -374,7 +384,7 @@ private:
 				return {StackShufflerResult::Status::Continue};
 
 		// after this, all current slots are either in acceptable positions or at least dup-reachable
-		if (auto culprit = allNecessarySlotsReachableOrFinal(_stack, _state))
+		if (auto culprit = _state.checkUnreachableStackPart())
 		{
 			// !allNecessarySlotsReachableOrFinal(ops) ≡ ¬(∀s: reachable(s) ∨ final(s)) ≡ ∃s: ¬reachable(s) ∧ ¬final(s)
 			if (shrinkStack(_stack, _state))
@@ -1022,62 +1032,6 @@ private:
 		}
 
 		return false;
-	}
-
-	/// Checks if all current slots are either in a position that is compatible with the target or, if not, are
-	/// dup-reachable.
-	/// Returns the culprit slot (guaranteed to be non-junk) that cannot be placed or duplicated, or `std::nullopt`
-	/// if every slot is reachable-or-final.
-	static std::optional<StackSlot> allNecessarySlotsReachableOrFinal(Stack<Callback> const& _stack, detail::State const& _state)
-	{
-		// check that args are either in position or reachable
-		for (StackOffset offset{_state.target().tailSize}; offset < _state.target().size; ++offset.value)
-		{
-			if (_state.isArgsCompatible(offset, offset))
-				continue;
-
-			auto const& targetArg = _state.targetArg(offset);
-			// if the target arg is junk, we can simply push0 and it's fine
-			if (targetArg.isJunk())
-				continue;
-
-			// the target offset itself is out of swap range, we must shrink to reach it
-			if (offset.value < _stack.size() && _stack.isBeyondSwapRange(offset))
-				return targetArg;
-
-			// find first occurrence of the slot
-			std::optional<StackDepth> const depth = _stack.findSlotDepth(targetArg);
-			if (!depth)
-			{
-				// if there is no occurrence of the slot anywhere, we must be able to freely generate it
-				yulAssert(_state.slotCanBeLoadedOrPushed(targetArg));
-			}
-			else
-			{
-				if (_stack.isBeyondSwapRange(*depth) && !_state.slotCanBeLoadedOrPushed(targetArg))
-					return targetArg;
-			}
-		}
-		// distribution check: all we have to dup can be duped
-		for (StackOffset const offset: _state.stackRange())
-		{
-			auto const& slotAtOffset = _stack[offset];
-			// we don't have enough of the slot
-			if (
-				_state.count(slotAtOffset) < _state.targetMinCount(slotAtOffset) &&
-				!_stack.dupReachable(offset)
-			)
-			{
-				// find first occurrence of the slot
-				std::optional<StackDepth> depth = _stack.findSlotDepth(slotAtOffset);
-				// it must exist
-				yulAssert(depth);
-				if (!_stack.dupReachable(*depth) && !_state.slotCanBeLoadedOrPushed(slotAtOffset))
-					return slotAtOffset;
-			}
-		}
-
-		return std::nullopt;
 	}
 };
 

@@ -144,6 +144,12 @@ StackSlot const& State::targetArg(StackOffset const _targetOffset) const
 	return m_target.args[_targetOffset.value - m_target.tailSize];
 }
 
+StackSlot const& State::sourceSlot(StackOffset const _sourceOffset) const
+{
+	yulAssert(_sourceOffset.value < m_stackView.size());
+	return m_stackView[_sourceOffset];
+}
+
 bool State::isArgsCompatible(StackOffset const _sourceOffset, StackOffset const _targetOffset) const
 {
 	if (_sourceOffset >= m_stackView.size() || !offsetInTargetArgsRegion(_targetOffset))
@@ -224,6 +230,42 @@ std::optional<StackDepth> State::findDeepestIncorrectArgSlot() const
 	{
 		if (!isArgsCompatible(offset, offset))
 			return StackDepth{m_stackView.size() - offset.value};
+	}
+	return std::nullopt;
+}
+
+bool State::slotRequiredInTargetArgsAboveOffset(StackSlot const& _slot, StackOffset const _targetOffset) const
+{
+	yulAssert(_targetOffset.value >= target().tailSize);
+	yulAssert(_targetOffset.value < target().size);
+	auto const argsOffset = _targetOffset.value - target().tailSize;
+	auto it = m_target.args.begin();
+	std::advance(it, argsOffset + 1);
+	return std::find(it, m_target.args.end(), _slot) != m_target.args.end();
+}
+
+std::optional<StackSlot> State::checkUnreachableStackPart() const
+{
+	for (StackOffset const offset: currentUnreachableSlots())
+	{
+		auto const& slotAtOffset = sourceSlot(offset);
+		bool const inTargetArgs = offsetInTargetArgsRegion(offset);
+		// We definitely need to move args slot that is not compatible with its current position
+		if (inTargetArgs && !isArgsCompatible(offset, offset))
+			return slotAtOffset;
+
+		// We need to reach a slot if we cannot conjure it up, it's the shallowest instance, and we need more of it
+		if (slotCanBeLoadedOrPushed(slotAtOffset))
+			continue;
+		std::optional<StackDepth> depth = m_stackView.findSlotDepth(slotAtOffset);
+		yulAssert(depth);
+		if (m_stackView.depthToOffset(*depth) != offset)
+			continue;
+		if (count(slotAtOffset) < targetMinCount(slotAtOffset) || (!inTargetArgs && requiredInArgs(slotAtOffset)))
+			return slotAtOffset;
+		// We need to reach this slot if another instance is required in target args above this one
+		if (inTargetArgs && slotRequiredInTargetArgsAboveOffset(slotAtOffset, offset))
+			return slotAtOffset;
 	}
 	return std::nullopt;
 }
