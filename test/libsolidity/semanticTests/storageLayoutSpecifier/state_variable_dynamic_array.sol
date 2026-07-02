@@ -34,18 +34,18 @@ contract C is A layout at 42 {
 }
 // ----
 // initA() -> 1, 2, 3
-// gas irOptimized: 111986
+// gas irOptimized: 111926
 // gas legacy: 111679
 // gas legacyOptimized: 111150
-// gas ssaCFGOptimized: 111949
+// gas ssaCFGOptimized: 111890
 // arrayA(uint256): 0 -> 1
 // arrayALength() -> 3
 // arrayCLength() -> 0
 // initCFromAInReverse() -> 3, 2, 1
-// gas irOptimized: 121281
+// gas irOptimized: 121309
 // gas legacy: 121937
 // gas legacyOptimized: 120853
-// gas ssaCFGOptimized: 121205
+// gas ssaCFGOptimized: 121233
 // clearA() ->
 // arrayC(uint256): 0 -> 3
 // arrayALength() -> 0
