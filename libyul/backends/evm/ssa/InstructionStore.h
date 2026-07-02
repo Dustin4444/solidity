@@ -66,6 +66,9 @@ public:
 		FunctionGraphID graphID;
 		bool canContinue;
 		std::size_t numReturns;
+		/// True iff the callee is side-effect-free (a deterministic function of its arguments), so two
+		/// calls with equal arguments compute equal results and one may be forwarded to the other.
+		bool movable = false;
 	};
 
 	using Payload = std::variant<
@@ -375,24 +378,48 @@ public:
 		instruction.payload.reset();
 	}
 
-	/// Tombstones an Inst, releasing its slot(s) to the free pool. If `_id` is a
-	/// multi-return producer (i.e. has trailing Projections), the entire cluster
-	/// is swept and released as one contiguous run.
+	/// Tombstones an Inst, releasing its slot(s) to the free pool. A multi-return producer occupies one
+	/// contiguous run (producer + trailing Projections); the whole run is released in one shot. Interior
+	/// slots of such a run (the Projections) are not run starts, so calling this on one is a no-op: the
+	/// run is freed when its producer is tombstoned. This holds even after the producer/projections have
+	/// been rewritten to Nop/Identity by forwardProducer, since the run's recorded length is unchanged.
 	void tombstone(InstId const _id)
 	{
 		yulAssert(_id.hasValue());
 		auto const& instruction = inst(_id);
 		if (instruction.isTombstone())
 			return;
-
-		yulAssert(
-			!instruction.isProjection(),
-			"illegal call of tombstone(_id) on a Projection, tombstone the producer instead"
-		);
-		std::uint32_t const trailingCount = numTrailingProjections(_id);
+		if (!m_insts.isRunStart(_id.value))
+			return;
 		dropDedupIfConst(instruction);
-		// tombstone this inst and all trailing projections
-		m_insts.deallocate(_id.value, trailingCount + 1u);
+		m_insts.deallocate(_id.value);
+	}
+
+	/// Forwards a redundant producer `_from` to a dominating producer `_to` of the same shape (equal
+	/// number of returns), leaving Identity forwards so consumers reach `_to`'s outputs; run
+	/// removeIdentitiesAndNops afterwards to clean them up. `_numReturns` is supplied by the caller
+	/// because it depends on the dialect for builtins.
+	void forwardProducer(InstId const _from, InstId const _to, NumReturnsSizeType const _numReturns)
+	{
+		if (_numReturns == 0)
+		{
+			// A void movable operation carries no value; just drop the redundant one.
+			replaceWithNop(_from);
+			return;
+		}
+		if (_numReturns == 1)
+		{
+			// The single output is the producer slot itself.
+			replaceWithIdentity(_from, _to);
+			return;
+		}
+		// Multi-return: the outputs are the trailing Projections. Forward each to `_to`'s matching
+		// Projection, then Nop the now-valueless producer. Back-to-front so replaceWithIdentity's
+		// numTrailingProjections(target)==0 precondition holds (each later Projection is already an
+		// Identity by the time we rewrite an earlier one).
+		for (NumReturnsSizeType k = _numReturns; k-- > 0; )
+			replaceWithIdentity(InstId{_from.value + 1u + k}, InstId{_to.value + 1u + k});
+		replaceWithNop(_from);
 	}
 
 private:

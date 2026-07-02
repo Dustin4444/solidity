@@ -16,10 +16,10 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 /**
- * Global value numbering for the SSA CFG: deduplicates movable (side-effect-free) builtin operations
- * that compute the same value from the same inputs, replacing later occurrences with an Identity to
- * the dominating definition. Removes redundant arithmetic the Yul optimizer leaves behind after
- * inlining, which the block-local assembly-level CSE cannot always recover.
+ * Deduplicates pure (side-effect-free) operations that compute the same value from the same inputs,
+ * replacing later occurrences with an Identity to the dominating definition. Candidacy is decided by a
+ * single opcode-agnostic purity predicate covering movable builtins and movable user Calls; multi-return
+ * producers are handled by forwarding each output to the dominating producer's matching output.
  */
 #pragma once
 
@@ -30,7 +30,7 @@ class SSACFG;
 
 namespace transform
 {
-/// Deduplicates movable builtin operations across the dominator tree. Leaves Identity forwards behind;
+/// Deduplicates pure operations across the dominator tree. Leaves Identity forwards behind;
 /// run removeIdentitiesAndNops afterwards to clean them up.
 void eliminateCommonSubexpressions(SSACFG& _cfg);
 }

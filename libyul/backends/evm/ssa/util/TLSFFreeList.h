@@ -166,6 +166,18 @@ public:
 		linkIntoBin(mergedStart, mergedLength);
 	}
 
+	/// Releases the whole run recorded at `_start`, taking the length from its header. Use when the caller
+	/// knows `_start` is a run start but not (or no longer) its length, e.g. a producer whose trailing
+	/// projections have been rewritten to other opcodes.
+	void deallocate(Index const _start)
+	{
+		yulAssert(hasHeader(_start), "deallocate: no header at start index");
+		deallocate(_start, m_headers[_start].length);
+	}
+
+	/// True iff `_s` is the start index of a run (allocated or free); interior slots of a run return false.
+	bool isRunStart(Index const _s) const noexcept { return hasHeader(_s); }
+
 	T& operator[](Index const _i) { return m_data[_i]; }
 	T const& operator[](Index const _i) const { return m_data[_i]; }
 

@@ -24,6 +24,7 @@
 
 #include <cstdint>
 #include <map>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -33,24 +34,49 @@ using namespace solidity::yul::ssa::transform;
 
 namespace
 {
-// (builtin id, resolved input value ids). Movable builtins with literal arguments are excluded, so
-// the key needs no literal payload.
-using Key = std::pair<std::uint64_t, std::vector<InstId::ValueType>>;
+// Opcode-agnostic value number: (opcode, payload discriminator, resolved input value ids). Two pure
+// operations with equal keys compute the same value, so one can forward to the other.
+using Key = std::tuple<InstOpcode, std::uint64_t, std::vector<InstId::ValueType>>;
 
-/// A movable builtin operation is a pure function of its inputs (movable => no storage/memory/transient
-/// dependence and no side-effects), so two such operations with equal builtin and equal inputs compute
-/// the same value and one can forward to the other.
-bool isCandidate(SSACFG const& _cfg, InstId const _id)
+/// A pure operation is a deterministic function of its inputs with no observable effect, so two pure
+/// operations with equal opcode + payload + inputs compute equal outputs. This single predicate decides
+/// what may be deduplicated; extending it to further opcodes (e.g. side-effect-free Calls, once
+/// interprocedural purity is available) is the intended way to widen CSE beyond builtins.
+bool isPure(SSACFG const& _cfg, InstId const _id)
 {
-	SSACFG::Inst const& inst = _cfg.inst(_id);
-	if (inst.opcode != InstOpcode::BuiltinCall)
+	switch (_cfg.kindOf(_id))
+	{
+	case InstOpcode::BuiltinCall:
+	{
+		auto const& payload = _cfg.builtinPayload(_id);
+		// Literal-argument builtins (e.g. `datasize("A")`) fold their literals into the emitted code
+		// rather than the input list, so equal inputs do not imply an equal result.
+		if (!payload.literalArguments.empty())
+			return false;
+		return _cfg.evmDialect.builtin(payload.builtin).sideEffects.movable;
+	}
+	case InstOpcode::Call:
+		// Movability of the callee is determined from its data side-effects at build time.
+		return _cfg.callPayload(_id).movable;
+	// MemoryGuard/others: not recomputable from inputs.
+	default:
 		return false;
-	auto const& payload = _cfg.builtinPayload(_id);
-	if (!payload.literalArguments.empty())
-		return false;
-	if (_cfg.numTrailingProjections(_id) != 0)
-		return false;
-	return _cfg.evmDialect.builtin(payload.builtin).sideEffects.movable;
+	}
+}
+
+/// Distinguishes operations that share an opcode but denote different computations (which builtin, which
+/// callee). Combined with opcode and inputs it uniquely identifies the value a pure operation computes.
+std::uint64_t payloadDiscriminator(SSACFG const& _cfg, InstId const _id)
+{
+	switch (_cfg.kindOf(_id))
+	{
+	case InstOpcode::BuiltinCall:
+		return _cfg.builtinPayload(_id).builtin.id;
+	case InstOpcode::Call:
+		return _cfg.callPayload(_id).graphID;
+	default:
+		return 0;
+	}
 }
 
 Key keyOf(SSACFG const& _cfg, InstId const _id)
@@ -60,7 +86,7 @@ Key keyOf(SSACFG const& _cfg, InstId const _id)
 	inputs.reserve(inst.inputs.size());
 	for (InstId const input: inst.inputs)
 		inputs.push_back(_cfg.resolveIdentity(input).value);
-	return {_cfg.builtinPayload(_id).builtin.id, std::move(inputs)};
+	return {_cfg.kindOf(_id), payloadDiscriminator(_cfg, _id), std::move(inputs)};
 }
 }
 
@@ -99,11 +125,11 @@ void transform::eliminateCommonSubexpressions(SSACFG& _cfg)
 			frame.entered = true;
 			for (InstId const id: _cfg.block(frame.block).instructions)
 			{
-				if (!isCandidate(_cfg, id))
+				if (!isPure(_cfg, id))
 					continue;
 				Key key = keyOf(_cfg, id);
 				if (auto const it = available.find(key); it != available.end())
-					_cfg.replaceWithIdentity(id, it->second);
+					_cfg.forwardProducer(id, it->second);
 				else
 				{
 					available.emplace(key, id);

@@ -37,6 +37,7 @@
 #pragma once
 
 #include <libyul/ControlFlowSideEffectsCollector.h>
+#include <libyul/SideEffects.h>
 
 #include <libyul/backends/evm/EVMDialect.h>
 
@@ -45,6 +46,7 @@
 
 #include <libyul/AsmAnalysisInfo.h>
 
+#include <map>
 #include <stack>
 #include <unordered_map>
 
@@ -69,6 +71,7 @@ private:
 		SSACFG& _graph,
 		AsmAnalysisInfo const& _analysisInfo,
 		ControlFlowSideEffectsCollector const& _sideEffects,
+		std::map<FunctionHandle, SideEffects> const& _functionDataSideEffects,
 		EVMDialect const& _dialect,
 		bool _generateDebugInfo,
 		FunctionRegistry& _functionRegistry
@@ -122,6 +125,9 @@ private:
 	SSACFG& m_graph;
 	AsmAnalysisInfo const& m_info;
 	ControlFlowSideEffectsCollector const& m_sideEffects;
+	/// Per-function data side-effects (movability), keyed by callee. Owned by the topmost `build()`
+	/// invocation; nested builders just reference it. Used to mark movable Calls for CSE.
+	std::map<FunctionHandle, SideEffects> const& m_functionDataSideEffects;
 	EVMDialect const& m_dialect;
 	bool const m_generateDebugInfo;
 	/// Shared function lookup, populated as `registerFunctionDefinition` is called.

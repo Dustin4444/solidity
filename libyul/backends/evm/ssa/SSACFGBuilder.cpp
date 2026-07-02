@@ -25,7 +25,9 @@
 
 #include <libyul/AST.h>
 #include <libyul/ControlFlowSideEffectsCollector.h>
+#include <libyul/optimiser/CallGraphGenerator.h>
 #include <libyul/optimiser/Metrics.h>
+#include <libyul/optimiser/Semantics.h>
 #include <libyul/Exceptions.h>
 #include <libyul/Utilities.h>
 
@@ -51,6 +53,7 @@ SSACFGBuilder::SSACFGBuilder(
 	SSACFG& _graph,
 	AsmAnalysisInfo const& _analysisInfo,
 	ControlFlowSideEffectsCollector const& _sideEffects,
+	std::map<FunctionHandle, SideEffects> const& _functionDataSideEffects,
 	EVMDialect const& _dialect,
 	bool _generateDebugInfo,
 	FunctionRegistry& _functionRegistry
@@ -59,6 +62,7 @@ SSACFGBuilder::SSACFGBuilder(
 	m_graph(_graph),
 	m_info(_analysisInfo),
 	m_sideEffects(_sideEffects),
+	m_functionDataSideEffects(_functionDataSideEffects),
 	m_dialect(_dialect),
 	m_generateDebugInfo(_generateDebugInfo),
 	m_functionRegistry(_functionRegistry),
@@ -78,6 +82,8 @@ std::unique_ptr<ControlFlowGraphs> SSACFGBuilder::build(
 )
 {
 	ControlFlowSideEffectsCollector sideEffects(_dialect, _block);
+	std::map<FunctionHandle, SideEffects> const functionDataSideEffects =
+		SideEffectsPropagator::sideEffects(_dialect, CallGraphGenerator::callGraph(_block));
 
 	auto controlFlowGraphs = std::make_unique<ControlFlowGraphs>();
 	controlFlowGraphs->functionGraphs.emplace_back(std::make_unique<SSACFG>(
@@ -87,7 +93,7 @@ std::unique_ptr<ControlFlowGraphs> SSACFGBuilder::build(
 	));
 	SSACFG& mainGraph = *controlFlowGraphs->functionGraphs.back();
 	FunctionRegistry functionRegistry;
-	SSACFGBuilder builder(*controlFlowGraphs, mainGraph, _analysisInfo, sideEffects, _dialect, _generateDebugInfo, functionRegistry);
+	SSACFGBuilder builder(*controlFlowGraphs, mainGraph, _analysisInfo, sideEffects, functionDataSideEffects, _dialect, _generateDebugInfo, functionRegistry);
 	builder.m_currentBlock = mainGraph.makeBlock(debugDataOf(_block));
 	builder.sealBlock(builder.m_currentBlock);
 	builder(_block);
@@ -130,7 +136,7 @@ void SSACFGBuilder::buildFunctionGraph(
 		| ranges::views::transform([](auto const& _binding) { return std::get<1>(_binding); })
 		| ranges::to<std::vector>;
 
-	SSACFGBuilder builder(m_controlFlow, cfg, m_info, m_sideEffects, m_dialect, m_generateDebugInfo, m_functionRegistry);
+	SSACFGBuilder builder(m_controlFlow, cfg, m_info, m_sideEffects, m_functionDataSideEffects, m_dialect, m_generateDebugInfo, m_functionRegistry);
 	builder.m_currentBlock = cfg.entry;
 	builder.m_currentReturnVars = returnVars;
 	for (auto&& [var, varId]: argumentBindings)
@@ -504,6 +510,9 @@ InstId SSACFGBuilder::visitFunctionCall(FunctionCall const& _call)
 			auto const calleeIt = m_functionRegistry.find(&function);
 			yulAssert(calleeIt != m_functionRegistry.end(), "Called function has no registered graph id.");
 			canContinue = m_sideEffects.functionSideEffects().at(calleeIt->second.definition).canContinue;
+			auto const dataSideEffectsIt = m_functionDataSideEffects.find(functionName);
+			bool const movable =
+				dataSideEffectsIt != m_functionDataSideEffects.end() && dataSideEffectsIt->second.movable;
 			// Arguments must be evaluated from right to left, according to Yul specification
 			std::vector<InstId> inputs;
 			for (auto const& arg: _call.arguments | ranges::views::reverse)
@@ -512,7 +521,7 @@ InstId SSACFGBuilder::visitFunctionCall(FunctionCall const& _call)
 			ranges::reverse(inputs);
 			return m_graph.makeCallWithProjections(
 				m_currentBlock,
-				SSACFG::Call{calleeIt->second.id, canContinue, function.numReturns},
+				SSACFG::Call{calleeIt->second.id, canContinue, function.numReturns, movable},
 				std::move(inputs),
 				static_cast<InstructionStore::NumReturnsSizeType>(function.numReturns),
 				debugDataOf(_call)

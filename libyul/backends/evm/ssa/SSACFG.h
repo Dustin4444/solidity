@@ -341,6 +341,17 @@ public:
 		m_instructions.replaceWithIdentity(_target, _forward);
 	}
 
+	/// Forwards a redundant producer `_from` to a dominating producer `_to` of the same shape.
+	/// Handles single- and multi-return producers; leaves Identity forwards for removeIdentitiesAndNops.
+	void forwardProducer(InstId const _from, InstId const _to)
+	{
+		m_instructions.forwardProducer(
+			_from,
+			_to,
+			static_cast<InstructionStore::NumReturnsSizeType>(numReturnsOf(_from))
+		);
+	}
+
 	/// Flips _target to Const carrying _value
 	void replaceWithConst(InstId const _target, u256 _value)
 	{
