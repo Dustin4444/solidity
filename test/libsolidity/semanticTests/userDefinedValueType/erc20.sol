@@ -119,8 +119,8 @@ contract ERC20 {
 // gas legacy code: 671400
 // gas legacyOptimized: 127464
 // gas legacyOptimized code: 285400
-// gas ssaCFGOptimized: 121536
-// gas ssaCFGOptimized code: 237200
+// gas ssaCFGOptimized: 121328
+// gas ssaCFGOptimized code: 234400
 // totalSupply() -> 20
 // gas irOptimized: 23334
 // gas legacy: 23645

@@ -44,7 +44,7 @@ contract c {
 // gas irOptimized: 112674
 // gas legacy: 108272
 // gas legacyOptimized: 100268
-// gas ssaCFGOptimized: 112668
+// gas ssaCFGOptimized: 112672
 // getLengths() -> 48, 49
 // setIDStatic(uint256): 11 ->
 // getID(uint256): 2 -> 11

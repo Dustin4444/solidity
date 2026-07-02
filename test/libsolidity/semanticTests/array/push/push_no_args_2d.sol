@@ -30,7 +30,7 @@ contract C {
 // gas irOptimized: 112288
 // gas legacy: 107925
 // gas legacyOptimized: 101896
-// gas ssaCFGOptimized: 112269
+// gas ssaCFGOptimized: 112273
 // l() -> 1
 // ll(uint256): 0 -> 43
 // a(uint256,uint256): 0, 42 -> 64
@@ -38,7 +38,7 @@ contract C {
 // gas irOptimized: 118708
 // gas legacy: 109977
 // gas legacyOptimized: 98446
-// gas ssaCFGOptimized: 118689
+// gas ssaCFGOptimized: 118693
 // l() -> 2
 // ll(uint256): 1 -> 85
 // a(uint256,uint256): 0, 42 -> 64

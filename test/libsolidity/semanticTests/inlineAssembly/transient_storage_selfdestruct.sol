@@ -46,8 +46,8 @@ contract D {
 // gas legacy code: 501200
 // gas legacyOptimized: 125846
 // gas legacyOptimized code: 203400
-// gas ssaCFGOptimized: 126096
-// gas ssaCFGOptimized code: 203200
+// gas ssaCFGOptimized: 125578
+// gas ssaCFGOptimized code: 198000
 // destroy() ->
 // createAndDestroy() ->
 // gas legacy: 67048

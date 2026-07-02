@@ -154,8 +154,7 @@ object "C" {
 //     builtin @sstore v84, v0
 //     jump #3
 // #3: preds: #2
-//     v86 = builtin @add v19, v24
-//     upsilon v86 -> ^v19
+//     upsilon v25 -> ^v19
 //     jump #1
 // #4: preds: #1
 //     return

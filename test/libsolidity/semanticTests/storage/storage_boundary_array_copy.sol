@@ -48,7 +48,7 @@ contract C {
 // gas irOptimized: 264224
 // gas legacy: 265434
 // gas legacyOptimized: 264247
-// gas ssaCFGOptimized: 264182
+// gas ssaCFGOptimized: 264186
 // x() -> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 // y() -> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 // clearX()
@@ -58,6 +58,6 @@ contract C {
 // gas irOptimized: 266243
 // gas legacy: 267456
 // gas legacyOptimized: 266280
-// gas ssaCFGOptimized: 266200
+// gas ssaCFGOptimized: 266201
 // x() -> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
 // y() -> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10

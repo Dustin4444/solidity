@@ -45,7 +45,7 @@ contract Main {
 // gas legacy code: 236400
 // gas legacyOptimized: 143592
 // gas legacyOptimized code: 118000
-// gas ssaCFGOptimized: 143472
+// gas ssaCFGOptimized: 143377
 // gas ssaCFGOptimized code: 112600
 // getFlag() -> true
 // getName() -> "abc"

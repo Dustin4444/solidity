@@ -18,6 +18,7 @@
 
 #include <libyul/backends/evm/ssa/transform/OptimizationPipeline.h>
 
+#include <libyul/backends/evm/ssa/transform/CommonSubexpressionEliminator.h>
 #include <libyul/backends/evm/ssa/transform/IdentityAndNopRemover.h>
 #include <libyul/backends/evm/ssa/transform/Outliner.h>
 #include <libyul/backends/evm/ssa/transform/TrivialPhiEliminator.h>
@@ -33,6 +34,8 @@ void transform::optimize(ControlFlowGraphs& _cfgs)
 	{
 		transform::cleanUnreachableBlocks(*cfg);
 		transform::eliminateTrivialPhis(*cfg);
+		// Dedup movable operations, then clean up the Identity forwards it leaves behind.
+		transform::eliminateCommonSubexpressions(*cfg);
 		transform::removeIdentitiesAndNops(*cfg);
 	}
 	// transform::runOutliner(_cfgs);
