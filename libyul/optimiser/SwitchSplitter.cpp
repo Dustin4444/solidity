@@ -25,6 +25,7 @@
 
 #include <libevmasm/GasMeter.h>
 #include <libsolutil/CommonData.h>
+#include <libsolutil/Numeric.h>
 
 #include <algorithm>
 #include <optional>
@@ -95,13 +96,13 @@ std::optional<std::vector<Statement>> SwitchSplitter::tryTransform(Switch& _swit
 	if (!defaultBody)
 		defaultBody = &emptyBlock;
 
-	// Only transform if the top-level split is profitable.
-	if (!shouldSplit(literalCases.size(), defaultBody->statements.size()))
-		return {};
-
 	std::sort(literalCases.begin(), literalCases.end(), [](Case const* _a, Case const* _b) {
 		return _a->value->value.value() < _b->value->value.value();
 	});
+
+	// Only transform if the top-level split is profitable.
+	if (!shouldSplit(literalCases, defaultBody->statements.size()))
+		return {};
 
 	return buildTree(literalCases, *exprIdent, *defaultBody, _switch.debugData);
 }
@@ -116,7 +117,7 @@ std::vector<Statement> SwitchSplitter::buildTree(
 	size_t n = _cases.size();
 	bool const hasDefault = !_defaultBody.statements.empty();
 
-	if (!shouldSplit(n, _defaultBody.statements.size()))
+	if (!shouldSplit(_cases, _defaultBody.statements.size()))
 	{
 		// Leaf: small switch; default case added only when present.
 		std::vector<Case> switchCases;
@@ -163,11 +164,15 @@ std::vector<Statement> SwitchSplitter::buildTree(
 	return result;
 }
 
-bool SwitchSplitter::shouldSplit(size_t _n, size_t _defaultBodySize) const
+bool SwitchSplitter::shouldSplit(std::span<Case const* const> _cases, size_t _defaultBodySize) const
 {
-	if (_n <= 4)
+	size_t const n = _cases.size();
+	if (n <= 4)
 		return false;
-	// Same as ContractCompiler::appendInternalSelector but overhead += k for default body duplication.
-	size_t const overhead = 17 + _defaultBodySize;
-	return m_runs * 6 * (_n - 4) > overhead * evmasm::GasCosts::createDataGas;
+
+	// Overhead scales with the fulcrum's actual encoding size.
+	size_t const pivotIdx = (n - 1) / 2;
+	unsigned const fulcrumSize = numberEncodingSize(_cases[pivotIdx]->value->value.value());
+	size_t const overhead = 13 + fulcrumSize + _defaultBodySize;
+	return m_runs * 6 * (n - 4) > overhead * evmasm::GasCosts::createDataGas;
 }
