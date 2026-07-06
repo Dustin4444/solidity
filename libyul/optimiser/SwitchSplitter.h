@@ -38,9 +38,9 @@ namespace solidity::yul
  * expectedExecutionsPerDeployment executions outweigh the extra code size (creation gas):
  *   runs * 6 * (n - 4) > (13 + f + k) * createDataGas
  * where f is the encoding size in bytes of the fulcrum (pivot) literal and k is the
- * default body statement count (proxy for bytecode size). The 13-byte base overhead
- * comes from the gt-switch structure; k accounts for each split duplicating the default
- * body into one additional leaf.
+ * CodeSize estimate for the default body (proxy for bytecode size). The 13-byte base
+ * overhead comes from the gt-switch structure; k accounts for each split duplicating
+ * the default body into one additional leaf.
  *
  * Applied recursively: each sub-slice re-evaluates the formula.
  * The default case body is duplicated into each leaf branch when present.
@@ -75,7 +75,7 @@ private:
 		langutil::DebugData::ConstPtr _debugData
 	);
 
-	bool shouldSplit(std::span<Case const* const> _cases, size_t _defaultBodySize) const;
+	bool shouldSplit(std::span<Case const* const> _cases, Block const& _defaultBody) const;
 
 	std::optional<BuiltinHandle> m_gtHandle;
 	size_t m_runs = 0;

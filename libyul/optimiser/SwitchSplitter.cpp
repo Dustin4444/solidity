@@ -18,6 +18,7 @@
 #include <libyul/optimiser/SwitchSplitter.h>
 
 #include <libyul/optimiser/ASTCopier.h>
+#include <libyul/optimiser/Metrics.h>
 #include <libyul/optimiser/OptimiserStep.h>
 #include <libyul/AST.h>
 #include <libyul/Dialect.h>
@@ -101,7 +102,7 @@ std::optional<std::vector<Statement>> SwitchSplitter::tryTransform(Switch& _swit
 	});
 
 	// Only transform if the top-level split is profitable.
-	if (!shouldSplit(literalCases, defaultBody->statements.size()))
+	if (!shouldSplit(literalCases, *defaultBody))
 		return {};
 
 	return buildTree(literalCases, *exprIdent, *defaultBody, _switch.debugData);
@@ -117,7 +118,7 @@ std::vector<Statement> SwitchSplitter::buildTree(
 	size_t n = _cases.size();
 	bool const hasDefault = !_defaultBody.statements.empty();
 
-	if (!shouldSplit(_cases, _defaultBody.statements.size()))
+	if (!shouldSplit(_cases, _defaultBody))
 	{
 		// Leaf: small switch; default case added only when present.
 		std::vector<Case> switchCases;
@@ -164,7 +165,7 @@ std::vector<Statement> SwitchSplitter::buildTree(
 	return result;
 }
 
-bool SwitchSplitter::shouldSplit(std::span<Case const* const> _cases, size_t _defaultBodySize) const
+bool SwitchSplitter::shouldSplit(std::span<Case const* const> _cases, Block const& _defaultBody) const
 {
 	size_t const n = _cases.size();
 	if (n <= 4)
@@ -173,6 +174,6 @@ bool SwitchSplitter::shouldSplit(std::span<Case const* const> _cases, size_t _de
 	// Overhead scales with the fulcrum's actual encoding size.
 	size_t const pivotIdx = (n - 1) / 2;
 	unsigned const fulcrumSize = numberEncodingSize(_cases[pivotIdx]->value->value.value());
-	size_t const overhead = 13 + fulcrumSize + _defaultBodySize;
+	size_t const overhead = 13 + fulcrumSize + CodeSize::codeSize(_defaultBody);
 	return m_runs * 6 * (n - 4) > overhead * evmasm::GasCosts::createDataGas;
 }
