@@ -394,7 +394,7 @@ size_t Scanner::scanSingleLineDocComment()
 
 Token Scanner::skipMultiLineComment()
 {
-	size_t const startPosition = m_source.position();
+	size_t startPosition = m_source.position();
 	while (!isSourcePastEndOfInput())
 	{
 		char prevChar = m_char;
