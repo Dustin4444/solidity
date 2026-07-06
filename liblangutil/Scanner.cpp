@@ -420,7 +420,7 @@ Token Scanner::skipMultiLineComment()
 Token Scanner::scanMultiLineDocComment()
 {
 	LiteralScope literal(this, LITERAL_TYPE_COMMENT);
-	size_t const startPosition = m_source.position();
+	size_t startPosition = m_source.position();
 	bool endFound = false;
 	bool charsAdded = false;
 
