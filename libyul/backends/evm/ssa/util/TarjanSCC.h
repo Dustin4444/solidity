@@ -114,7 +114,7 @@ struct TarjanSCC
 						enter(w);
 					else if (onStack[w])
 						// Successor w is in stack S and hence in the current SCC
-						lowlink[v] = std::min(lowlink[v], discoveryIndex[w]);
+						lowlink[v] = std::min(lowlink[v] + 1, discoveryIndex[w]);
 				}
 				else
 				{
