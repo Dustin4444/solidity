@@ -1,0 +1,48 @@
+// Found by the FeasibleTargetsAreReachableWithSpilling property test (coverage-guided run),
+// but spilling is irrelevant: nothing is spilled and every demanded slot is on the stack with
+// no deficit. After growing (DUP of v0) and placing phi0, the shrink priority counts the v0
+// that sits correctly in its demanded position as surplus (count 3 > minCount 2) and, scanning
+// top-down, prefers it over the equally-scored out-of-position v1 -- popping v0 right out of
+// its target slot and cycling. The plain shuffler without spilling livelocks identically.
+initial: [v0, v0, v1, phi0]
+targetStackTop: [v0, v0, phi0]
+targetStackSize: 5
+allowSpilling: true
+// ----
+//             |      0      1 |      2      3      4
+//             +-------------- +---------------------
+//    (initial)|     v0     v0 |     v1   phi0
+//         DUP3|     v0     v0 |     v1   phi0     v0
+//        SWAP1|     v0     v0 |     v1     v0   phi0
+//        SWAP1|     v0     v0 |     v1   phi0     v0
+//          POP|     v0     v0 |     v1   phi0
+//         DUP3|     v0     v0 |     v1   phi0     v0
+//        SWAP1|     v0     v0 |     v1     v0   phi0
+//        SWAP1|     v0     v0 |     v1   phi0     v0
+//          POP|     v0     v0 |     v1   phi0
+//         DUP3|     v0     v0 |     v1   phi0     v0
+//        SWAP1|     v0     v0 |     v1     v0   phi0
+//        SWAP1|     v0     v0 |     v1   phi0     v0
+//          POP|     v0     v0 |     v1   phi0
+//         DUP3|     v0     v0 |     v1   phi0     v0
+//        SWAP1|     v0     v0 |     v1     v0   phi0
+//        SWAP1|     v0     v0 |     v1   phi0     v0
+//          POP|     v0     v0 |     v1   phi0
+//         DUP3|     v0     v0 |     v1   phi0     v0
+//        SWAP1|     v0     v0 |     v1     v0   phi0
+//        SWAP1|     v0     v0 |     v1   phi0     v0
+//          POP|     v0     v0 |     v1   phi0
+//         DUP3|     v0     v0 |     v1   phi0     v0
+//        SWAP1|     v0     v0 |     v1     v0   phi0
+//        SWAP1|     v0     v0 |     v1   phi0     v0
+//          POP|     v0     v0 |     v1   phi0
+//         DUP3|     v0     v0 |     v1   phi0     v0
+//        SWAP1|     v0     v0 |     v1     v0   phi0
+//        SWAP1|     v0     v0 |     v1   phi0     v0
+//          POP|     v0     v0 |     v1   phi0
+//         DUP3|     v0     v0 |     v1   phi0     v0
+//          ...|
+//             +-------------- +---------------------
+//     (target)|            {} |     v0     v0   phi0
+// Status: MaxIterationsReached
+// Spilled: {}
