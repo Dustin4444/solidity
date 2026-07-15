@@ -514,8 +514,10 @@ private:
 		for (StackOffset offset: _state.stackRange())
 		{
 			// if we need the slot in args and there's no slot of the same kind further up;
-			// spills are exempt as they can be reloaded when their position is filled
+			// junk is exempt since junk target args admit anything and junk can always be
+			// re-generated; spills are exempt as they can be reloaded when their position is filled
 			if (
+				!_stack[offset].isJunk() &&
 				_state.requiredInArgs(_stack[offset]) &&
 				!_state.slotIsSpilled(_stack[offset]) &&
 				ranges::find(ranges::begin(_stack) + static_cast<std::ptrdiff_t>(offset.value) + 1, ranges::end(_stack), _stack[offset]) == ranges::end(_stack)
