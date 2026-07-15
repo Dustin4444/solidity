@@ -1,0 +1,49 @@
+// Found by a coverage-guided run of the FeasibleTargetsAreReachableWithSpilling property
+// test: while the stack grows towards the tail size, dupDeepestRelevantTailSlot considers the
+// JUNK at the stack bottom "required in args" (the target args contain a JUNK entry, which
+// requiredInArgs matches) and, since it is not dup-reachable, tries to compress the stack --
+// popping the freshly duplicated v1 that the growth just produced. Junk never needs rescuing,
+// so the dup and the compress-pop undo each other until MaxIterationsReached.
+initial: [JUNK, v0, v1, v2, v2, v2, v4, v7, v5, v2, v2, v6, v2, v2, v2, v2, v2]
+targetStackTop: [v0, v1, JUNK]
+targetStackTailSet: {v0, v2, v4, v5, v6, v7}
+targetStackSize: 23
+allowSpilling: true
+// ----
+//             |      0      1      2      3      4      5      6      7      8      9     10     11     12     13     14     15     16     17     18     19 |     20     21     22
+//             +-------------------------------------------------------------------------------------------------------------------------------------------- +---------------------
+//    (initial)|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//        DUP16|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0     v1
+//          POP|      *     v0     v1     v2     v2     v2     v4     v7     v5     v2     v2     v6     v2     v2     v2     v2     v2     v0
+//          ...|
+//             +-------------------------------------------------------------------------------------------------------------------------------------------- +---------------------
+//     (target)|                                                                                                                    {v0, v2, v4, v5, v6, v7} |     v0     v1      *
+// Status: MaxIterationsReached
+// Spilled: {}
