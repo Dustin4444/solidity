@@ -12,36 +12,10 @@ initialSpilledSet: {phi3, phi4, phi5}
 //             +--------------------- +--------------
 //    (initial)|   phi0      *     v1 |   phi2
 //    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          POP|   phi0      *     v1 |   phi2
-//    PUSH phi4|   phi0      *     v1 |   phi2   phi4
-//          ...|
+//        SWAP1|   phi0      *     v1 |   phi4   phi2
+//          POP|   phi0      *     v1 |   phi4
+//         DUP1|   phi0      *     v1 |   phi4   phi4
 //             +--------------------- +--------------
 //     (target)|              {phi3*} |   phi4   phi4
-// Status: MaxIterationsReached
+// Status: Admissible
 // Spilled: {phi3, phi4, phi5}

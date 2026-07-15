@@ -951,11 +951,25 @@ private:
 		yulAssert(!_stack.empty(), "Stack is empty, can't shrink");
 
 		StackOffset const stackTop{_stack.size() - 1};
+		// A spilled top can be popped and reloaded later, but not while its value is still missing
+		// from a target arg position that demands it: popping merely forces another reload of the
+		// same value (livelocking against the reload in fixArgsSlot), whereas the swap logic below
+		// can move it into the demanded position directly.
+		auto const spilledTopStillDemandedInArgs = [&]() -> bool
+		{
+			if (!_state.slotIsSpilled(_stack[stackTop]) || !_state.requiredInArgs(_stack[stackTop]))
+				return false;
+			std::size_t correctlyPlaced = 0;
+			for (StackOffset offset: _state.stackArgsRange())
+				if (_stack[offset] == _stack[stackTop] && _state.targetArg(offset) == _stack[stackTop])
+					++correctlyPlaced;
+			return correctlyPlaced < _state.targetArgsCount(_stack[stackTop]);
+		};
 		// pop top if it is junk (ie actual junk, not in args, not in live out) or spilled
 		if (
 			_stack[stackTop].isJunk() ||
 			(!_state.requiredInArgs(_stack[stackTop]) && !_state.requiredInTail(_stack[stackTop])) ||
-			_state.slotIsSpilled(_stack[stackTop])
+			(_state.slotIsSpilled(_stack[stackTop]) && !spilledTopStillDemandedInArgs())
 		)
 		{
 			_stack.pop();

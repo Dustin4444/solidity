@@ -11,36 +11,11 @@ initialSpilledSet: {v4}
 //             +------------------------------------------
 //    (initial)|     v0   phi1   phi2      *   phi3
 //      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          POP|     v0   phi1   phi2      *   phi3
-//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
-//          ...|
+//        SWAP3|     v0   phi1     v4      *   phi3   phi2
+//          POP|     v0   phi1     v4      *   phi3
+//    PUSH lit7|     v0   phi1     v4      *   phi3   lit7
+//        SWAP2|     v0   phi1     v4   lit7   phi3      *
 //             +------------------------------------------
 //     (target)|      *      *     v4   lit7      *      *
-// Status: MaxIterationsReached
+// Status: Admissible
 // Spilled: {v4}

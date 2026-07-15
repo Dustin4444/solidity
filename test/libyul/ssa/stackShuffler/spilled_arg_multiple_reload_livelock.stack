@@ -20,28 +20,10 @@ initialSpilledSet: {phi3, phi4, v6}
 //        SWAP3|     v0   phi3     v6     v6      *      *   lit2
 //          POP|     v0   phi3     v6     v6      *      *
 //         DUP5|     v0   phi3     v6     v6      *      *   phi3
-//          POP|     v0   phi3     v6     v6      *      *
-//         DUP5|     v0   phi3     v6     v6      *      *   phi3
-//          POP|     v0   phi3     v6     v6      *      *
-//         DUP5|     v0   phi3     v6     v6      *      *   phi3
-//          POP|     v0   phi3     v6     v6      *      *
-//         DUP5|     v0   phi3     v6     v6      *      *   phi3
-//          POP|     v0   phi3     v6     v6      *      *
-//         DUP5|     v0   phi3     v6     v6      *      *   phi3
-//          POP|     v0   phi3     v6     v6      *      *
-//         DUP5|     v0   phi3     v6     v6      *      *   phi3
-//          POP|     v0   phi3     v6     v6      *      *
-//         DUP5|     v0   phi3     v6     v6      *      *   phi3
-//          POP|     v0   phi3     v6     v6      *      *
-//         DUP5|     v0   phi3     v6     v6      *      *   phi3
-//          POP|     v0   phi3     v6     v6      *      *
-//         DUP5|     v0   phi3     v6     v6      *      *   phi3
-//          POP|     v0   phi3     v6     v6      *      *
-//         DUP5|     v0   phi3     v6     v6      *      *   phi3
-//          POP|     v0   phi3     v6     v6      *      *
-//         DUP5|     v0   phi3     v6     v6      *      *   phi3
-//          ...|
+//        SWAP2|     v0   phi3     v6     v6   phi3      *      *
+//          POP|     v0   phi3     v6     v6   phi3      *
+//         DUP2|     v0   phi3     v6     v6   phi3      *   phi3
 //             +-------------------------------------------------
 //     (target)|      *   phi3     v6     v6   phi3      *   phi3
-// Status: MaxIterationsReached
+// Status: Admissible
 // Spilled: {phi3, phi4, v6}

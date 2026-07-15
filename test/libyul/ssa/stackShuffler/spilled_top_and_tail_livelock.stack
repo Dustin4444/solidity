@@ -12,36 +12,10 @@ initialSpilledSet: {v5}
 //             +------- +--------------
 //    (initial)|   phi0 |   lit1
 //      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          POP|   phi0 |   lit1
-//      PUSH v5|   phi0 |   lit1     v5
-//          ...|
+//        SWAP1|   phi0 |     v5   lit1
+//          POP|   phi0 |     v5
+//         DUP1|   phi0 |     v5     v5
 //             +------- +--------------
 //     (target)|  {v5*} |     v5     v5
-// Status: MaxIterationsReached
+// Status: Admissible
 // Spilled: {v5}

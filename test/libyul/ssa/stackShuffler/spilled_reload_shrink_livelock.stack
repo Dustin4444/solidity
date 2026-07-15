@@ -14,34 +14,11 @@ initialSpilledSet: {phi2}
 //          POP|   lit0      *   lit1      *      *
 //          POP|   lit0      *   lit1      *
 //    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          POP|   lit0      *   lit1      *
-//    PUSH phi2|   lit0      *   lit1      *   phi2
-//          ...|
+//        SWAP4|   phi2      *   lit1      *   lit0
+//          POP|   phi2      *   lit1      *
+//    PUSH lit3|   phi2      *   lit1      *   lit3
+//        SWAP2|   phi2      *   lit3      *   lit1
 //             +----------------------------------- +-------
 //     (target)|   phi2      *   lit3      *      * |
-// Status: MaxIterationsReached
+// Status: Admissible
 // Spilled: {phi2}
