@@ -1,0 +1,46 @@
+// Found by the FeasibleTargetsAreReachableWithSpilling property test: combines a doubly-
+// demanded spilled value (v4, absent from the stack) with an on-stack value (phi1) that has
+// to be duplicated into two arg positions, while the stack shrinks by one.
+initial: [JUNK, lit0, phi1, JUNK, JUNK, v2, lit3]
+targetStackTop: [JUNK, v4, JUNK, v4, phi1, phi1]
+targetStackSize: 6
+allowSpilling: true
+initialSpilledSet: {v4, phi5}
+// ----
+//             |      0      1      2      3      4      5 |      6
+//             +------------------------------------------ +-------
+//    (initial)|      *   lit0   phi1      *      *     v2 |   lit3
+//          POP|      *   lit0   phi1      *      *     v2
+//          POP|      *   lit0   phi1      *      *
+//          POP|      *   lit0   phi1      *
+//         DUP2|      *   lit0   phi1      *   phi1
+//         DUP1|      *   lit0   phi1      *   phi1   phi1
+//        SWAP2|      *   lit0   phi1   phi1   phi1      *
+//          POP|      *   lit0   phi1   phi1   phi1
+//      PUSH v4|      *   lit0   phi1   phi1   phi1     v4
+//        SWAP2|      *   lit0   phi1     v4   phi1   phi1
+//        SWAP2|      *   lit0   phi1   phi1   phi1     v4
+//          POP|      *   lit0   phi1   phi1   phi1
+//      PUSH v4|      *   lit0   phi1   phi1   phi1     v4
+//        SWAP2|      *   lit0   phi1     v4   phi1   phi1
+//        SWAP2|      *   lit0   phi1   phi1   phi1     v4
+//          POP|      *   lit0   phi1   phi1   phi1
+//      PUSH v4|      *   lit0   phi1   phi1   phi1     v4
+//        SWAP2|      *   lit0   phi1     v4   phi1   phi1
+//        SWAP2|      *   lit0   phi1   phi1   phi1     v4
+//          POP|      *   lit0   phi1   phi1   phi1
+//      PUSH v4|      *   lit0   phi1   phi1   phi1     v4
+//        SWAP2|      *   lit0   phi1     v4   phi1   phi1
+//        SWAP2|      *   lit0   phi1   phi1   phi1     v4
+//          POP|      *   lit0   phi1   phi1   phi1
+//      PUSH v4|      *   lit0   phi1   phi1   phi1     v4
+//        SWAP2|      *   lit0   phi1     v4   phi1   phi1
+//        SWAP2|      *   lit0   phi1   phi1   phi1     v4
+//          POP|      *   lit0   phi1   phi1   phi1
+//      PUSH v4|      *   lit0   phi1   phi1   phi1     v4
+//        SWAP2|      *   lit0   phi1     v4   phi1   phi1
+//          ...|
+//             +------------------------------------------ +-------
+//     (target)|      *     v4      *     v4   phi1   phi1 |
+// Status: MaxIterationsReached
+// Spilled: {v4, phi5}

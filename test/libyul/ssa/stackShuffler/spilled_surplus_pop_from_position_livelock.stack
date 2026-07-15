@@ -1,0 +1,47 @@
+// Found by the FeasibleTargetsAreReachableWithSpilling property test: the spilled value v3
+// (absent from the stack) is demanded at two arg positions and a literal at a third. After v3
+// is reloaded and swapped into a demanded position, the shrink priority still counts it as
+// surplus (spilled => minCount 0) and pops it right out of its own target slot.
+initial: [v0, v1, JUNK, phi2]
+targetStackTop: [v3, v3, lit4]
+targetStackSize: 3
+allowSpilling: true
+initialSpilledSet: {v3}
+// ----
+//             |      0      1      2 |      3
+//             +--------------------- +-------
+//    (initial)|     v0     v1      * |   phi2
+//          POP|     v0     v1      *
+//          POP|     v0     v1
+//    PUSH lit4|     v0     v1   lit4
+//        SWAP1|     v0   lit4     v1
+//          POP|     v0   lit4
+//      PUSH v3|     v0   lit4     v3
+//        SWAP1|     v0     v3   lit4
+//        SWAP1|     v0   lit4     v3
+//          POP|     v0   lit4
+//      PUSH v3|     v0   lit4     v3
+//        SWAP1|     v0     v3   lit4
+//        SWAP1|     v0   lit4     v3
+//          POP|     v0   lit4
+//      PUSH v3|     v0   lit4     v3
+//        SWAP1|     v0     v3   lit4
+//        SWAP1|     v0   lit4     v3
+//          POP|     v0   lit4
+//      PUSH v3|     v0   lit4     v3
+//        SWAP1|     v0     v3   lit4
+//        SWAP1|     v0   lit4     v3
+//          POP|     v0   lit4
+//      PUSH v3|     v0   lit4     v3
+//        SWAP1|     v0     v3   lit4
+//        SWAP1|     v0   lit4     v3
+//          POP|     v0   lit4
+//      PUSH v3|     v0   lit4     v3
+//        SWAP1|     v0     v3   lit4
+//        SWAP1|     v0   lit4     v3
+//          POP|     v0   lit4
+//          ...|
+//             +--------------------- +-------
+//     (target)|     v3     v3   lit4 |
+// Status: MaxIterationsReached
+// Spilled: {v3}

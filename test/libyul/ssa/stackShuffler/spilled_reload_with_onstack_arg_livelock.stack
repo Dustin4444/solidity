@@ -1,0 +1,46 @@
+// Found by the FeasibleTargetsAreReachableWithSpilling property test: mixes an on-stack arg
+// (phi0, must move into position), a doubly-demanded spilled value (phi4, absent from the
+// stack) and a pushable literal.
+initial: [phi0, JUNK, lit1, phi2, lit3, JUNK]
+targetStackTop: [lit5, phi0, JUNK, phi4, phi4]
+targetStackSize: 5
+allowSpilling: true
+initialSpilledSet: {phi4}
+// ----
+//             |      0      1      2      3      4 |      5
+//             +----------------------------------- +-------
+//    (initial)|   phi0      *   lit1   phi2   lit3 |      *
+//          POP|   phi0      *   lit1   phi2   lit3
+//          POP|   phi0      *   lit1   phi2
+//        SWAP3|   phi2      *   lit1   phi0
+//        SWAP2|   phi2   phi0   lit1      *
+//    PUSH lit5|   phi2   phi0   lit1      *   lit5
+//        SWAP4|   lit5   phi0   lit1      *   phi2
+//          POP|   lit5   phi0   lit1      *
+//    PUSH phi4|   lit5   phi0   lit1      *   phi4
+//          POP|   lit5   phi0   lit1      *
+//    PUSH phi4|   lit5   phi0   lit1      *   phi4
+//          POP|   lit5   phi0   lit1      *
+//    PUSH phi4|   lit5   phi0   lit1      *   phi4
+//          POP|   lit5   phi0   lit1      *
+//    PUSH phi4|   lit5   phi0   lit1      *   phi4
+//          POP|   lit5   phi0   lit1      *
+//    PUSH phi4|   lit5   phi0   lit1      *   phi4
+//          POP|   lit5   phi0   lit1      *
+//    PUSH phi4|   lit5   phi0   lit1      *   phi4
+//          POP|   lit5   phi0   lit1      *
+//    PUSH phi4|   lit5   phi0   lit1      *   phi4
+//          POP|   lit5   phi0   lit1      *
+//    PUSH phi4|   lit5   phi0   lit1      *   phi4
+//          POP|   lit5   phi0   lit1      *
+//    PUSH phi4|   lit5   phi0   lit1      *   phi4
+//          POP|   lit5   phi0   lit1      *
+//    PUSH phi4|   lit5   phi0   lit1      *   phi4
+//          POP|   lit5   phi0   lit1      *
+//    PUSH phi4|   lit5   phi0   lit1      *   phi4
+//          POP|   lit5   phi0   lit1      *
+//          ...|
+//             +----------------------------------- +-------
+//     (target)|   lit5   phi0      *   phi4   phi4 |
+// Status: MaxIterationsReached
+// Spilled: {phi4}

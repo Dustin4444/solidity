@@ -1,0 +1,46 @@
+// Found by the FeasibleTargetsAreReachableWithSpilling property test: like
+// spilled_reload_shrink_livelock but the stack has to grow. The spilled value v4 (absent from
+// the stack) and the literal lit7 are both demanded at arg positions.
+initial: [v0, phi1, phi2, JUNK, phi3]
+targetStackTop: [JUNK, JUNK, v4, lit7, JUNK, JUNK]
+targetStackSize: 6
+allowSpilling: true
+initialSpilledSet: {v4}
+// ----
+//             |      0      1      2      3      4      5
+//             +------------------------------------------
+//    (initial)|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          POP|     v0   phi1   phi2      *   phi3
+//      PUSH v4|     v0   phi1   phi2      *   phi3     v4
+//          ...|
+//             +------------------------------------------
+//     (target)|      *      *     v4   lit7      *      *
+// Status: MaxIterationsReached
+// Spilled: {v4}

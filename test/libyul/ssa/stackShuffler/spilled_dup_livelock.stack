@@ -1,0 +1,47 @@
+// Found by the FeasibleTargetsAreReachableWithSpilling property test: minimal reload-dup
+// livelock. phi0 is on stack once and spilled, and is demanded at two arg positions. Spilled
+// values have minCount 0, so any copy on the stack reads as surplus and gets popped by
+// shrinking before the second arg position can be filled.
+initial: [JUNK, JUNK, phi0]
+targetStackTop: [phi0, phi0]
+targetStackSize: 3
+allowSpilling: true
+initialSpilledSet: {phi0}
+// ----
+//             |      0 |      1      2
+//             +------- +--------------
+//    (initial)|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//    PUSH phi0|      * |      *   phi0
+//          POP|      * |      *
+//          ...|
+//             +------- +--------------
+//     (target)|     {} |   phi0   phi0
+// Status: MaxIterationsReached
+// Spilled: {phi0}
