@@ -14,35 +14,11 @@ allowSpilling: true
 //    (initial)|     v0     v0 |     v1   phi0
 //         DUP3|     v0     v0 |     v1   phi0     v0
 //        SWAP1|     v0     v0 |     v1     v0   phi0
-//        SWAP1|     v0     v0 |     v1   phi0     v0
-//          POP|     v0     v0 |     v1   phi0
-//         DUP3|     v0     v0 |     v1   phi0     v0
-//        SWAP1|     v0     v0 |     v1     v0   phi0
-//        SWAP1|     v0     v0 |     v1   phi0     v0
-//          POP|     v0     v0 |     v1   phi0
-//         DUP3|     v0     v0 |     v1   phi0     v0
-//        SWAP1|     v0     v0 |     v1     v0   phi0
-//        SWAP1|     v0     v0 |     v1   phi0     v0
-//          POP|     v0     v0 |     v1   phi0
-//         DUP3|     v0     v0 |     v1   phi0     v0
-//        SWAP1|     v0     v0 |     v1     v0   phi0
-//        SWAP1|     v0     v0 |     v1   phi0     v0
-//          POP|     v0     v0 |     v1   phi0
-//         DUP3|     v0     v0 |     v1   phi0     v0
-//        SWAP1|     v0     v0 |     v1     v0   phi0
-//        SWAP1|     v0     v0 |     v1   phi0     v0
-//          POP|     v0     v0 |     v1   phi0
-//         DUP3|     v0     v0 |     v1   phi0     v0
-//        SWAP1|     v0     v0 |     v1     v0   phi0
-//        SWAP1|     v0     v0 |     v1   phi0     v0
-//          POP|     v0     v0 |     v1   phi0
-//         DUP3|     v0     v0 |     v1   phi0     v0
-//        SWAP1|     v0     v0 |     v1     v0   phi0
-//        SWAP1|     v0     v0 |     v1   phi0     v0
-//          POP|     v0     v0 |     v1   phi0
-//         DUP3|     v0     v0 |     v1   phi0     v0
-//          ...|
+//        SWAP2|     v0     v0 |   phi0     v0     v1
+//          POP|     v0     v0 |   phi0     v0
+//         DUP1|     v0     v0 |   phi0     v0     v0
+//        SWAP2|     v0     v0 |     v0     v0   phi0
 //             +-------------- +---------------------
 //     (target)|            {} |     v0     v0   phi0
-// Status: MaxIterationsReached
+// Status: Admissible
 // Spilled: {}

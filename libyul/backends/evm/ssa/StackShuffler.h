@@ -1029,17 +1029,23 @@ private:
 				auto const& slot = _stack[_offset];
 				bool const notInPosition = !_state.isArgsCompatible(_offset, _offset);
 				bool const isJunk = slot.isJunk();
-				// A spilled value always reads as surplus (its min count is zero since it can be
-				// reloaded), but popping it out of a target arg position that demands exactly this
-				// value undoes a reload and livelocks against fixArgsSlot reloading it again.
-				bool const pinnedByDemand =
-					_state.slotIsSpilled(slot) &&
-					_state.offsetInTargetArgsRegion(_offset) &&
-					_state.targetArg(_offset) == slot;
-				bool const hasSurplus = !pinnedByDemand && _state.count(slot) > _state.targetMinCount(slot);
+				bool const hasSurplus = _state.count(slot) > _state.targetMinCount(slot);
 				bool const hasReachableDuplicate = _state.countReachable(slot) > 1;
 				bool const freelyGeneratable = canBeFreelyGenerated(slot);
 				bool const isLit = slot.isLiteralValue();
+
+				// A slot sitting in the arg position that demands exactly this value should not
+				// be a preferred pop even when it reads as surplus: removing it un-fills the
+				// position, and whatever refills it (a reload of a spilled value, a re-push of a
+				// literal) livelocks against this pop. Only allow popping the pinned copy when a
+				// reachable duplicate can refill the position, and only at the lowest priority
+				// (this is also needed to shrink towards deep slots that must come into reach).
+				bool const pinnedByDemand =
+					!slot.isJunk() &&
+					_state.offsetInTargetArgsRegion(_offset) &&
+					_state.targetArg(_offset) == slot;
+				if (pinnedByDemand)
+					return hasReachableDuplicate ? 1 : 0;
 
 				if (isJunk && notInPosition)
 					return 5;
