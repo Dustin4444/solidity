@@ -22,29 +22,14 @@ allowSpilling: true
 //       SWAP16|     v3     v1     v2     v1     v3     v1     v3     v1     v3     v0     v2     v2     v3     v2     v1     v1     v2
 //        SWAP9|     v3     v1     v2     v1     v3     v1     v3     v2     v3     v0     v2     v2     v3     v2     v1     v1     v1
 //       SWAP10|     v3     v1     v2     v1     v3     v1     v1     v2     v3     v0     v2     v2     v3     v2     v1     v1     v3
-//       SWAP16|     v3     v1     v2     v1     v3     v1     v1     v2     v3     v0     v2     v2     v3     v2     v1     v1     v3
-//        SWAP6|     v3     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v2
-//       SWAP16|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3
-//         DUP8|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3     v0
-//          POP|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3
-//         DUP8|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3     v0
-//          POP|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3
-//         DUP8|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3     v0
-//          POP|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3
-//         DUP8|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3     v0
-//          POP|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3
-//         DUP8|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3     v0
-//          POP|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3
-//         DUP8|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3     v0
-//          POP|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3
-//         DUP8|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3     v0
-//          POP|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3
-//         DUP8|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3     v0
-//          POP|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3
-//         DUP8|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3     v0
-//          POP|     v2     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3
-//          ...|
+//        SWAP7|     v3     v1     v2     v1     v3     v1     v1     v2     v3     v3     v2     v2     v3     v2     v1     v1     v0
+//       SWAP16|     v0     v1     v2     v1     v3     v1     v1     v2     v3     v3     v2     v2     v3     v2     v1     v1     v3
+//        SWAP6|     v0     v1     v2     v1     v3     v1     v1     v2     v3     v3     v3     v2     v3     v2     v1     v1     v2
+//          POP|     v0     v1     v2     v1     v3     v1     v1     v2     v3     v3     v3     v2     v3     v2     v1     v1
+//        DUP16|     v0     v1     v2     v1     v3     v1     v1     v2     v3     v3     v3     v2     v3     v2     v1     v1     v0
+//        SWAP7|     v0     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3
+//         DUP4|     v0     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3     v2
 //             +------------------------------------------------------------------------------------------------------------------------------
 //     (target)|     v0     v1     v2     v1     v3     v1     v1     v2     v3     v0     v3     v2     v3     v2     v1     v1     v3     v2
-// Status: MaxIterationsReached
+// Status: Admissible
 // Spilled: {}

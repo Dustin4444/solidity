@@ -729,7 +729,16 @@ private:
 							!_state.isSourceCompatible(offset, argOffset) &&  // we're not looking at the same thing
 							!_stack.isBeyondSwapRange(argOffset) &&  // the target offset should not be beyond reach
 							_state.isArgsCompatible(argOffset, offset) && // we can put argOffset -> offset
-							(_state.countReachable(_stack[argOffset]) > 1 || _state.slotIsSpilled(_stack[argOffset])) &&  // a reachable copy remains, or the value is spilled and can be reloaded, so moving it is recoverable
+							(
+								_state.countReachable(_stack[argOffset]) > 1 ||  // a reachable copy remains, so moving it is recoverable
+								_state.slotIsSpilled(_stack[argOffset]) ||  // or the value is spilled and can be reloaded
+								// or the destination is at the swap edge: it is about to become
+								// unreachable, so this is the last chance to fill it, and even the
+								// last copy of a value may move there -- the vacated position is
+								// refilled by a dup of the moved copy once shrinking brings it
+								// into dup reach (or by a reload after a spill gets elected)
+								_stack.offsetToDepth(offset).value == ReachableStackDepth
+							) &&
 							(  // we only get a strict improvement if
 								!_state.isArgsCompatible(argOffset, argOffset) ||  // either the argOffset isn't in position anyway
 								_stack.offsetToDepth(offset).value == reachableStackDepth  // or offset is at the swap edge
