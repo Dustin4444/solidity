@@ -385,32 +385,49 @@ private:
 		return _candidate;
 	}
 
+	/// Picks a value that can be newly spilled to resolve a stuck state: the shallowest reachable
+	/// non-literal value that is not spilled yet. The stack top is not necessarily a valid choice,
+	/// since shrinking failure can leave a spilled slot on top when it is preserved for a target
+	/// arg position that demands it.
+	static StackSlot reachableSpillingCandidate(Stack<Callback> const& _stack, detail::State const& _state)
+	{
+		for (StackOffset const offset: _state.stackSwapReachableRange())
+			if (
+				Slot const& slot = _stack[offset];
+				slot.isValue() && !slot.isLiteralValue() && !_state.slotIsSpilled(slot)
+			)
+				return validatedSpillingCandidate(slot, _state);
+		yulAssert(false, "invalid state. no reachable slot can be newly spilled.");
+	}
+
 	/// Make a local step in stack space that should bring us closer to the target.
 	static StackShufflerResult shuffleStep(Stack& _stack, detail::State const& _state)
 	{
-		// if the stack is too large, we try to shrink it
+		// if the stack is too large, we try to shrink it (pure size reduction, no growth in
+		// between, so demanded slots need not be preserved)
 		if (_stack.size() > _state.target().size)
 		{
-			if (shrinkStack(_stack, _state))
+			if (shrinkStack(_stack, _state, false /* _preserveDemandedSlots */))
 				return {StackShufflerResult::Status::Continue};
-			// couldn't shrink to required size, need to spill to memory or increase target size;
-			// shrinking can always pop a junk, literal, or spilled top, so a failure leaves a plain value on top
-			return {StackShufflerResult::Status::StackTooDeep, validatedSpillingCandidate(_stack.top(), _state)};
+			// couldn't shrink to required size, need to spill to memory or increase target size
+			return {StackShufflerResult::Status::StackTooDeep, reachableSpillingCandidate(_stack, _state)};
 		}
 		yulAssert(_stack.size() <= _state.target().size, "I1 violated: Stack size too large");
 
 		if (_state.willRequireShrinking())
-			if (shrinkStack(_stack, _state))
+			if (shrinkStack(_stack, _state, true /* _preserveDemandedSlots */))
 				return {StackShufflerResult::Status::Continue};
 
 		// after this, all current slots are either in acceptable positions or at least dup-reachable
 		if (auto culprit = allNecessarySlotsReachableOrFinal(_stack, _state))
 		{
 			// !allNecessarySlotsReachableOrFinal(ops) ≡ ¬(∀s: reachable(s) ∨ final(s)) ≡ ∃s: ¬reachable(s) ∧ ¬final(s)
-			if (shrinkStack(_stack, _state))
+			// shrinks repeatedly (without growth steps in between) until the culprit is in reach,
+			// so demanded slots need not be preserved
+			if (shrinkStack(_stack, _state, false /* _preserveDemandedSlots */))
 				return {StackShufflerResult::Status::Continue};
 
-			return {StackShufflerResult::Status::StackTooDeep, validatedSpillingCandidate(_stack.top(), _state)};
+			return {StackShufflerResult::Status::StackTooDeep, reachableSpillingCandidate(_stack, _state)};
 		}
 
 		// this will either grow the tail as needed, swap down something from args that needs to be in the tail,
@@ -446,11 +463,11 @@ private:
 
 		// We couldn't improve the args tail or args situation, and we are not admissible yet, so try to reduce the
 		// stack size and pop something that we don't need so we make space to dup/push stuff within target size
-		if (shrinkStack(_stack, _state))
+		if (shrinkStack(_stack, _state, true /* _preserveDemandedSlots */))
 			return {StackShufflerResult::Status::Continue};
 
 		// if we couldn't shrink the stack we surface this failed state as stack too deep
-		return {StackShufflerResult::Status::StackTooDeep, validatedSpillingCandidate(_stack.top(), _state)};
+		return {StackShufflerResult::Status::StackTooDeep, reachableSpillingCandidate(_stack, _state)};
 	}
 
 	/// Select an optimal slot to dup based on liveness analysis.
@@ -512,7 +529,7 @@ private:
 				}
 
 				// try to compress
-				if (shrinkStack(_stack, _state))
+				if (shrinkStack(_stack, _state, true /* _preserveDemandedSlots */))
 					return {ShuffleHelperResult::Status::StackModified};
 
 				return {ShuffleHelperResult::Status::StackTooDeep, validatedSpillingCandidate(_stack[offset], _state)};
@@ -593,10 +610,10 @@ private:
 				}
 				// the slot we need something in the args region of is unreachable, try compressing the stack,
 				// first looking at the top
-				if (shrinkStack(_stack, _state))
+				if (shrinkStack(_stack, _state, true /* _preserveDemandedSlots */))
 					return {ShuffleHelperResult::Status::StackModified};
 
-				return {ShuffleHelperResult::Status::StackTooDeep, validatedSpillingCandidate(_stack.top(), _state)};
+				return {ShuffleHelperResult::Status::StackTooDeep, reachableSpillingCandidate(_stack, _state)};
 			}
 		}
 		return {ShuffleHelperResult::Status::NoAction};
@@ -782,7 +799,7 @@ private:
 				StackOffset const incorrectOffset{_stack.size() - maybeIncorrectArgSlotDepth->value};
 				if (!_stack.findSlotDepth(_state.targetArg(incorrectOffset)))
 				{
-					if (shrinkStack(_stack, _state))
+					if (shrinkStack(_stack, _state, true /* _preserveDemandedSlots */))
 						return {ShuffleHelperResult::Status::StackModified};
 					// Surface a reachable, not-yet-spilled value as too deep.
 					for (StackOffset const offset: _state.stackSwapReachableRange())
@@ -847,7 +864,7 @@ private:
 						// if we can't outright dup the slot, let's shrink the stack first
 						if (!_stack.dupReachable(*depth))
 						{
-							if (!shrinkStack(_stack, _state))
+							if (!shrinkStack(_stack, _state, true /* _preserveDemandedSlots */))
 								return {ShuffleHelperResult::Status::StackTooDeep, validatedSpillingCandidate(arg, _state)};
 							return {ShuffleHelperResult::Status::StackModified};
 						}
@@ -945,8 +962,15 @@ private:
 		return {ShuffleHelperResult::Status::NoAction};
 	}
 
-	/// Tries to compress the stack
-	static bool shrinkStack(Stack& _stack, detail::State const& _state)
+	/// Tries to compress the stack.
+	///
+	/// `_preserveDemandedSlots` distinguishes the two kinds of shrinking. Make-room shrinks
+	/// (at target size, to free a slot for a dup/push) must preserve slots that a target arg
+	/// position demands: the grow logic reproduces whatever such a pop removed (reload, push,
+	/// or dup), so popping them livelocks. Pure size-reduction shrinks (stack above target
+	/// size, or repeated shrinking to bring a deep slot into reach) run without growth steps
+	/// in between, cannot cycle, and need the full popping power to make deep slots reachable.
+	static bool shrinkStack(Stack& _stack, detail::State const& _state, bool _preserveDemandedSlots)
 	{
 		yulAssert(!_stack.empty(), "Stack is empty, can't shrink");
 
@@ -969,7 +993,7 @@ private:
 		if (
 			_stack[stackTop].isJunk() ||
 			(!_state.requiredInArgs(_stack[stackTop]) && !_state.requiredInTail(_stack[stackTop])) ||
-			(_state.slotIsSpilled(_stack[stackTop]) && !spilledTopStillDemandedInArgs())
+			(_state.slotIsSpilled(_stack[stackTop]) && !(_preserveDemandedSlots && spilledTopStillDemandedInArgs()))
 		)
 		{
 			_stack.pop();
@@ -1044,7 +1068,7 @@ private:
 					!slot.isJunk() &&
 					_state.offsetInTargetArgsRegion(_offset) &&
 					_state.targetArg(_offset) == slot;
-				if (pinnedByDemand)
+				if (_preserveDemandedSlots && pinnedByDemand)
 					return hasReachableDuplicate ? 1 : 0;
 
 				if (isJunk && notInPosition)

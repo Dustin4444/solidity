@@ -1,0 +1,28 @@
+// Found by a coverage-guided run of the FeasibleTargetsAreReachableWithSpilling property
+// test: the spilled value v50 sits correctly in its demanded top position but is also
+// demanded at position 0, which is beyond swap reach and blocked by the unneeded v99; all
+// slots in between are pinned singletons. Shrinking fails (nothing is poppable), and the
+// failure path blindly reports the stack top as the stack-too-deep culprit -- but the top is
+// v50, which is already spilled, tripping the "culprit must not be spilled already" assert
+// instead of surfacing a spillable value that would let spill discovery make progress.
+initial: [v99, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v50]
+targetStackTop: [v50, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v50]
+targetStackSize: 19
+allowSpilling: true
+initialSpilledSet: {v50}
+// ----
+//             |      0      1      2      3      4      5      6      7      8      9     10     11     12     13     14     15     16     17     18
+//             +-------------------------------------------------------------------------------------------------------------------------------------
+//    (initial)|    v99     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17    v50
+//          POP|    v99     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17
+//          POP|    v99     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16
+//       SWAP16|    v16     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v99
+//          POP|    v16     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15
+//     PUSH v50|    v16     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v50
+//       SWAP16|    v50     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16
+//     PUSH v17|    v50     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17
+//     PUSH v50|    v50     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17    v50
+//             +-------------------------------------------------------------------------------------------------------------------------------------
+//     (target)|    v50     v1     v2     v3     v4     v5     v6     v7     v8     v9    v10    v11    v12    v13    v14    v15    v16    v17    v50
+// Status: Admissible
+// Spilled: {v50, v17}
