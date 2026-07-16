@@ -1,0 +1,50 @@
+// Found by a coverage-guided run of the FeasibleTargetsAreReachableWithSpilling property
+// test: v0 is demanded twice in args but only one copy sits within reach, correctly placed
+// at the deepest args position. dupDeepSlotIfRequired considers that copy endangered and,
+// because a correctly placed slot is never safe to swap with the top, "rescues" it via
+// canSwapWithNonTopArg -- parking it at a position that demands a different value. The
+// args-fixing swap then moves it right back into its correct position, five swaps per
+// round-trip, until MaxIterationsReached.
+initial: [v0, v1, v1, v1, v0, v5, v5, v1, v1, v1, v1, v2, v1, v1, v1, v1, v4, v4]
+targetStackTop: [v0, v1, v1, v1, v1, v1, v4, v1, v1, v2, v1, v1, v1, v1, v0, JUNK, JUNK]
+targetStackTailSet: {v1, v4}
+targetStackSize: 19
+allowSpilling: true
+// ----
+//             |      0      1 |      2      3      4      5      6      7      8      9     10     11     12     13     14     15     16     17     18
+//             +-------------- +-----------------------------------------------------------------------------------------------------------------------
+//    (initial)|     v0     v1 |     v1     v1     v0     v5     v5     v1     v1     v1     v1     v2     v1     v1     v1     v1     v4     v4
+//       SWAP15|     v0     v1 |     v4     v1     v0     v5     v5     v1     v1     v1     v1     v2     v1     v1     v1     v1     v4     v1
+//       SWAP13|     v0     v1 |     v4     v1     v1     v5     v5     v1     v1     v1     v1     v2     v1     v1     v1     v1     v4     v0
+//       SWAP15|     v0     v1 |     v0     v1     v1     v5     v5     v1     v1     v1     v1     v2     v1     v1     v1     v1     v4     v4
+//        SWAP9|     v0     v1 |     v0     v1     v1     v5     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v1
+//       SWAP12|     v0     v1 |     v0     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP11|     v0     v1 |     v0     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP15|     v0     v1 |     v5     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v0
+//       SWAP11|     v0     v1 |     v5     v1     v1     v1     v0     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP11|     v0     v1 |     v5     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v0
+//       SWAP15|     v0     v1 |     v0     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP11|     v0     v1 |     v0     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP15|     v0     v1 |     v5     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v0
+//       SWAP11|     v0     v1 |     v5     v1     v1     v1     v0     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP11|     v0     v1 |     v5     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v0
+//       SWAP15|     v0     v1 |     v0     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP11|     v0     v1 |     v0     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP15|     v0     v1 |     v5     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v0
+//       SWAP11|     v0     v1 |     v5     v1     v1     v1     v0     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP11|     v0     v1 |     v5     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v0
+//       SWAP15|     v0     v1 |     v0     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP11|     v0     v1 |     v0     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP15|     v0     v1 |     v5     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v0
+//       SWAP11|     v0     v1 |     v5     v1     v1     v1     v0     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP11|     v0     v1 |     v5     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v0
+//       SWAP15|     v0     v1 |     v0     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP11|     v0     v1 |     v0     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP15|     v0     v1 |     v5     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v0
+//       SWAP11|     v0     v1 |     v5     v1     v1     v1     v0     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v5
+//       SWAP11|     v0     v1 |     v5     v1     v1     v1     v5     v1     v4     v1     v1     v2     v1     v1     v1     v1     v4     v0
+//          ...|
+//             +-------------- +-----------------------------------------------------------------------------------------------------------------------
+//     (target)|     {v1, v4*} |     v0     v1     v1     v1     v1     v1     v4     v1     v1     v2     v1     v1     v1     v1     v0      *      *
+// Status: MaxIterationsReached
+// Spilled: {v4}
