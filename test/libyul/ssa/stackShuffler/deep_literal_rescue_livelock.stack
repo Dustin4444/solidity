@@ -19,32 +19,17 @@ allowSpilling: true
 //         DUP5|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0
 //         DUP1|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0
 //         DUP1|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//        DUP16|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0   lit0
-//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//        DUP16|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0   lit0
-//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//        DUP16|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0   lit0
-//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//        DUP16|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0   lit0
-//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//        DUP16|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0   lit0
-//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//        DUP16|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0   lit0
-//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//        DUP16|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0   lit0
-//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//        DUP16|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0   lit0
-//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//        DUP16|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0   lit0
-//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//        DUP16|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0   lit0
-//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//        DUP16|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0   lit0
-//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//        DUP16|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0   lit0
-//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0
-//          ...|
+//         DUP1|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v1     v1     v1     v1     v0     v0     v0     v0
+//        SWAP7|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v0     v1     v1     v1     v0     v0     v0     v1
+//          POP|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v0     v1     v1     v1     v0     v0     v0
+//        DUP14|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v0     v1     v1     v1     v0     v0     v0   phi0
+//        SWAP6|   lit0     v0   phi0     v0     v0     v0     v0 |     v0     v0     v0   phi0     v1     v1     v0     v0     v0     v1
+//       SWAP15|   lit0     v1   phi0     v0     v0     v0     v0 |     v0     v0     v0   phi0     v1     v1     v0     v0     v0     v0
+//         DUP7|   lit0     v1   phi0     v0     v0     v0     v0 |     v0     v0     v0   phi0     v1     v1     v0     v0     v0     v0   phi0
+//        SWAP5|   lit0     v1   phi0     v0     v0     v0     v0 |     v0     v0     v0   phi0     v1   phi0     v0     v0     v0     v0     v1
+//          POP|   lit0     v1   phi0     v0     v0     v0     v0 |     v0     v0     v0   phi0     v1   phi0     v0     v0     v0     v0
+//    PUSH lit0|   lit0     v1   phi0     v0     v0     v0     v0 |     v0     v0     v0   phi0     v1   phi0     v0     v0     v0     v0   lit0
 //             +------------------------------------------------- +-----------------------------------------------------------------------------
 //     (target)|                                       {v0, phi0} |     v0     v0     v0   phi0     v1   phi0     v0     v0     v0     v0   lit0
-// Status: MaxIterationsReached
+// Status: Admissible
 // Spilled: {}

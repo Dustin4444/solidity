@@ -552,8 +552,9 @@ private:
 		{
 			// This slot needs to be moved into args and there is no tail slot of the same kind further up in the stack.
 			auto const& endangeredSlot = _stack[sourceOffset];
-			// no need to dup deep junk; spilled slots can be reloaded and need no rescue either
-			if (endangeredSlot.isJunk() || _state.slotIsSpilled(endangeredSlot))
+			// no need to rescue anything freely generatable (junk, literals, return labels can
+			// be pushed at any time); spilled slots can be reloaded and need no rescue either
+			if (_stack.canBeFreelyGenerated(endangeredSlot) || _state.slotIsSpilled(endangeredSlot))
 				continue;
 			bool const neededInArgs = _state.targetArgsCount(endangeredSlot) > _state.countInArgs(endangeredSlot);
 			bool const needMore = _state.targetMinCount(endangeredSlot) > _state.count(endangeredSlot);
