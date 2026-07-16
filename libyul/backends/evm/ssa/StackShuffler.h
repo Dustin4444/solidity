@@ -1149,6 +1149,18 @@ private:
 				if (_stack.isBeyondSwapRange(*depth) && !_state.slotCanBeLoadedOrPushed(targetArg))
 					return targetArg;
 			}
+
+			// without a swap-reachable copy of the wanted value, fixing the position requires
+			// growing the stack first (a dup or reload puts the value on top), which pushes the
+			// position one deeper: a position already at the swap edge then falls out of reach,
+			// undoing whatever a preceding shrink achieved (reload/pop livelock), so it must
+			// count as unreachable already
+			if (
+				offset.value < _stack.size() &&
+				(!depth || _stack.isBeyondSwapRange(*depth)) &&
+				_stack.offsetToDepth(offset).value + 1 > ReachableStackDepth
+			)
+				return targetArg;
 		}
 		// distribution check: all we have to dup can be duped
 		for (StackOffset const offset: _state.stackRange())
