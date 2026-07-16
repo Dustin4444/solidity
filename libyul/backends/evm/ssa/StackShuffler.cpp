@@ -189,6 +189,11 @@ bool State::isSafeToSwapWithTop(StackOffset const _offset) const
 
 std::optional<StackOffset> State::canSwapWithNonTopArg(StackOffset const _offset) const
 {
+	// moving a slot that already sits in its correct args position is never progress: any
+	// additional copies the target demands have to be created by a dup, and parking the slot
+	// at a position demanding a different value just makes the args-fixing swap move it back
+	if (isArgsCompatible(_offset, _offset))
+		return std::nullopt;
 	auto const& slot = m_stackData[_offset.value];
 	for (auto argOffset: stackArgsRange())
 	{
