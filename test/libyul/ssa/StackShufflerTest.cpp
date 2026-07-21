@@ -23,6 +23,7 @@
 #include <libyul/backends/evm/ssa/ShuffleTrace.h>
 #include <libyul/backends/evm/ssa/Stack.h>
 #include <libyul/backends/evm/ssa/StackShuffler.h>
+#include <libyul/backends/evm/ssa/MartinShuffler.h>
 #include <libyul/backends/evm/ssa/StackSlotLiveness.h>
 
 #include <range/v3/view/split.hpp>
@@ -586,13 +587,22 @@ explicitly provided.)";
 	}
 
 	// Final shuffle with the (possibly pre-populated) spill set; the result carries the recorded trace.
-	shuffleResult = StackShuffler::shuffle(
-		stackData,
-		*testConfig.targetStackTop,
-		testConfig.targetStackTailSet,
-		*testConfig.targetStackSize,
-		&spillSet
-	);
+	if (stackData.size() <= 16 and *testConfig.targetStackSize <= 16 and spillSet.numSpilled() == 0)
+		shuffleResult = martinShuffle(
+			stackData,
+			*testConfig.targetStackTop,
+			testConfig.targetStackTailSet,
+			*testConfig.targetStackSize,
+			&spillSet
+		);
+	else
+		shuffleResult = StackShuffler::shuffle(
+			stackData,
+			*testConfig.targetStackTop,
+			testConfig.targetStackTailSet,
+			*testConfig.targetStackSize,
+			&spillSet
+		);
 
 	// Reconstruct the intermediate stack states by replaying the trace on top of the initial stack.
 	{
