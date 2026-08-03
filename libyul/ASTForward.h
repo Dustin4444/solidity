@@ -71,6 +71,7 @@ using StatementList = std::vector<Statement, ASTAllocator<Statement>>;
 using ExpressionList = std::vector<Expression, ASTAllocator<Expression>>;
 using IdentifierList = std::vector<Identifier, ASTAllocator<Identifier>>;
 using CaseList = std::vector<Case, ASTAllocator<Case>>;
+using NameWithDebugDataList = std::vector<NameWithDebugData, ASTAllocator<NameWithDebugData>>;
 using ExpressionPtr = std::unique_ptr<Expression, ASTDeleter>;
 using LiteralPtr = std::unique_ptr<Literal, ASTDeleter>;
 

@@ -46,8 +46,8 @@ FunctionDefinition unusedFunctionsCommon::createLinkingFunction(
 	FunctionDefinition linkingFunction{
 		_original.debugData,
 		_linkingFunctionName,
-		util::applyMap(_original.parameters, generateTypedName),
-		util::applyMap(_original.returnVariables, generateTypedName),
+		util::applyMap(_original.parameters, generateTypedName, NameWithDebugDataList{}),
+		util::applyMap(_original.returnVariables, generateTypedName, NameWithDebugDataList{}),
 		{_original.debugData, {}} // body
 	};
 

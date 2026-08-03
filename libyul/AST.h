@@ -40,7 +40,6 @@ namespace solidity::yul
 class Dialect;
 
 struct NameWithDebugData { langutil::DebugData::ConstPtr debugData; YulName name; };
-using NameWithDebugDataList = std::vector<NameWithDebugData, ASTAllocator<NameWithDebugData>>;
 
 /// Literal number or string (up to 32 bytes)
 enum class LiteralKind { Number, Boolean, String };

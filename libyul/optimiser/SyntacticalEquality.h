@@ -78,8 +78,8 @@ private:
 		return false;
 	}
 
-	template<typename T, bool (SyntacticallyEqual::*CompareMember)(T const&, T const&)>
-	bool compareUniquePtr(std::unique_ptr<T> const& _lhs, std::unique_ptr<T> const& _rhs)
+	template<typename T, bool (SyntacticallyEqual::*CompareMember)(T const&, T const&), typename Deleter>
+	bool compareUniquePtr(std::unique_ptr<T, Deleter> const& _lhs, std::unique_ptr<T, Deleter> const& _rhs)
 	{
 		return (_lhs == _rhs) || (_lhs && _rhs && (this->*CompareMember)(*_lhs, *_rhs));
 	}
