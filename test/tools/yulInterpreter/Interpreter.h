@@ -286,7 +286,7 @@ protected:
 	/// Evaluates the given expression from right to left and
 	/// stores it in m_value.
 	void evaluateArgs(
-		std::vector<Expression> const& _expr,
+		ExpressionList const& _expr,
 		std::vector<std::optional<LiteralKind>> const* _literalArguments
 	);
 

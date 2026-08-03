@@ -62,7 +62,7 @@ void IntroduceSSA::operator()(Block& _block)
 {
 	util::iterateReplacing(
 		_block.statements,
-		[&](Statement& _s) -> std::optional<std::vector<Statement>>
+		[&](Statement& _s) -> std::optional<StatementList>
 		{
 			if (std::holds_alternative<VariableDeclaration>(_s))
 			{
@@ -80,7 +80,7 @@ void IntroduceSSA::operator()(Block& _block)
 				// Replace "let a := v" by "let a_1 := v  let a := a_1"
 				// Replace "let a, b := v" by "let a_1, b_1 := v  let a := a_1 let b := b_2"
 				langutil::DebugData::ConstPtr debugData = varDecl.debugData;
-				std::vector<Statement> statements;
+				StatementList statements;
 				statements.emplace_back(VariableDeclaration{debugData, {}, std::move(varDecl.value)});
 				NameWithDebugDataList newVariables;
 				for (auto const& var: varDecl.variables)
@@ -91,7 +91,7 @@ void IntroduceSSA::operator()(Block& _block)
 					statements.emplace_back(VariableDeclaration{
 						debugData,
 						{NameWithDebugData{debugData, oldName}},
-						std::make_unique<Expression>(Identifier{debugData, newName})
+						makeASTNode<Expression>(Identifier{debugData, newName})
 					});
 				}
 				std::get<VariableDeclaration>(statements.front()).variables = std::move(newVariables);
@@ -107,7 +107,7 @@ void IntroduceSSA::operator()(Block& _block)
 				// Replace "a := v" by "let a_1 := v  a := v"
 				// Replace "a, b := v" by "let a_1, b_1 := v  a := a_1 b := b_2"
 				langutil::DebugData::ConstPtr debugData = assignment.debugData;
-				std::vector<Statement> statements;
+				StatementList statements;
 				statements.emplace_back(VariableDeclaration{debugData, {}, std::move(assignment.value)});
 				NameWithDebugDataList newVariables;
 				for (auto const& var: assignment.variableNames)
@@ -118,7 +118,7 @@ void IntroduceSSA::operator()(Block& _block)
 					statements.emplace_back(Assignment{
 						debugData,
 						{Identifier{debugData, oldName}},
-						std::make_unique<Expression>(Identifier{debugData, newName})
+						makeASTNode<Expression>(Identifier{debugData, newName})
 					});
 				}
 				std::get<VariableDeclaration>(statements.front()).variables = std::move(newVariables);
@@ -213,16 +213,16 @@ void IntroduceControlFlowSSA::operator()(Block& _block)
 
 	util::iterateReplacing(
 		_block.statements,
-		[&](Statement& _s) -> std::optional<std::vector<Statement>>
+		[&](Statement& _s) -> std::optional<StatementList>
 		{
-			std::vector<Statement> toPrepend;
+			StatementList toPrepend;
 			for (YulName toReassign: m_variablesToReassign)
 			{
 				YulName newName = m_nameDispenser.newName(toReassign);
 				toPrepend.emplace_back(VariableDeclaration{
 					debugDataOf(_s),
 					{NameWithDebugData{debugDataOf(_s), newName}},
-					std::make_unique<Expression>(Identifier{debugDataOf(_s), toReassign})
+					makeASTNode<Expression>(Identifier{debugDataOf(_s), toReassign})
 				});
 				assignedVariables.pushBack(toReassign);
 			}

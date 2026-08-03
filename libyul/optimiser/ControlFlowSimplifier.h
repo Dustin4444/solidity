@@ -66,10 +66,10 @@ private:
 		m_dialect(_dialect)
 	{}
 
-	void simplify(std::vector<Statement>& _statements);
+	void simplify(StatementList& _statements);
 
-	std::optional<std::vector<Statement>> reduceNoCaseSwitch(Switch& _switchStmt) const;
-	std::optional<std::vector<Statement>> reduceSingleCaseSwitch(Switch& _switchStmt) const;
+	std::optional<StatementList> reduceNoCaseSwitch(Switch& _switchStmt) const;
+	std::optional<StatementList> reduceSingleCaseSwitch(Switch& _switchStmt) const;
 
 	Dialect const& m_dialect;
 	size_t m_numBreakStatements = 0;

@@ -189,7 +189,7 @@ void MovableChecker::visit(Statement const&)
 }
 
 std::pair<TerminationFinder::ControlFlow, size_t> TerminationFinder::firstUnconditionalControlFlowChange(
-	std::vector<Statement> const& _statements
+	StatementList const& _statements
 )
 {
 	for (size_t i = 0; i < _statements.size(); ++i)

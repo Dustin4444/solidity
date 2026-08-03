@@ -356,7 +356,7 @@ Statement Parser::parseStatement()
 	{
 		If _if = createWithDebugData<If>();
 		advance();
-		_if.condition = std::make_unique<Expression>(parseExpression());
+		_if.condition = makeASTNode<Expression>(parseExpression());
 		_if.body = parseBlock();
 		updateLocationEndFrom(_if.debugData, nativeLocationOf(_if.body));
 		return Statement{std::move(_if)};
@@ -365,7 +365,7 @@ Statement Parser::parseStatement()
 	{
 		Switch _switch = createWithDebugData<Switch>();
 		advance();
-		_switch.expression = std::make_unique<Expression>(parseExpression());
+		_switch.expression = makeASTNode<Expression>(parseExpression());
 		while (currentToken() == Token::Case)
 			_switch.cases.emplace_back(parseCase());
 		if (currentToken() == Token::Default)
@@ -469,7 +469,7 @@ Statement Parser::parseStatement()
 
 		expectToken(Token::AssemblyAssign);
 
-		assignment.value = std::make_unique<Expression>(parseExpression());
+		assignment.value = makeASTNode<Expression>(parseExpression());
 		updateLocationEndFrom(assignment.debugData, nativeLocationOf(*assignment.value));
 
 		return Statement{std::move(assignment)};
@@ -495,7 +495,7 @@ Case Parser::parseCase()
 		std::variant<Literal, Identifier, BuiltinName> literal = parseLiteralOrIdentifier();
 		if (!std::holds_alternative<Literal>(literal))
 			fatalParserError(4805_error, "Literal expected.");
-		_case.value = std::make_unique<Literal>(std::get<Literal>(std::move(literal)));
+		_case.value = makeASTNode<Literal>(std::get<Literal>(std::move(literal)));
 	}
 	else
 		yulAssert(false, "Case or default case expected.");
@@ -515,7 +515,7 @@ ForLoop Parser::parseForLoop()
 	m_currentForLoopComponent = ForLoopComponent::ForLoopPre;
 	forLoop.pre = parseBlock();
 	m_currentForLoopComponent = ForLoopComponent::None;
-	forLoop.condition = std::make_unique<Expression>(parseExpression());
+	forLoop.condition = makeASTNode<Expression>(parseExpression());
 	m_currentForLoopComponent = ForLoopComponent::ForLoopPost;
 	forLoop.post = parseBlock();
 	m_currentForLoopComponent = ForLoopComponent::ForLoopBody;
@@ -641,7 +641,7 @@ VariableDeclaration Parser::parseVariableDeclaration()
 	if (currentToken() == Token::AssemblyAssign)
 	{
 		expectToken(Token::AssemblyAssign);
-		varDecl.value = std::make_unique<Expression>(parseExpression());
+		varDecl.value = makeASTNode<Expression>(parseExpression());
 		updateLocationEndFrom(varDecl.debugData, nativeLocationOf(*varDecl.value));
 	}
 	else

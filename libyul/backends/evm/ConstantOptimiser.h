@@ -57,7 +57,7 @@ public:
 
 	struct Representation
 	{
-		std::unique_ptr<Expression> expression;
+		ExpressionPtr expression;
 		bigint cost;
 	};
 

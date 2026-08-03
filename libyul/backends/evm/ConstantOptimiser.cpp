@@ -47,7 +47,7 @@ struct MiniEVMInterpreter
 		return std::visit(*this, _expr);
 	}
 
-	u256 eval(evmasm::Instruction _instr, std::vector<Expression> const& _arguments)
+	u256 eval(evmasm::Instruction _instr, ExpressionList const& _arguments)
 	{
 		std::vector<u256> args;
 		for (auto const& arg: _arguments)
@@ -187,7 +187,7 @@ Representation const& RepresentationFinder::findRepresentation(u256 const& _valu
 Representation RepresentationFinder::represent(u256 const& _value) const
 {
 	Representation repr;
-	repr.expression = std::make_unique<Expression>(Literal{m_debugData, LiteralKind::Number, LiteralValue{_value, formatNumber(_value)}});
+	repr.expression = makeASTNode<Expression>(Literal{m_debugData, LiteralKind::Number, LiteralValue{_value, formatNumber(_value)}});
 	repr.cost = m_meter.costs(*repr.expression);
 	return repr;
 }
@@ -198,7 +198,7 @@ Representation RepresentationFinder::represent(
 ) const
 {
 	Representation repr;
-	repr.expression = std::make_unique<Expression>(FunctionCall{
+	repr.expression = makeASTNode<Expression>(FunctionCall{
 		m_debugData,
 		BuiltinName{m_debugData, _instruction},
 		{ASTCopier{}.translate(*_argument.expression)}
@@ -214,7 +214,7 @@ Representation RepresentationFinder::represent(
 ) const
 {
 	Representation repr;
-	repr.expression = std::make_unique<Expression>(FunctionCall{
+	repr.expression = makeASTNode<Expression>(FunctionCall{
 		m_debugData,
 		BuiltinName{m_debugData, _instruction},
 		{ASTCopier{}.translate(*_arg1.expression), ASTCopier{}.translate(*_arg2.expression)}

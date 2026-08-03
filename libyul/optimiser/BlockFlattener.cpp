@@ -33,7 +33,7 @@ void BlockFlattener::operator()(Block& _block)
 
 	iterateReplacing(
 		_block.statements,
-		[](Statement& _s) -> std::optional<std::vector<Statement>>
+		[](Statement& _s) -> std::optional<StatementList>
 		{
 			if (std::holds_alternative<Block>(_s))
 				return std::move(std::get<Block>(_s).statements);

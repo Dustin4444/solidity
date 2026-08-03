@@ -103,7 +103,7 @@ public:
 	/// Evaluate builtin function
 	u256 evalBuiltin(
 		BuiltinFunctionForEVM const& _fun,
-		std::vector<Expression> const& _arguments,
+		ExpressionList const& _arguments,
 		std::vector<u256> const& _evaluatedArguments
 	);
 

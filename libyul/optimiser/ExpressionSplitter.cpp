@@ -80,11 +80,11 @@ void ExpressionSplitter::operator()(ForLoop& _loop)
 
 void ExpressionSplitter::operator()(Block& _block)
 {
-	std::vector<Statement> saved;
+	StatementList saved;
 	swap(saved, m_statementsToPrefix);
 
-	std::function<std::optional<std::vector<Statement>>(Statement&)> f =
-			[&](Statement& _statement) -> std::optional<std::vector<Statement>> {
+	std::function<std::optional<StatementList>(Statement&)> f =
+			[&](Statement& _statement) -> std::optional<StatementList> {
 		m_statementsToPrefix.clear();
 		visit(_statement);
 		if (m_statementsToPrefix.empty())
@@ -109,7 +109,7 @@ void ExpressionSplitter::outlineExpression(Expression& _expr)
 	m_statementsToPrefix.emplace_back(VariableDeclaration{
 		debugData,
 		{{NameWithDebugData{debugData, var}}},
-		std::make_unique<Expression>(std::move(_expr))
+		makeASTNode<Expression>(std::move(_expr))
 	});
 	_expr = Identifier{debugData, var};
 }

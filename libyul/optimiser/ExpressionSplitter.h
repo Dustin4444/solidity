@@ -81,7 +81,7 @@ private:
 
 	/// List of statements that should go in front of the currently visited AST element,
 	/// at the statement level.
-	std::vector<Statement> m_statementsToPrefix;
+	StatementList m_statementsToPrefix;
 	Dialect const& m_dialect;
 	NameDispenser& m_nameDispenser;
 };

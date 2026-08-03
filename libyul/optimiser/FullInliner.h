@@ -141,8 +141,8 @@ public:
 	void operator()(Block& _block) override;
 
 private:
-	std::optional<std::vector<Statement>> tryInlineStatement(Statement& _statement);
-	std::vector<Statement> performInline(Statement& _statement, FunctionCall& _funCall);
+	std::optional<StatementList> tryInlineStatement(Statement& _statement);
+	StatementList performInline(Statement& _statement, FunctionCall& _funCall);
 
 	YulName m_currentFunction;
 	FullInliner& m_driver;

@@ -90,7 +90,7 @@ void UnusedFunctionParameterPruner::run(OptimiserStepContext& _context, Block& _
 	// For example: introduce a new 'linking' function `f` with the same the body as `f_1`, but with
 	// reduced parameters, i.e., `function f() -> y { y := 1 }`. Now replace the body of `f_1` with
 	// a call to `f`, i.e., `f_1(x) -> y { y := f() }`.
-	iterateReplacing(_ast.statements, [&](Statement& _s) -> std::optional<std::vector<Statement>> {
+	iterateReplacing(_ast.statements, [&](Statement& _s) -> std::optional<StatementList> {
 		if (std::holds_alternative<FunctionDefinition>(_s))
 		{
 			// The original function except that it has a new name (e.g., `f_1`)
@@ -117,7 +117,7 @@ void UnusedFunctionParameterPruner::run(OptimiserStepContext& _context, Block& _
 				originalFunction.returnVariables =
 					filter(originalFunction.returnVariables, used.second);
 
-				return make_vector<Statement>(std::move(originalFunction), std::move(linkingFunction));
+				return makeStatementList(std::move(originalFunction), std::move(linkingFunction));
 			}
 		}
 

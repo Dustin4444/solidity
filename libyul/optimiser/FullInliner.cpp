@@ -264,14 +264,14 @@ bool FullInliner::recursive(FunctionDefinition const& _fun) const
 
 void InlineModifier::operator()(Block& _block)
 {
-	std::function<std::optional<std::vector<Statement>>(Statement&)> f = [&](Statement& _statement) -> std::optional<std::vector<Statement>> {
+	std::function<std::optional<StatementList>(Statement&)> f = [&](Statement& _statement) -> std::optional<StatementList> {
 		visit(_statement);
 		return tryInlineStatement(_statement);
 	};
 	util::iterateReplacing(_block.statements, f);
 }
 
-std::optional<std::vector<Statement>> InlineModifier::tryInlineStatement(Statement& _statement)
+std::optional<StatementList> InlineModifier::tryInlineStatement(Statement& _statement)
 {
 	// Only inline for expression statements, assignments and variable declarations.
 	Expression* e = std::visit(util::GenericVisitor{
@@ -293,9 +293,9 @@ std::optional<std::vector<Statement>> InlineModifier::tryInlineStatement(Stateme
 	return {};
 }
 
-std::vector<Statement> InlineModifier::performInline(Statement& _statement, FunctionCall& _funCall)
+StatementList InlineModifier::performInline(Statement& _statement, FunctionCall& _funCall)
 {
-	std::vector<Statement> newStatements;
+	StatementList newStatements;
 	std::map<YulName, YulName> variableReplacements;
 
 	yulAssert(std::holds_alternative<Identifier>(_funCall.functionName));
@@ -311,9 +311,9 @@ std::vector<Statement> InlineModifier::performInline(Statement& _statement, Func
 		variableReplacements[_existingVariable.name] = newName;
 		VariableDeclaration varDecl{_funCall.debugData, {{_funCall.debugData, newName}}, {}};
 		if (_value)
-			varDecl.value = std::make_unique<Expression>(std::move(*_value));
+			varDecl.value = makeASTNode<Expression>(std::move(*_value));
 		else
-			varDecl.value = std::make_unique<Expression>(m_dialect.zeroLiteral());
+			varDecl.value = makeASTNode<Expression>(m_dialect.zeroLiteral());
 		newStatements.emplace_back(std::move(varDecl));
 	};
 
@@ -333,7 +333,7 @@ std::vector<Statement> InlineModifier::performInline(Statement& _statement, Func
 				newStatements.emplace_back(Assignment{
 					_assignment.debugData,
 					{_assignment.variableNames[i]},
-					std::make_unique<Expression>(Identifier{
+					makeASTNode<Expression>(Identifier{
 						_assignment.debugData,
 						variableReplacements.at(function->returnVariables[i].name)
 					})
@@ -345,7 +345,7 @@ std::vector<Statement> InlineModifier::performInline(Statement& _statement, Func
 				newStatements.emplace_back(VariableDeclaration{
 					_varDecl.debugData,
 					{std::move(_varDecl.variables[i])},
-					std::make_unique<Expression>(Identifier{
+					makeASTNode<Expression>(Identifier{
 						_varDecl.debugData,
 						variableReplacements.at(function->returnVariables[i].name)
 					})

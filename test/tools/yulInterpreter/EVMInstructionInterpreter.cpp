@@ -496,7 +496,7 @@ u256 EVMInstructionInterpreter::eval(
 
 u256 EVMInstructionInterpreter::evalBuiltin(
 	BuiltinFunctionForEVM const& _fun,
-	std::vector<Expression> const& _arguments,
+	ExpressionList const& _arguments,
 	std::vector<u256> const& _evaluatedArguments
 )
 {

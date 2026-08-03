@@ -45,17 +45,17 @@ void ForLoopConditionIntoBody::operator()(ForLoop& _forLoop)
 			begin(_forLoop.body.statements),
 			If {
 				debugData,
-				std::make_unique<Expression>(
+				makeASTNode<Expression>(
 					FunctionCall {
 						debugData,
 						BuiltinName{debugData, *booleanNegationFunctionHandle},
-						util::make_vector<Expression>(std::move(*_forLoop.condition))
+						makeExpressionList(std::move(*_forLoop.condition))
 					}
 				),
-				Block {debugData, util::make_vector<Statement>(Break{{}})}
+				Block {debugData, makeStatementList(Break{{}})}
 			}
 		);
-		_forLoop.condition = std::make_unique<Expression>(
+		_forLoop.condition = makeASTNode<Expression>(
 			Literal {
 				debugData,
 				LiteralKind::Boolean,

@@ -83,7 +83,7 @@ private:
 	using ASTModifier::visit;
 	void visit(Expression& _e) override;
 
-	void handleArguments(std::vector<Expression>& _arguments);
+	void handleArguments(ExpressionList& _arguments);
 
 	void decrementLatestStatementPointer();
 	void resetLatestStatementPointer();

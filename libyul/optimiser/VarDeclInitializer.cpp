@@ -30,7 +30,7 @@ void VarDeclInitializer::operator()(Block& _block)
 {
 	ASTModifier::operator()(_block);
 
-	using OptionalStatements = std::optional<std::vector<Statement>>;
+	using OptionalStatements = std::optional<StatementList>;
 	util::GenericVisitor visitor{
 		util::VisitorFallback<OptionalStatements>{},
 		[this](VariableDeclaration& _varDecl) -> OptionalStatements
@@ -40,15 +40,15 @@ void VarDeclInitializer::operator()(Block& _block)
 
 			if (_varDecl.variables.size() == 1)
 			{
-				_varDecl.value = std::make_unique<Expression>(m_dialect.zeroLiteral());
+				_varDecl.value = makeASTNode<Expression>(m_dialect.zeroLiteral());
 				return {};
 			}
 			else
 			{
-				OptionalStatements ret{std::vector<Statement>{}};
+				OptionalStatements ret{StatementList{}};
 				for (auto& var: _varDecl.variables)
 				{
-					std::unique_ptr<Expression> expr = std::make_unique<Expression>(m_dialect.zeroLiteral());
+					ExpressionPtr expr = makeASTNode<Expression>(m_dialect.zeroLiteral());
 					ret->emplace_back(VariableDeclaration{std::move(_varDecl.debugData), {std::move(var)}, std::move(expr)});
 				}
 				return ret;

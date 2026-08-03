@@ -64,7 +64,7 @@ FunctionDefinition unusedFunctionsCommon::createLinkingFunction(
 		linkingFunction.body.statements.emplace_back(ExpressionStatement{_original.debugData, std::move(call)});
 	else
 	{
-		assignment.value = std::make_unique<Expression>(std::move(call));
+		assignment.value = makeASTNode<Expression>(std::move(call));
 		linkingFunction.body.statements.emplace_back(std::move(assignment));
 	}
 

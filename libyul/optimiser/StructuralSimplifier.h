@@ -48,7 +48,7 @@ public:
 private:
 	StructuralSimplifier() = default;
 
-	void simplify(std::vector<Statement>& _statements);
+	void simplify(StatementList& _statements);
 };
 
 }

@@ -57,8 +57,8 @@ private:
 	yul::Block createBlock(Json const& _node);
 	yul::Statement createStatement(Json const& _node);
 	yul::Expression createExpression(Json const& _node);
-	std::vector<yul::Statement> createStatementVector(Json const& _array);
-	std::vector<yul::Expression> createExpressionVector(Json const& _array);
+	StatementList createStatementVector(Json const& _array);
+	ExpressionList createExpressionVector(Json const& _array);
 
 	yul::NameWithDebugData createNameWithDebugData(Json const& _node);
 	yul::Literal createLiteral(Json const& _node);

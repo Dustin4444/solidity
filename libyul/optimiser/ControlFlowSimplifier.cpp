@@ -30,7 +30,7 @@ using namespace solidity;
 using namespace solidity::util;
 using namespace solidity::yul;
 
-using OptionalStatements = std::optional<std::vector<Statement>>;
+using OptionalStatements = std::optional<StatementList>;
 
 namespace
 {
@@ -131,14 +131,14 @@ void ControlFlowSimplifier::visit(Statement& _st)
 		ASTModifier::visit(_st);
 }
 
-void ControlFlowSimplifier::simplify(std::vector<yul::Statement>& _statements)
+void ControlFlowSimplifier::simplify(StatementList& _statements)
 {
 	GenericVisitor visitor{
 		VisitorFallback<OptionalStatements>{},
 		[&](If& _ifStmt) -> OptionalStatements {
 			if (_ifStmt.body.statements.empty() && m_dialect.discardFunctionHandle())
 			{
-				OptionalStatements s = std::vector<Statement>{};
+				OptionalStatements s = StatementList{};
 				s->emplace_back(makeDiscardCall(
 					_ifStmt.debugData,
 					*m_dialect.discardFunctionHandle(),
@@ -182,7 +182,7 @@ OptionalStatements ControlFlowSimplifier::reduceNoCaseSwitch(Switch& _switchStmt
 	if (!discardFunctionHandle)
 		return {};
 
-	return make_vector<Statement>(makeDiscardCall(
+	return makeStatementList(makeDiscardCall(
 		debugDataOf(*_switchStmt.expression),
 		*discardFunctionHandle,
 		std::move(*_switchStmt.expression)
@@ -200,9 +200,9 @@ OptionalStatements ControlFlowSimplifier::reduceSingleCaseSwitch(Switch& _switch
 		if (!m_dialect.equalityFunctionHandle())
 			return {};
 		BuiltinName const builtinName{debugData, *m_dialect.equalityFunctionHandle()};
-		return make_vector<Statement>(If{
+		return makeStatementList(If{
 			std::move(_switchStmt.debugData),
-			std::make_unique<Expression>(FunctionCall{
+			makeASTNode<Expression>(FunctionCall{
 				debugData,
 				builtinName,
 				{std::move(*switchCase.value), std::move(*_switchStmt.expression)}
@@ -215,7 +215,7 @@ OptionalStatements ControlFlowSimplifier::reduceSingleCaseSwitch(Switch& _switch
 		if (!m_dialect.discardFunctionHandle())
 			return {};
 
-		return make_vector<Statement>(
+		return makeStatementList(
 			makeDiscardCall(
 				debugData,
 				*m_dialect.discardFunctionHandle(),

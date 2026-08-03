@@ -42,14 +42,14 @@
 /// Operators need to stay in the global namespace.
 
 /// Concatenate the contents of a container onto a vector
-template <class T, class U> std::vector<T>& operator+=(std::vector<T>& _a, U& _b)
+template <class T, class A, class U> std::vector<T, A>& operator+=(std::vector<T, A>& _a, U& _b)
 {
 	for (auto const& i: _b)
 		_a.push_back(T(i));
 	return _a;
 }
 /// Concatenate the contents of a container onto a vector, move variant.
-template <class T, class U> std::vector<T>& operator+=(std::vector<T>& _a, U&& _b)
+template <class T, class A, class U> std::vector<T, A>& operator+=(std::vector<T, A>& _a, U&& _b)
 {
 	std::move(_b.begin(), _b.end(), std::back_inserter(_a));
 	return _a;
@@ -97,19 +97,19 @@ template <class U, class... T> std::set<T...>& operator+=(std::set<T...>& _a, U&
 }
 
 /// Concatenate two vectors of elements.
-template <class T>
-inline std::vector<T> operator+(std::vector<T> const& _a, std::vector<T> const& _b)
+template <class T, class A>
+inline std::vector<T, A> operator+(std::vector<T, A> const& _a, std::vector<T, A> const& _b)
 {
-	std::vector<T> ret(_a);
+	std::vector<T, A> ret(_a);
 	ret += _b;
 	return ret;
 }
 
 /// Concatenate two vectors of elements, moving them.
-template <class T>
-inline std::vector<T> operator+(std::vector<T>&& _a, std::vector<T>&& _b)
+template <class T, class A>
+inline std::vector<T, A> operator+(std::vector<T, A>&& _a, std::vector<T, A>&& _b)
 {
-	std::vector<T> ret(std::move(_a));
+	std::vector<T, A> ret(std::move(_a));
 	assert(&_a != &_b);
 	ret += std::move(_b);
 	return ret;
@@ -180,12 +180,12 @@ auto applyMap(Container const& _c, Callable&& _op, OutputContainer _oc = OutputC
 
 /// Filter a vector.
 /// Returns a copy of the vector after only taking indices `i` such that `_mask[i]` is true.
-template<typename T>
-std::vector<T> filter(std::vector<T> const& _vec, std::vector<bool> const& _mask)
+template<typename T, typename A>
+std::vector<T, A> filter(std::vector<T, A> const& _vec, std::vector<bool> const& _mask)
 {
 	assert(_vec.size() == _mask.size());
 
-	std::vector<T> ret;
+	std::vector<T, A> ret;
 
 	for (size_t i = 0; i < _mask.size(); ++i)
 		if (_mask[i])
@@ -492,15 +492,15 @@ bool contains_if(T const& _t, Predicate const& _p)
 /// on the current element and after that. The actual replacement takes
 /// place at the end, but already visited elements might be invalidated.
 /// If nothing is replaced, no copy is performed.
-template <typename T, typename F>
-void iterateReplacing(std::vector<T>& _vector, F const& _f)
+template <typename T, typename A, typename F>
+void iterateReplacing(std::vector<T, A>& _vector, F const& _f)
 {
 	// Concept: _f must be Callable, must accept param T&, must return optional<vector<T>>
 	bool useModified = false;
-	std::vector<T> modifiedVector;
+	std::vector<T, A> modifiedVector;
 	for (size_t i = 0; i < _vector.size(); ++i)
 	{
-		if (std::optional<std::vector<T>> r = _f(_vector[i]))
+		if (std::optional<std::vector<T, A>> r = _f(_vector[i]))
 		{
 			if (!useModified)
 			{
@@ -518,16 +518,16 @@ void iterateReplacing(std::vector<T>& _vector, F const& _f)
 
 namespace detail
 {
-template <typename T, typename F, std::size_t... I>
-void iterateReplacingWindow(std::vector<T>& _vector, F const& _f, std::index_sequence<I...>)
+template <typename T, typename A, typename F, std::size_t... I>
+void iterateReplacingWindow(std::vector<T, A>& _vector, F const& _f, std::index_sequence<I...>)
 {
 	// Concept: _f must be Callable, must accept sizeof...(I) parameters of type T&, must return optional<vector<T>>
 	bool useModified = false;
-	std::vector<T> modifiedVector;
+	std::vector<T, A> modifiedVector;
 	size_t i = 0;
 	for (; i + sizeof...(I) <= _vector.size(); ++i)
 	{
-		if (std::optional<std::vector<T>> r = _f(_vector[i + I]...))
+		if (std::optional<std::vector<T, A>> r = _f(_vector[i + I]...))
 		{
 			if (!useModified)
 			{
@@ -584,8 +584,8 @@ bool hasNonemptyIntersectionSorted(Collection1 const& _collection1, Collection2 
 /// on the current element and after that. The actual replacement takes
 /// place at the end, but already visited elements might be invalidated.
 /// If nothing is replaced, no copy is performed.
-template <std::size_t N, typename T, typename F>
-void iterateReplacingWindow(std::vector<T>& _vector, F const& _f)
+template <std::size_t N, typename T, typename A, typename F>
+void iterateReplacingWindow(std::vector<T, A>& _vector, F const& _f)
 {
 	// Concept: _f must be Callable, must accept N parameters of type T&, must return optional<vector<T>>
 	detail::iterateReplacingWindow(_vector, _f, std::make_index_sequence<N>{});
@@ -629,10 +629,10 @@ inline std::string findAnyOf(std::string const& _haystack, std::vector<std::stri
 
 namespace detail
 {
-template<typename T>
-void variadicEmplaceBack(std::vector<T>&) {}
-template<typename T, typename A, typename... Args>
-void variadicEmplaceBack(std::vector<T>& _vector, A&& _a, Args&&... _args)
+template<typename T, typename Alloc>
+void variadicEmplaceBack(std::vector<T, Alloc>&) {}
+template<typename T, typename Alloc, typename A, typename... Args>
+void variadicEmplaceBack(std::vector<T, Alloc>& _vector, A&& _a, Args&&... _args)
 {
 	_vector.emplace_back(std::forward<A>(_a));
 	variadicEmplaceBack(_vector, std::forward<Args>(_args)...);

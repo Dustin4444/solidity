@@ -100,14 +100,14 @@ FunctionDefinition FunctionSpecializer::specialize(
 
 	// Function parameters that will be specialized inside the body are converted into variable
 	// declarations.
-	std::vector<Statement> missingVariableDeclarations;
+	StatementList missingVariableDeclarations;
 	for (auto&& [index, argument]: _arguments | ranges::views::enumerate)
 		if (argument)
 			missingVariableDeclarations.emplace_back(
 				VariableDeclaration{
 					_f.debugData,
-					std::vector<NameWithDebugData>{newFunction.parameters[index]},
-					std::make_unique<Expression>(std::move(*argument))
+					NameWithDebugDataList{newFunction.parameters[index]},
+					makeASTNode<Expression>(std::move(*argument))
 				}
 			);
 
@@ -134,7 +134,7 @@ void FunctionSpecializer::run(OptimiserStepContext& _context, Block& _ast)
 	};
 	f(_ast);
 
-	iterateReplacing(_ast.statements, [&](Statement& _s) -> std::optional<std::vector<Statement>>
+	iterateReplacing(_ast.statements, [&](Statement& _s) -> std::optional<StatementList>
 	{
 		if (std::holds_alternative<FunctionDefinition>(_s))
 		{
@@ -142,14 +142,15 @@ void FunctionSpecializer::run(OptimiserStepContext& _context, Block& _ast)
 
 			if (f.m_oldToNewMap.count(functionDefinition.name))
 			{
-				std::vector<Statement> out = applyMap(
+				StatementList out = applyMap(
 					f.m_oldToNewMap.at(functionDefinition.name),
 					[&](auto& _p) -> Statement
 					{
 						return f.specialize(functionDefinition, std::move(_p.first), std::move(_p.second));
-					}
+					},
+					StatementList{}
 				);
-				return std::move(out) + make_vector<Statement>(std::move(functionDefinition));
+				return std::move(out) + makeStatementList(std::move(functionDefinition));
 			}
 		}
 

@@ -35,7 +35,7 @@ using namespace solidity::yul;
 
 namespace
 {
-std::vector<Statement> generateMemoryStore(
+StatementList generateMemoryStore(
 	Dialect const& _dialect,
 	langutil::DebugData::ConstPtr const& _debugData,
 	LiteralValue const& _mpos,
@@ -44,7 +44,7 @@ std::vector<Statement> generateMemoryStore(
 {
 	std::optional<BuiltinHandle> memoryStoreFunctionHandle = _dialect.memoryStoreFunctionHandle();
 	yulAssert(memoryStoreFunctionHandle);
-	std::vector<Statement> result;
+	StatementList result;
 	result.emplace_back(ExpressionStatement{_debugData, FunctionCall{
 		_debugData,
 		BuiltinName{_debugData, *memoryStoreFunctionHandle},
@@ -120,7 +120,7 @@ void StackToMemoryMover::operator()(FunctionDefinition& _functionDefinition)
 	// variable arguments we might generate below.
 	ASTModifier::operator()(_functionDefinition);
 
-	std::vector<Statement> memoryVariableInits;
+	StatementList memoryVariableInits;
 
 	// All function parameters with a memory slot are moved at the beginning of the function body.
 	for (NameWithDebugData const& param: _functionDefinition.parameters)
@@ -172,13 +172,13 @@ void StackToMemoryMover::operator()(FunctionDefinition& _functionDefinition)
 				Identifier{_functionDefinition.debugData, newFunctionName},
 				stackParameters | ranges::views::transform([&](NameWithDebugData const& _arg) {
 					return Expression{Identifier{_arg.debugData, newArgumentNames.at(_arg.name)}};
-				}) | ranges::to<std::vector<Expression>>
+				}) | ranges::to<ExpressionList>
 			}
 		});
 		_functionDefinition.body.statements.emplace_back(Assignment{
 			_functionDefinition.debugData,
 			{Identifier{_functionDefinition.debugData, _functionDefinition.returnVariables.front().name}},
-			std::make_unique<Expression>(generateMemoryLoad(
+			makeASTNode<Expression>(generateMemoryLoad(
 				m_context.dialect,
 				_functionDefinition.debugData,
 				*m_memoryOffsetTracker(_functionDefinition.returnVariables.front().name)
@@ -197,7 +197,7 @@ void StackToMemoryMover::operator()(FunctionDefinition& _functionDefinition)
 
 void StackToMemoryMover::operator()(Block& _block)
 {
-	using OptionalStatements = std::optional<std::vector<Statement>>;
+	using OptionalStatements = std::optional<StatementList>;
 
 	auto rewriteAssignmentOrVariableDeclarationLeftHandSide = [this](
 		auto& _stmt,
@@ -245,21 +245,21 @@ void StackToMemoryMover::operator()(Block& _block)
 		)
 			return {};
 
-		std::vector<Statement> memoryAssignments;
-		std::vector<Statement> variableAssignments;
+		StatementList memoryAssignments;
+		StatementList variableAssignments;
 		VariableDeclaration tempDecl{debugData, {}, std::move(_stmt.value)};
 
 		yulAssert(rhsMemorySlots.size() == _lhsVars.size(), "");
 		for (auto&& [lhsVar, rhsSlot]: ranges::views::zip(_lhsVars, rhsMemorySlots))
 		{
-			std::unique_ptr<Expression> rhs;
+			ExpressionPtr rhs;
 			if (rhsSlot)
-				rhs = std::make_unique<Expression>(generateMemoryLoad(m_context.dialect, debugData, *rhsSlot));
+				rhs = makeASTNode<Expression>(generateMemoryLoad(m_context.dialect, debugData, *rhsSlot));
 			else
 			{
 				YulName tempVarName = m_nameDispenser.newName(lhsVar.name);
 				tempDecl.variables.emplace_back(NameWithDebugData{lhsVar.debugData, tempVarName});
-				rhs = std::make_unique<Expression>(Identifier{debugData, tempVarName});
+				rhs = makeASTNode<Expression>(Identifier{debugData, tempVarName});
 			}
 
 			if (auto offset = m_memoryOffsetTracker(lhsVar.name))
@@ -277,7 +277,7 @@ void StackToMemoryMover::operator()(Block& _block)
 				});
 		}
 
-		std::vector<Statement> result;
+		StatementList result;
 		if (tempDecl.variables.empty())
 			result.emplace_back(ExpressionStatement{debugData, *std::move(tempDecl.value)});
 		else

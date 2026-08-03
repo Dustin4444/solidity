@@ -73,7 +73,7 @@ public:
 	/// by the constructor, but we had some issues with static initialization.
 	bool isInitialized() const;
 
-	static std::optional<std::pair<evmasm::Instruction, std::vector<Expression> const*>>
+	static std::optional<std::pair<evmasm::Instruction, ExpressionList const*>>
 	instructionAndArguments(Dialect const& _dialect, Expression const& _expr);
 
 private:

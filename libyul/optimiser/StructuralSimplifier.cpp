@@ -24,7 +24,7 @@
 using namespace solidity;
 using namespace solidity::yul;
 
-using OptionalStatements = std::optional<std::vector<Statement>>;
+using OptionalStatements = std::optional<StatementList>;
 
 namespace
 {
@@ -49,9 +49,9 @@ OptionalStatements replaceConstArgSwitch(Switch& _switchStmt, u256 const& _const
 		matchingCaseBlock = &defaultCase->body;
 
 	if (matchingCaseBlock)
-		return util::make_vector<Statement>(std::move(*matchingCaseBlock));
+		return makeStatementList(std::move(*matchingCaseBlock));
 	else
-		return std::optional<std::vector<Statement>>{std::vector<Statement>{}};
+		return std::optional<StatementList>{StatementList{}};
 }
 
 std::optional<u256> hasLiteralValue(Expression const& _expression)
@@ -90,7 +90,7 @@ void StructuralSimplifier::operator()(Block& _block)
 	simplify(_block.statements);
 }
 
-void StructuralSimplifier::simplify(std::vector<yul::Statement>& _statements)
+void StructuralSimplifier::simplify(StatementList& _statements)
 {
 	util::GenericVisitor visitor{
 		util::VisitorFallback<OptionalStatements>{},
@@ -98,7 +98,7 @@ void StructuralSimplifier::simplify(std::vector<yul::Statement>& _statements)
 			if (expressionAlwaysTrue(*_ifStmt.condition))
 				return {std::move(_ifStmt.body.statements)};
 			else if (expressionAlwaysFalse(*_ifStmt.condition))
-				return {std::vector<Statement>{}};
+				return {StatementList{}};
 			return {};
 		},
 		[&](Switch& _switchStmt) -> OptionalStatements {

@@ -33,7 +33,7 @@ void FunctionGrouper::operator()(Block& _block)
 	if (alreadyGrouped(_block))
 		return;
 
-	std::vector<Statement> reordered;
+	StatementList reordered;
 	reordered.emplace_back(Block{_block.debugData, {}});
 
 	for (auto&& statement: _block.statements)

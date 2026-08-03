@@ -85,7 +85,7 @@ void LoadResolver::visit(Expression& _e)
 void LoadResolver::tryResolve(
 	Expression& _e,
 	StoreLoadLocation _location,
-	std::vector<Expression> const& _arguments
+	ExpressionList const& _arguments
 )
 {
 	if (_arguments.empty() || !std::holds_alternative<Identifier>(_arguments.at(0)))
@@ -106,7 +106,7 @@ void LoadResolver::tryResolve(
 
 void LoadResolver::tryEvaluateKeccak(
 	Expression& _e,
-	std::vector<Expression> const& _arguments
+	ExpressionList const& _arguments
 )
 {
 	yulAssert(_arguments.size() == 2, "");

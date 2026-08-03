@@ -29,7 +29,7 @@ void ForLoopInitRewriter::operator()(Block& _block)
 {
 	util::iterateReplacing(
 		_block.statements,
-		[&](Statement& _stmt) -> std::optional<std::vector<Statement>>
+		[&](Statement& _stmt) -> std::optional<StatementList>
 		{
 			if (std::holds_alternative<ForLoop>(_stmt))
 			{
@@ -37,7 +37,7 @@ void ForLoopInitRewriter::operator()(Block& _block)
 				(*this)(forLoop.pre);
 				(*this)(forLoop.body);
 				(*this)(forLoop.post);
-				std::vector<Statement> rewrite;
+				StatementList rewrite;
 				swap(rewrite, forLoop.pre.statements);
 				rewrite.emplace_back(std::move(forLoop));
 				return { std::move(rewrite) };

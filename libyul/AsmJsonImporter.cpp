@@ -143,17 +143,17 @@ Expression AsmJsonImporter::createExpression(Json const& _node)
 	util::unreachable();
 }
 
-std::vector<Expression> AsmJsonImporter::createExpressionVector(Json const& _array)
+ExpressionList AsmJsonImporter::createExpressionVector(Json const& _array)
 {
-	std::vector<Expression> ret;
+	ExpressionList ret;
 	for (auto& var: _array)
 		ret.emplace_back(createExpression(var));
 	return ret;
 }
 
-std::vector<Statement> AsmJsonImporter::createStatementVector(Json const& _array)
+StatementList AsmJsonImporter::createStatementVector(Json const& _array)
 {
-	std::vector<Statement> ret;
+	StatementList ret;
 	for (auto& var: _array)
 		ret.emplace_back(createStatement(var));
 	return ret;
@@ -246,7 +246,7 @@ Assignment AsmJsonImporter::createAssignment(Json const& _node)
 		for (auto const& var: member(_node, "variableNames"))
 			assignment.variableNames.emplace_back(createIdentifier(var));
 
-	assignment.value = std::make_unique<Expression>(createExpression(member(_node, "value")));
+	assignment.value = makeASTNode<Expression>(createExpression(member(_node, "value")));
 	return assignment;
 }
 
@@ -285,7 +285,7 @@ VariableDeclaration AsmJsonImporter::createVariableDeclaration(Json const& _node
 		varDec.variables.emplace_back(createNameWithDebugData(var));
 
 	if (_node.contains("value"))
-		varDec.value = std::make_unique<Expression>(createExpression(member(_node, "value")));
+		varDec.value = makeASTNode<Expression>(createExpression(member(_node, "value")));
 
 	return varDec;
 }
@@ -310,7 +310,7 @@ FunctionDefinition AsmJsonImporter::createFunctionDefinition(Json const& _node)
 If AsmJsonImporter::createIf(Json const& _node)
 {
 	auto ifStatement = createAsmNode<If>(_node);
-	ifStatement.condition = std::make_unique<Expression>(createExpression(member(_node, "condition")));
+	ifStatement.condition = makeASTNode<Expression>(createExpression(member(_node, "condition")));
 	ifStatement.body = createBlock(member(_node, "body"));
 	return ifStatement;
 }
@@ -322,7 +322,7 @@ Case AsmJsonImporter::createCase(Json const& _node)
 	if (value.is_string())
 		yulAssert(value.get<std::string>() == "default", "Expected default case");
 	else
-		caseStatement.value = std::make_unique<Literal>(createLiteral(value));
+		caseStatement.value = makeASTNode<Literal>(createLiteral(value));
 	caseStatement.body = createBlock(member(_node, "body"));
 	return caseStatement;
 }
@@ -330,7 +330,7 @@ Case AsmJsonImporter::createCase(Json const& _node)
 Switch AsmJsonImporter::createSwitch(Json const& _node)
 {
 	auto switchStatement = createAsmNode<Switch>(_node);
-	switchStatement.expression = std::make_unique<Expression>(createExpression(member(_node, "expression")));
+	switchStatement.expression = makeASTNode<Expression>(createExpression(member(_node, "expression")));
 	for (auto const& var: member(_node, "cases"))
 		switchStatement.cases.emplace_back(createCase(var));
 	return switchStatement;
@@ -340,7 +340,7 @@ ForLoop AsmJsonImporter::createForLoop(Json const& _node)
 {
 	auto forLoop = createAsmNode<ForLoop>(_node);
 	forLoop.pre = createBlock(member(_node, "pre"));
-	forLoop.condition = std::make_unique<Expression>(createExpression(member(_node, "condition")));
+	forLoop.condition = makeASTNode<Expression>(createExpression(member(_node, "condition")));
 	forLoop.post = createBlock(member(_node, "post"));
 	forLoop.body = createBlock(member(_node, "body"));
 	return forLoop;

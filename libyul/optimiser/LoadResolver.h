@@ -65,14 +65,14 @@ protected:
 	void tryResolve(
 		Expression& _e,
 		StoreLoadLocation _location,
-		std::vector<Expression> const& _arguments
+		ExpressionList const& _arguments
 	);
 
 	/// Evaluates simple ``keccak256(a, c)`` when the value at memory location ``a`` is known and
 	/// `c` is a constant `<= 32`.
 	void tryEvaluateKeccak(
 		Expression& _e,
-		std::vector<Expression> const& _arguments
+		ExpressionList const& _arguments
 	);
 
 	/// If the AST contains `msize`, then we skip resolving `mload` and `keccak256`.

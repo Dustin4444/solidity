@@ -242,7 +242,7 @@ public:
 	/// The function might return ``FlowOut`` even though control
 	/// flow cannot actually continue.
 	std::pair<ControlFlow, size_t> firstUnconditionalControlFlowChange(
-		std::vector<Statement> const& _statements
+		StatementList const& _statements
 	);
 
 	/// @returns the control flow type of the given statement.

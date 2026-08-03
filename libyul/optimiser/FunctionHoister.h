@@ -50,7 +50,7 @@ private:
 	~FunctionHoister() override;
 
 	bool m_isTopLevel = true;
-	std::vector<Statement> m_functions;
+	StatementList m_functions;
 };
 
 }

@@ -187,14 +187,14 @@ private:
 	StackToMemoryMover(
 		OptimiserStepContext& _context,
 		VariableMemoryOffsetTracker const& _memoryOffsetTracker,
-		std::map<YulName, std::vector<NameWithDebugData>> _functionReturnVariables
+		std::map<YulName, NameWithDebugDataList> _functionReturnVariables
 	);
 
 	OptimiserStepContext& m_context;
 	VariableMemoryOffsetTracker const& m_memoryOffsetTracker;
 	NameDispenser& m_nameDispenser;
 	/// Map from function names to the return variables of the function with that name.
-	std::map<YulName, std::vector<NameWithDebugData>> m_functionReturnVariables;
+	std::map<YulName, NameWithDebugDataList> m_functionReturnVariables;
 	/// List of functions generated while running this step that are to be appended to the code in the end.
 	std::list<Statement> m_newFunctionDefinitions;
 };

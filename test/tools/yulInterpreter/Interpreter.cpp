@@ -372,7 +372,7 @@ void ExpressionEvaluator::setValue(u256 _value)
 }
 
 void ExpressionEvaluator::evaluateArgs(
-	std::vector<Expression> const& _expr,
+	ExpressionList const& _expr,
 	std::vector<std::optional<LiteralKind>> const* _literalArguments
 )
 {

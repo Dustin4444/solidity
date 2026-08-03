@@ -341,7 +341,7 @@ void CodeTransform::operator()(InstId _instId, StackData const& _operationInputL
 		SSACFG::BuiltinCall const& builtinCall = m_cfg.builtinPayload(_instId);
 		auto const& builtin = m_cfg.evmDialect.builtin(builtinCall.builtin);
 		// build up the call with transient args to handle literal arguments as needed
-		std::vector<Expression> transientArgs;
+		ExpressionList transientArgs;
 		transientArgs.reserve(builtin.literalArguments.size());
 		auto litIt = builtinCall.literalArguments.begin();
 		for (size_t i = 0; i < builtin.literalArguments.size(); ++i)

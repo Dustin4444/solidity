@@ -64,7 +64,7 @@ private:
 		std::set<YulName> const& _varsDefinedInCurrentScope,
 		SideEffects const& _forLoopSideEffects
 	) const;
-	std::optional<std::vector<Statement>> rewriteLoop(ForLoop& _for);
+	std::optional<StatementList> rewriteLoop(ForLoop& _for);
 
 	bool m_containsMSize = true;
 	Dialect const& m_dialect;

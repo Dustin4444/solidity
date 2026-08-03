@@ -74,7 +74,7 @@ bool SimplificationRules::isInitialized() const
 	return !m_rules[uint8_t(evmasm::Instruction::ADD)].empty();
 }
 
-std::optional<std::pair<evmasm::Instruction, std::vector<Expression> const*>>
+std::optional<std::pair<evmasm::Instruction, ExpressionList const*>>
 	SimplificationRules::instructionAndArguments(Dialect const& _dialect, Expression const& _expr)
 {
 	if (std::holds_alternative<FunctionCall>(_expr))
@@ -245,7 +245,7 @@ Expression Pattern::toExpression(langutil::DebugData::ConstPtr const& _debugData
 	}
 	else if (m_kind == PatternKind::Operation)
 	{
-		std::vector<Expression> arguments;
+		ExpressionList arguments;
 		for (auto const& arg: m_arguments)
 			arguments.emplace_back(arg.toExpression(_debugData, _dialect));
 

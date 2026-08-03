@@ -42,6 +42,10 @@ struct YulArity
 
 	bool operator==(YulArity const& _other) const { return in == _other.in && out == _other.out; }
 	bool operator!=(YulArity const& _other) const { return !(*this == _other); }
+	// Matches the std::less<YulArity> specialization below. Some standard-library
+	// map internals compare keys with operator< directly (via the transparent
+	// std::less<void> comparator) instead of std::less<YulArity>, so define it.
+	bool operator<(YulArity const& _other) const { return in < _other.in || (in == _other.in && out < _other.out); }
 
 	size_t in;  /// Number of input parameters
 	size_t out; /// Number of output parameters

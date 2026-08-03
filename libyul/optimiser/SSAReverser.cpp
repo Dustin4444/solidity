@@ -37,7 +37,7 @@ void SSAReverser::operator()(Block& _block)
 	walkVector(_block.statements);
 	util::iterateReplacingWindow<2>(
 		_block.statements,
-		[&](Statement& _stmt1, Statement& _stmt2) -> std::optional<std::vector<Statement>>
+		[&](Statement& _stmt1, Statement& _stmt2) -> std::optional<StatementList>
 		{
 			auto* varDecl = std::get_if<VariableDeclaration>(&_stmt1);
 
@@ -61,9 +61,9 @@ void SSAReverser::operator()(Block& _block)
 				{
 					// in the special case a == a_1, just remove the assignment
 					if (assignment->variableNames.front().name == identifier->name)
-						return util::make_vector<Statement>(std::move(_stmt1));
+						return makeStatementList(std::move(_stmt1));
 					else
-						return util::make_vector<Statement>(
+						return makeStatementList(
 							Assignment{
 								std::move(assignment->debugData),
 								assignment->variableNames,
@@ -72,7 +72,7 @@ void SSAReverser::operator()(Block& _block)
 							VariableDeclaration{
 								std::move(varDecl->debugData),
 								std::move(varDecl->variables),
-								std::make_unique<Expression>(assignment->variableNames.front())
+								makeASTNode<Expression>(assignment->variableNames.front())
 							}
 						);
 				}
@@ -95,11 +95,11 @@ void SSAReverser::operator()(Block& _block)
 					)
 				)
 				{
-					auto varIdentifier2 = std::make_unique<Expression>(Identifier{
+					auto varIdentifier2 = makeASTNode<Expression>(Identifier{
 						varDecl2->variables.front().debugData,
 						varDecl2->variables.front().name
 					});
-					return util::make_vector<Statement>(
+					return makeStatementList(
 						VariableDeclaration{
 							std::move(varDecl2->debugData),
 							std::move(varDecl2->variables),

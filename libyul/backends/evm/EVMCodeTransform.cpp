@@ -56,7 +56,7 @@ CodeTransform::CodeTransform(
 	ExternalIdentifierAccess::CodeGenerator _identifierAccessCodeGen,
 	UseNamedLabels _useNamedLabelsForFunctions,
 	std::shared_ptr<Context> _context,
-	std::vector<NameWithDebugData> _delayedReturnVariables,
+	NameWithDebugDataList _delayedReturnVariables,
 	std::optional<AbstractAssembly::LabelID> _functionExitLabel
 ):
 	m_assembly(_assembly),
@@ -661,7 +661,7 @@ void CodeTransform::setupReturnVariablesAndFunctionExit()
 namespace
 {
 
-bool statementNeedsReturnVariableSetup(Statement const& _statement, std::vector<NameWithDebugData> const& _returnVariables)
+bool statementNeedsReturnVariableSetup(Statement const& _statement, NameWithDebugDataList const& _returnVariables)
 {
 	if (std::holds_alternative<FunctionDefinition>(_statement))
 		return true;
@@ -682,7 +682,7 @@ bool statementNeedsReturnVariableSetup(Statement const& _statement, std::vector<
 
 }
 
-void CodeTransform::visitStatements(std::vector<Statement> const& _statements)
+void CodeTransform::visitStatements(StatementList const& _statements)
 {
 	std::optional<AbstractAssembly::LabelID> jumpTarget = std::nullopt;
 
@@ -746,7 +746,7 @@ void CodeTransform::finalizeBlock(Block const& _block, std::optional<int> blockS
 	}
 }
 
-void CodeTransform::generateMultiAssignment(std::vector<Identifier> const& _variableNames)
+void CodeTransform::generateMultiAssignment(IdentifierList const& _variableNames)
 {
 	yulAssert(m_scope, "");
 	for (auto const& variableName: _variableNames | ranges::views::reverse)

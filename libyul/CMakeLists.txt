@@ -6,6 +6,7 @@ add_library(yul
 	AsmAnalysisInfo.h
 	AST.h
 	AST.cpp
+	ASTAllocator.h
 	ASTForward.h
 	ASTLabelRegistry.cpp
 	ASTLabelRegistry.h

@@ -75,7 +75,7 @@ void VarNameCleaner::operator()(VariableDeclaration& _varDecl)
 	ASTModifier::operator()(_varDecl);
 }
 
-void VarNameCleaner::renameVariables(std::vector<NameWithDebugData>& _variables)
+void VarNameCleaner::renameVariables(NameWithDebugDataList& _variables)
 {
 	for (NameWithDebugData& variable: _variables)
 	{

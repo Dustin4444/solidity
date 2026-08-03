@@ -67,8 +67,8 @@ public:
 
 private:
 	Json createAstNode(langutil::SourceLocation const& _originLocation, langutil::SourceLocation const& _nativeLocation, std::string _nodeType) const;
-	template <class T>
-	Json vectorOfVariantsToJson(std::vector<T> const& vec) const;
+	template <class T, class A>
+	Json vectorOfVariantsToJson(std::vector<T, A> const& vec) const;
 
 	Dialect const& m_dialect;
 	std::optional<size_t> const m_sourceIndex;

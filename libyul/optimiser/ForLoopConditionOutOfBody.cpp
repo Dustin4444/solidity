@@ -63,12 +63,12 @@ void ForLoopConditionOutOfBody::operator()(ForLoop& _forLoop)
 		std::holds_alternative<BuiltinName>(std::get<FunctionCall>(*firstStatement.condition).functionName) &&
 		std::get<BuiltinName>(std::get<FunctionCall>(*firstStatement.condition).functionName).handle == isZeroHandle
 	)
-		_forLoop.condition = std::make_unique<Expression>(std::move(std::get<FunctionCall>(*firstStatement.condition).arguments.front()));
+		_forLoop.condition = makeASTNode<Expression>(std::move(std::get<FunctionCall>(*firstStatement.condition).arguments.front()));
 	else
-		_forLoop.condition = std::make_unique<Expression>(FunctionCall{
+		_forLoop.condition = makeASTNode<Expression>(FunctionCall{
 			debugData,
 			BuiltinName{debugData, isZeroHandle},
-			util::make_vector<Expression>(
+			makeExpressionList(
 				std::move(*firstStatement.condition)
 			)
 		});

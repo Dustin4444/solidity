@@ -114,7 +114,7 @@ protected:
 		ExternalIdentifierAccess::CodeGenerator _identifierAccessCodeGen,
 		UseNamedLabels _useNamedLabelsForFunctions,
 		std::shared_ptr<Context> _context,
-		std::vector<NameWithDebugData> _delayedReturnVariables,
+		NameWithDebugDataList _delayedReturnVariables,
 		std::optional<AbstractAssembly::LabelID> _functionExitLabel
 	);
 
@@ -151,13 +151,13 @@ private:
 	/// Generates code for an expression that is supposed to return a single value.
 	void visitExpression(Expression const& _expression);
 
-	void visitStatements(std::vector<Statement> const& _statements);
+	void visitStatements(StatementList const& _statements);
 
 	/// Pops all variables declared in the block and checks that the stack height is equal
 	/// to @a _blockStartStackHeight.
 	void finalizeBlock(Block const& _block, std::optional<int> _blockStartStackHeight);
 
-	void generateMultiAssignment(std::vector<Identifier> const& _variableNames);
+	void generateMultiAssignment(IdentifierList const& _variableNames);
 	void generateAssignment(Identifier const& _variableName);
 
 	/// Determines the stack height difference to the given variables. Throws
@@ -209,7 +209,7 @@ private:
 	std::set<int> m_unusedStackSlots;
 
 	/// A list of return variables for which no stack slots have been assigned yet.
-	std::vector<NameWithDebugData> m_delayedReturnVariables;
+	NameWithDebugDataList m_delayedReturnVariables;
 
 	/// Function exit label. Used as jump target for ``leave``.
 	std::optional<AbstractAssembly::LabelID> m_functionExitLabel;

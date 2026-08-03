@@ -23,7 +23,12 @@
 
 #pragma once
 
+#include <libyul/ASTAllocator.h>
+
+#include <memory>
+#include <utility>
 #include <variant>
+#include <vector>
 
 namespace solidity::yul
 {
@@ -61,5 +66,30 @@ using FunctionName = std::variant<Identifier, BuiltinName>;
 /// Technically the AST allows these names to overlap, but this is not possible to represent in the source.
 using FunctionHandle = std::variant<YulName, BuiltinHandle>;
 using Statement = std::variant<ExpressionStatement, Assignment, VariableDeclaration, FunctionDefinition, If, Switch, ForLoop, Break, Continue, Leave, Block>;
+
+using StatementList = std::vector<Statement, ASTAllocator<Statement>>;
+using ExpressionList = std::vector<Expression, ASTAllocator<Expression>>;
+using IdentifierList = std::vector<Identifier, ASTAllocator<Identifier>>;
+using CaseList = std::vector<Case, ASTAllocator<Case>>;
+using ExpressionPtr = std::unique_ptr<Expression, ASTDeleter>;
+using LiteralPtr = std::unique_ptr<Literal, ASTDeleter>;
+
+template<typename... Args>
+StatementList makeStatementList(Args&&... _args)
+{
+	StatementList result;
+	result.reserve(sizeof...(_args));
+	(result.emplace_back(std::forward<Args>(_args)), ...);
+	return result;
+}
+
+template<typename... Args>
+ExpressionList makeExpressionList(Args&&... _args)
+{
+	ExpressionList result;
+	result.reserve(sizeof...(_args));
+	(result.emplace_back(std::forward<Args>(_args)), ...);
+	return result;
+}
 
 }

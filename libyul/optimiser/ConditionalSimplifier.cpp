@@ -51,7 +51,7 @@ void ConditionalSimplifier::operator()(Switch& _switch)
 			auto assignment = Statement{Assignment{
 				_case.body.debugData,
 				{Identifier{_case.body.debugData, expr}},
-				std::make_unique<Expression>(*_case.value)
+				makeASTNode<Expression>(*_case.value)
 			}};
 			_case.body.statements.insert(_case.body.statements.begin(), std::move(assignment));
 		}
@@ -63,7 +63,7 @@ void ConditionalSimplifier::operator()(Block& _block)
 {
 	iterateReplacing(
 		_block.statements,
-		[&](Statement& _s) -> std::optional<std::vector<Statement>>
+		[&](Statement& _s) -> std::optional<StatementList>
 		{
 			visit(_s);
 			if (std::holds_alternative<If>(_s))
@@ -78,12 +78,12 @@ void ConditionalSimplifier::operator()(Block& _block)
 				{
 					YulName condition = std::get<Identifier>(*_if.condition).name;
 					langutil::DebugData::ConstPtr debugData = _if.debugData;
-					return make_vector<Statement>(
+					return makeStatementList(
 						std::move(_s),
 						Assignment{
 							debugData,
 							{Identifier{debugData, condition}},
-							std::make_unique<Expression>(m_dialect.zeroLiteral())
+							makeASTNode<Expression>(m_dialect.zeroLiteral())
 						}
 					);
 				}

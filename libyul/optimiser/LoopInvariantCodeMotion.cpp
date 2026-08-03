@@ -43,7 +43,7 @@ void LoopInvariantCodeMotion::operator()(Block& _block)
 {
 	util::iterateReplacing(
 		_block.statements,
-		[&](Statement& _s) -> std::optional<std::vector<Statement>>
+		[&](Statement& _s) -> std::optional<StatementList>
 		{
 			visit(_s);
 			if (std::holds_alternative<ForLoop>(_s))
@@ -80,20 +80,20 @@ bool LoopInvariantCodeMotion::canBePromoted(
 	return true;
 }
 
-std::optional<std::vector<Statement>> LoopInvariantCodeMotion::rewriteLoop(ForLoop& _for)
+std::optional<StatementList> LoopInvariantCodeMotion::rewriteLoop(ForLoop& _for)
 {
 	assertThrow(_for.pre.statements.empty(), OptimizerException, "");
 
 	auto forLoopSideEffects =
 		SideEffectsCollector{m_dialect, _for, &m_functionSideEffects}.sideEffects();
 
-	std::vector<Statement> replacement;
+	StatementList replacement;
 	for (Block* block: {&_for.post, &_for.body})
 	{
 		std::set<YulName> varsDefinedInScope;
 		util::iterateReplacing(
 			block->statements,
-			[&](Statement& _s) -> std::optional<std::vector<Statement>>
+			[&](Statement& _s) -> std::optional<StatementList>
 			{
 				if (std::holds_alternative<VariableDeclaration>(_s))
 				{
@@ -102,7 +102,7 @@ std::optional<std::vector<Statement>> LoopInvariantCodeMotion::rewriteLoop(ForLo
 					{
 						replacement.emplace_back(std::move(_s));
 						// Do not add the variables declared here to varsDefinedInScope because we are moving them.
-						return std::vector<Statement>{};
+						return StatementList{};
 					}
 					for (auto const& var: varDecl.variables)
 						varsDefinedInScope.insert(var.name);

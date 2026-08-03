@@ -88,13 +88,13 @@ public:
 
 	Block translate(Block const& _block);
 protected:
-	template <typename T>
-	std::vector<T> translateVector(std::vector<T> const& _values);
+	template <typename T, typename A>
+	std::vector<T, A> translateVector(std::vector<T, A> const& _values);
 
 	template <typename T>
-	std::unique_ptr<T> translate(std::unique_ptr<T> const& _v)
+	std::unique_ptr<T, ASTDeleter> translate(std::unique_ptr<T, ASTDeleter> const& _v)
 	{
-		return _v ? std::make_unique<T>(translate(*_v)) : nullptr;
+		return _v ? makeASTNode<T>(translate(*_v)) : nullptr;
 	}
 
 	Case translate(Case const& _case);
@@ -110,10 +110,11 @@ protected:
 	virtual YulName translateIdentifier(YulName _name) { return _name; }
 };
 
-template <typename T>
-std::vector<T> ASTCopier::translateVector(std::vector<T> const& _values)
+template <typename T, typename A>
+std::vector<T, A> ASTCopier::translateVector(std::vector<T, A> const& _values)
 {
-	std::vector<T> translated;
+	std::vector<T, A> translated;
+	translated.reserve(_values.size());
 	for (auto const& v: _values)
 		translated.emplace_back(translate(v));
 	return translated;

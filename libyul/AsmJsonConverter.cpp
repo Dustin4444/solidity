@@ -207,8 +207,8 @@ Json AsmJsonConverter::createAstNode(langutil::SourceLocation const& _originLoca
 	return ret;
 }
 
-template <class T>
-Json AsmJsonConverter::vectorOfVariantsToJson(std::vector<T> const& _vec) const
+template <class T, class A>
+Json AsmJsonConverter::vectorOfVariantsToJson(std::vector<T, A> const& _vec) const
 {
 	Json ret = Json::array();
 	for (auto const& var: _vec)

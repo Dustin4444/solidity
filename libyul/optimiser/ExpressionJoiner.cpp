@@ -88,7 +88,7 @@ ExpressionJoiner::ExpressionJoiner(Block& _ast)
 	m_references = VariableReferencesCounter::countReferences(_ast);
 }
 
-void ExpressionJoiner::handleArguments(std::vector<Expression>& _arguments)
+void ExpressionJoiner::handleArguments(ExpressionList& _arguments)
 {
 	// We have to fill from left to right, but we can only
 	// fill if everything to the right is just an identifier

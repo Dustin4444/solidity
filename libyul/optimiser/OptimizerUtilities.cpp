@@ -85,10 +85,10 @@ void StatementRemover::operator()(Block& _block)
 {
 	util::iterateReplacing(
 		_block.statements,
-		[&](Statement& _statement) -> std::optional<std::vector<Statement>>
+		[&](Statement& _statement) -> std::optional<StatementList>
 		{
 			if (m_toRemove.count(&_statement))
-				return {std::vector<Statement>{}};
+				return {StatementList{}};
 			else
 				return std::nullopt;
 		}

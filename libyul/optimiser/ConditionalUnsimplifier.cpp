@@ -73,7 +73,7 @@ void ConditionalUnsimplifier::operator()(Block& _block)
 	walkVector(_block.statements);
 	iterateReplacingWindow<2>(
 		_block.statements,
-		[&](Statement& _stmt1, Statement& _stmt2) -> std::optional<std::vector<Statement>>
+		[&](Statement& _stmt1, Statement& _stmt2) -> std::optional<StatementList>
 		{
 			if (std::holds_alternative<If>(_stmt1))
 			{
@@ -97,7 +97,7 @@ void ConditionalUnsimplifier::operator()(Block& _block)
 							std::holds_alternative<Literal>(*assignment.value) &&
 							std::get<Literal>(*assignment.value).value.value() == 0
 						)
-							return {make_vector<Statement>(std::move(_stmt1))};
+							return {makeStatementList(std::move(_stmt1))};
 					}
 				}
 			}
