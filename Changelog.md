@@ -5,6 +5,8 @@ Language Features:
 Compiler Features:
 * EVM-ASM Optimizer: Improve performance of block deduplicator.
 * SMTChecker: Emit a deprecation warning for the BMC engine.
+* Yul EVM Code Transform: On the experimental SSA CFG pipeline, branch directly on the operand of a single-use `iszero` condition with swapped jump targets, removing the negation.
+* Yul EVM Code Transform: On the experimental SSA CFG pipeline, constant-fold pure builtin calls with compile-time constant arguments and fold conditional jumps on constant conditions, removing unreachable branches.
 
 Bugfixes:
 * Code Generator: Fix ICE on parenthesized custom error construction in require statement.

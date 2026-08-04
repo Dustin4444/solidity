@@ -122,8 +122,12 @@ add_library(yul
 	backends/evm/ssa/spill/MemoryAddressing.h
 	backends/evm/ssa/spill/SpillSet.cpp
 	backends/evm/ssa/spill/SpillSet.h
+	backends/evm/ssa/transform/BranchInverter.cpp
+	backends/evm/ssa/transform/BranchInverter.h
 	backends/evm/ssa/transform/ConstantConditionFolder.cpp
 	backends/evm/ssa/transform/ConstantConditionFolder.h
+	backends/evm/ssa/transform/ConstantFolder.cpp
+	backends/evm/ssa/transform/ConstantFolder.h
 	backends/evm/ssa/transform/IdentityAndNopRemover.cpp
 	backends/evm/ssa/transform/IdentityAndNopRemover.h
 	backends/evm/ssa/transform/JumpThreader.cpp

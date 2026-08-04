@@ -18,54 +18,19 @@
 
 #include <libyul/backends/evm/ssa/transform/ConstantConditionFolder.h>
 
-#include <libyul/backends/evm/ssa/transform/UseCounts.h>
-
 #include <libyul/backends/evm/ssa/SSACFG.h>
 
 #include <libyul/Exceptions.h>
 
 #include <range/v3/algorithm/find.hpp>
 
-#include <optional>
-
 using namespace solidity;
 using namespace solidity::yul;
 using namespace solidity::yul::ssa;
 
-namespace
+bool transform::foldConstantConditions(SSACFG& _cfg)
 {
-
-/// Returns the truth value of `_condition` if it is a compile-time constant, otherwise `nullopt`.
-/// Handles literals directly and `eq(<literal>, <literal>)`.
-std::optional<bool> evaluateCondition(SSACFG const& _cfg, BuiltinHandle const& _eq, InstId const _condition)
-{
-	InstId const condition = _cfg.resolveIdentity(_condition);
-
-	if (_cfg.isLiteral(condition))
-		return _cfg.literalPayload(condition) != 0;
-
-	if (_cfg.kindOf(condition) == InstOpcode::BuiltinCall)
-		if (_cfg.builtinPayload(condition).builtin == _eq)
-		{
-			auto const& inputs = _cfg.inst(condition).inputs;
-			yulAssert(inputs.size() == 2);
-			InstId const lhs = _cfg.resolveIdentity(inputs[0]);
-			InstId const rhs = _cfg.resolveIdentity(inputs[1]);
-			if (_cfg.isLiteral(lhs) && _cfg.isLiteral(rhs))
-				return _cfg.literalPayload(lhs) == _cfg.literalPayload(rhs);
-		}
-	return std::nullopt;
-}
-
-}
-
-void transform::foldConstantConditions(SSACFG& _cfg)
-{
-	std::optional<BuiltinHandle> const equalityHandle = _cfg.evmDialect.equalityFunctionHandle();
-	yulAssert(equalityHandle.has_value());
-	// Snapshot taken before any folding: folding only removes uses, so stale counts over-approximate
-	// and a count of 1 below remains exact (the sole use is this exit's condition read).
-	transform::UseCounts const useCounts(_cfg);
+	bool foldedAny = false;
 	for (BlockId const blockId: _cfg.liveBlocks())
 	{
 		auto& block = _cfg.block(blockId);
@@ -73,15 +38,16 @@ void transform::foldConstantConditions(SSACFG& _cfg)
 		if (!conditionalJump)
 			continue;
 
-		InstId const conditionId = conditionalJump->condition;
-		std::optional<bool> const condition = evaluateCondition(_cfg, *equalityHandle, conditionId);
-		if (!condition)
+		InstId const conditionId = _cfg.resolveIdentity(conditionalJump->condition);
+		if (!_cfg.isLiteral(conditionId))
 			continue;
+		bool const condition = _cfg.literalPayload(conditionId) != 0;
 
-		BlockId const taken = *condition ? conditionalJump->nonZero : conditionalJump->zero;
-		BlockId const dropped = *condition ? conditionalJump->zero : conditionalJump->nonZero;
+		BlockId const taken = condition ? conditionalJump->nonZero : conditionalJump->zero;
+		BlockId const dropped = condition ? conditionalJump->zero : conditionalJump->nonZero;
 
 		block.exit = SSACFG::BasicBlock::Jump{taken};
+		foldedAny = true;
 
 		if (dropped != taken)
 		{
@@ -96,9 +62,6 @@ void transform::foldConstantConditions(SSACFG& _cfg)
 				if (_cfg.isUpsilon(instId) && _cfg.inst(_cfg.upsilonPhi(instId)).block == dropped)
 					_cfg.replaceWithNop(instId);
 		}
-
-		if (_cfg.isOperation(conditionId) && _cfg.inst(conditionId).block == blockId)
-			if (useCounts.hasSingleUse(conditionId))
-				_cfg.replaceWithNop(conditionId);
 	}
+	return foldedAny;
 }

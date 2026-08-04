@@ -16,7 +16,7 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 /**
- * Folds conditional jumps with a compile-time-constant condition into unconditional jumps.
+ * Constant-folds pure builtin calls whose arguments are compile-time constants.
  */
 #pragma once
 
@@ -27,13 +27,11 @@ class SSACFG;
 
 namespace transform
 {
-/// Rewrites every ConditionalJump whose condition is a literal constant into an unconditional
-/// Jump to the taken successor and detaches the edge to the dropped successor. Constant folding
-/// reduces evaluatable condition trees to literals beforehand. Returns whether any exit was
-/// rewritten; folding can cascade (unreachable-block and trivial-phi cleanup may make further
-/// conditions constant), so callers should iterate the containing cleanup sequence until this
-/// returns false.
-bool foldConstantConditions(SSACFG& _cfg);
+/// Replaces every pure builtin call whose argument tree evaluates to compile-time constants by the
+/// resulting literal constant (deduplicated via the instruction store). Returns whether anything
+/// was folded; trivial-phi elimination behind a fold can enable further folding, so callers should
+/// iterate the containing cleanup sequence until this returns false.
+bool foldConstants(SSACFG& _cfg);
 }
 
 }

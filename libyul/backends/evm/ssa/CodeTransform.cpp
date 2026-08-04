@@ -411,8 +411,17 @@ void CodeTransform::operator()(SSACFG::BlockId const& _currentBlock, SSACFG::Bas
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 	// condition must be at the top of the stack
 	yulAssert(m_stack.top().isValue() && m_stack.top().value() == _conditionalJump.condition);
-	// emit JUMPI to nonZero block
-	m_assembly.appendJumpToIf(m_blockLabels[_conditionalJump.nonZero.value]);
+	yulAssert(m_stackLayout[_conditionalJump.nonZero]);
+	// If the taken edge still needs stack corrections (e.g. phi pre-images the exit shuffle could not
+	// put in place because the target's stackIn was fixed by another predecessor), JUMPI must not
+	// target the block directly: the edge's shuffle has to execute after the jump. Route the taken
+	// edge through a stub that performs the shuffle and continues to the block.
+	bool const nonZeroEdgeNeedsShuffle = !m_stackLayout[_conditionalJump.nonZero]->traceForStackIn(_currentBlock).empty();
+	AbstractAssembly::LabelID const nonZeroJumpTarget = nonZeroEdgeNeedsShuffle ?
+		m_assembly.newLabelId() :
+		m_blockLabels[_conditionalJump.nonZero.value];
+	// emit JUMPI to nonZero block (or the stub shuffling towards it)
+	m_assembly.appendJumpToIf(nonZeroJumpTarget);
 	// update symbolic stack by popping the condition as it'll be consumed by JUMPI
 	m_stack.pop();
 
@@ -430,13 +439,16 @@ void CodeTransform::operator()(SSACFG::BlockId const& _currentBlock, SSACFG::Bas
 			(*this)(_conditionalJump.zero);
 	}
 	{
-		yulAssert(m_stackLayout[_conditionalJump.nonZero]);
 		m_assembly.setStackHeight(static_cast<int>(m_stack.size()));
+		if (nonZeroEdgeNeedsShuffle)
+			m_assembly.appendLabel(nonZeroJumpTarget);
 		// transform stack to a state in which we can jump to the nonZero branch
 		prepareBlockExitStack(_currentBlock, _conditionalJump.nonZero);
 		assertLayoutCompatibility(m_stack.data(), m_stackLayout[_conditionalJump.nonZero]->stackIn);
 		if (!m_blockIsTransformed[_conditionalJump.nonZero.value])
 			(*this)(_conditionalJump.nonZero);
+		else if (nonZeroEdgeNeedsShuffle)
+			m_assembly.appendJumpTo(m_blockLabels[_conditionalJump.nonZero.value]);
 	}
 }
 

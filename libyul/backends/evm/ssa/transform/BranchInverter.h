@@ -16,7 +16,8 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 /**
- * Folds conditional jumps with a compile-time-constant condition into unconditional jumps.
+ * Inverts conditional jumps whose condition is a single-use `iszero`, branching on the negation's
+ * operand directly with swapped jump targets.
  */
 #pragma once
 
@@ -27,13 +28,11 @@ class SSACFG;
 
 namespace transform
 {
-/// Rewrites every ConditionalJump whose condition is a literal constant into an unconditional
-/// Jump to the taken successor and detaches the edge to the dropped successor. Constant folding
-/// reduces evaluatable condition trees to literals beforehand. Returns whether any exit was
-/// rewritten; folding can cascade (unreachable-block and trivial-phi cleanup may make further
-/// conditions constant), so callers should iterate the containing cleanup sequence until this
-/// returns false.
-bool foldConstantConditions(SSACFG& _cfg);
+/// Rewrites every ConditionalJump on `iszero(x)` into a ConditionalJump on `x` with the two jump
+/// targets swapped, provided the `iszero` is defined in the exiting block and the condition read
+/// is its only use. The dead `iszero` is turned into a Nop; `iszero(iszero(x))` chains are peeled
+/// one negation at a time.
+void invertBranches(SSACFG& _cfg);
 }
 
 }

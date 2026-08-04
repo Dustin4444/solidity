@@ -18,7 +18,9 @@
 
 #include <libyul/backends/evm/ssa/transform/OptimizationPipeline.h>
 
+#include <libyul/backends/evm/ssa/transform/BranchInverter.h>
 #include <libyul/backends/evm/ssa/transform/ConstantConditionFolder.h>
+#include <libyul/backends/evm/ssa/transform/ConstantFolder.h>
 #include <libyul/backends/evm/ssa/transform/IdentityAndNopRemover.h>
 #include <libyul/backends/evm/ssa/transform/JumpThreader.h>
 #include <libyul/backends/evm/ssa/transform/Outliner.h>
@@ -33,12 +35,20 @@ void transform::optimize(ControlFlowGraphs& _cfgs)
 {
 	for (auto& cfg: _cfgs.functionGraphs)
 	{
+		// Folding can cascade: removing a dead edge can leave single-entry blocks whose phis
+		// become trivial, which in turn can make further values and conditions constant. Each
+		// round retires at least one builtin call or conditional exit, so this terminates.
+		bool foldedAny = false;
+		do
 		{
-			transform::foldConstantConditions(*cfg);
+			foldedAny = transform::foldConstants(*cfg);
+			foldedAny = transform::foldConstantConditions(*cfg) || foldedAny;
 			transform::cleanUnreachableBlocks(*cfg);
-		}
-		{
 			transform::eliminateTrivialPhis(*cfg);
+			transform::removeIdentitiesAndNops(*cfg);
+		} while (foldedAny);
+		{
+			transform::invertBranches(*cfg);
 			transform::removeIdentitiesAndNops(*cfg);
 		}
 		{
