@@ -9,6 +9,7 @@ Bugfixes:
 * Code Generator: Fix ICE on parenthesized custom error construction in require statement.
 * Commandline Interface: Report proper error instead of ICE on non-hex mixed-case address value given via `--libraries`.
 * View Pure Checker: Fix state mutability of `super` calls and modifier invocations being checked only against the contract declaring the function. Since both are re-resolved for each most derived contract, a `view` or `pure` function could reach a more mutable target there without being reported.
+* View Pure Checker: Fix state mutability of a modifier being inferred without regard to the most derived contract, so that a `super` call in its body could reach a more mutable function in a derived contract without the modifier being virtual or overridden.
 
 
 ### 0.8.36 (2026-07-09)

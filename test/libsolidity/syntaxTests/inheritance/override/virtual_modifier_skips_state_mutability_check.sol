@@ -12,4 +12,4 @@ contract D is A {
 }
 // ----
 // Warning 8429: (39-66): Virtual modifiers are deprecated and scheduled for removal.
-// TypeError 1614: (259-294): This modifier overrides "m" with state mutability "nonpayable", but "A.f", which uses it, is declared "pure".
+// TypeError 1614: (259-294): Modifier "m" has state mutability "nonpayable" in "D", but "A.f", which uses it, is declared "pure".
