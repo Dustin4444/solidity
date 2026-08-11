@@ -111,7 +111,7 @@ void FuzzerUtil::testCompiler(
 	compiler.setSources(_input);
 	compiler.setEVMVersion(evmVersion);
 	compiler.setOptimiserSettings(optimiserSettings);
-	compiler.setViaIR(_compileViaYul);
+	compiler.setCodegenBackend(_compileViaYul ? CompilerStack::CodegenBackend::YulIR : CompilerStack::CodegenBackend::Legacy);
 	try
 	{
 		compiler.compile();

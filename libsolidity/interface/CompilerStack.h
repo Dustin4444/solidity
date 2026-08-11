@@ -134,6 +134,21 @@ public:
 		SolidityAST,
 	};
 
+	/// Selects the code generation path used to produce EVM bytecode.
+	enum class CodegenBackend
+	{
+		/// Solidity AST -> EVM assembly, using the legacy code generator.
+		Legacy,
+		/// Solidity AST -> Yul IR -> EVM assembly, using OptimizedEVMCodeTransform.
+		YulIR,
+		/// Solidity AST -> Yul IR -> EVM assembly, using the SSA CFG code generator.
+		YulSSACFG,
+	};
+
+	/// @returns the backend selected by a pair of viaIR/viaSSACFG flags, as accepted on the command
+	/// line and in Standard JSON. SSA CFG code generation implies compilation via IR.
+	static CodegenBackend codegenBackendFromFlags(bool _viaIR, bool _viaSSACFG);
+
 	/// Indicates which stages of the compilation pipeline were explicitly requested and provides
 	/// logic to determine which ones are effectively needed to accomplish that.
 	/// Note that parsing and analysis are not selectable, since they cannot be skipped.
@@ -225,13 +240,9 @@ public:
 	/// Sets whether to strip revert strings, add additional strings or do nothing at all.
 	void setRevertStringBehaviour(RevertStrings _revertStrings);
 
-	/// Sets the pipeline to go through the Yul IR or not.
+	/// Sets the code generation backend used to produce bytecode.
 	/// Must be set before parsing.
-	void setViaIR(bool _viaIR);
-
-	/// Sets the pipeline to use the SSA CFG code generator instead of OptimizedEVMCodeTransform.
-	/// Must be set before compilation.
-	void setViaSSACFG(bool _viaSSACFG);
+	void setCodegenBackend(CodegenBackend _codegenBackend);
 
 	/// Sets the experimental toggle to allow usage of experimental features.
 	void setExperimental(bool _experimental);
@@ -412,7 +423,7 @@ public:
 	std::string const& metadata(std::string const& _contractName) const { return metadata(contract(_contractName)); }
 
 	/// @returns the CBOR-encoded metadata matching the pipeline selected using the viaIR setting.
-	bytes cborMetadata(std::string const& _contractName) const { return cborMetadata(_contractName, m_viaIR); }
+	bytes cborMetadata(std::string const& _contractName) const { return cborMetadata(_contractName, viaIR()); }
 
 	/// @returns the CBOR-encoded metadata.
 	/// @param _forIR If true, the metadata for the IR codegen is used. Otherwise it's the metadata
@@ -433,6 +444,12 @@ public:
 	yul::ObjectOptimizer const& objectOptimizer() const { return *m_objectOptimizer; }
 
 private:
+	/// @returns true if bytecode is generated from Yul IR rather than by the legacy code generator.
+	bool viaIR() const { return m_codegenBackend != CodegenBackend::Legacy; }
+
+	/// @returns true if Yul IR is compiled to EVM assembly by the SSA CFG code generator.
+	bool viaSSACFG() const { return m_codegenBackend == CodegenBackend::YulSSACFG; }
+
 	/// The state per source unit. Filled gradually during parsing.
 	struct Source
 	{
@@ -605,8 +622,7 @@ private:
 	OptimiserSettings m_optimiserSettings;
 	RevertStrings m_revertStrings = RevertStrings::Default;
 	State m_stopAfter = State::CompilationSuccessful;
-	bool m_viaIR = false;
-	bool m_viaSSACFG = false;
+	CodegenBackend m_codegenBackend = CodegenBackend::Legacy;
 	bool m_experimental = false;
 	langutil::EVMVersion m_evmVersion;
 	ModelCheckerSettings m_modelCheckerSettings;

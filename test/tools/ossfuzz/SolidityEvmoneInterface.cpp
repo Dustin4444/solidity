@@ -35,7 +35,11 @@ std::optional<CompilerOutput> SolidityCompilationFramework::compileContract()
 	m_compiler.setLibraries(m_compilerInput.libraryAddresses);
 	m_compiler.setEVMVersion(m_compilerInput.evmVersion);
 	m_compiler.setOptimiserSettings(m_compilerInput.optimiserSettings);
-	m_compiler.setViaIR(m_compilerInput.viaIR);
+	m_compiler.setCodegenBackend(
+		m_compilerInput.viaIR ?
+		CompilerStack::CodegenBackend::YulIR :
+		CompilerStack::CodegenBackend::Legacy
+	);
 	if (!m_compiler.compile())
 	{
 		if (m_compilerInput.debugFailure)

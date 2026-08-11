@@ -51,10 +51,12 @@ void EthdebugTest::setupCompiler(CompilerStack& _compiler)
 {
 	AnalysisFramework::setupCompiler(_compiler);
 
-	_compiler.setViaIR(true);
+	_compiler.setCodegenBackend(
+		m_useSSACFG ?
+		CompilerStack::CodegenBackend::YulSSACFG :
+		CompilerStack::CodegenBackend::YulIR
+	);
 	_compiler.setExperimental(true);
-	if (m_useSSACFG)
-		_compiler.setViaSSACFG(true);
 
 	DebugInfoSelection selection = DebugInfoSelection::Default();
 	selection.enable("ethdebug");

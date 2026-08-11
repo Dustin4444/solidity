@@ -351,7 +351,11 @@ BOOST_AUTO_TEST_CASE(metadata_viair)
 		compilerStack.setSources({{"", _src}});
 		compilerStack.setEVMVersion(solidity::test::CommonOptions::get().evmVersion());
 		compilerStack.setOptimiserSettings(solidity::test::CommonOptions::get().optimize);
-		compilerStack.setViaIR(_viaIR);
+		compilerStack.setCodegenBackend(
+			_viaIR ?
+			CompilerStack::CodegenBackend::YulIR :
+			CompilerStack::CodegenBackend::Legacy
+		);
 		BOOST_REQUIRE_MESSAGE(compilerStack.compile(), "Compiling contract failed");
 
 		Json metadata;
@@ -395,9 +399,12 @@ BOOST_AUTO_TEST_CASE(metadata_viassacfg)
 		compilerStack.setSources({{"", _src}});
 		compilerStack.setEVMVersion(solidity::test::CommonOptions::get().evmVersion());
 		compilerStack.setOptimiserSettings(solidity::test::CommonOptions::get().optimize);
-		compilerStack.setViaIR(true);
+		compilerStack.setCodegenBackend(
+			_viaSSACFG ?
+			CompilerStack::CodegenBackend::YulSSACFG :
+			CompilerStack::CodegenBackend::YulIR
+		);
 		compilerStack.setExperimental(true);
-		compilerStack.setViaSSACFG(_viaSSACFG);
 		BOOST_REQUIRE_MESSAGE(compilerStack.compile(), "Compiling contract failed");
 
 		Json metadata;

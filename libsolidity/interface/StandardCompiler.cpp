@@ -1450,8 +1450,10 @@ Json StandardCompiler::compileSolidity(StandardCompiler::InputsAndSettings _inpu
 		compilerStack.setSources(sourceList);
 	for (auto const& smtLib2Response: _inputsAndSettings.smtLib2Responses)
 		compilerStack.addSMTLib2Response(smtLib2Response.first, smtLib2Response.second);
-	compilerStack.setViaIR(_inputsAndSettings.viaIR);
-	compilerStack.setViaSSACFG(_inputsAndSettings.viaSSACFG);
+	compilerStack.setCodegenBackend(CompilerStack::codegenBackendFromFlags(
+		_inputsAndSettings.viaIR,
+		_inputsAndSettings.viaSSACFG
+	));
 	compilerStack.setEVMVersion(_inputsAndSettings.evmVersion);
 	compilerStack.setRemappings(std::move(_inputsAndSettings.remappings));
 	compilerStack.setOptimiserSettings(std::move(_inputsAndSettings.optimiserSettings));

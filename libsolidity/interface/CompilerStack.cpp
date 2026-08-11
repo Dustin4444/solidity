@@ -215,22 +215,24 @@ void CompilerStack::setRemappings(std::vector<ImportRemapper::Remapping> _remapp
 	m_importRemapper.setRemappings(std::move(_remappings));
 }
 
-void CompilerStack::setViaIR(bool _viaIR)
+CompilerStack::CodegenBackend CompilerStack::codegenBackendFromFlags(bool _viaIR, bool _viaSSACFG)
 {
-	solAssert(m_stackState < ParsedAndImported, "Must set viaIR before parsing.");
-	m_viaIR = _viaIR;
+	solAssert(!_viaSSACFG || _viaIR, "SSA CFG code generation requires compilation via IR.");
+	if (_viaSSACFG)
+		return CodegenBackend::YulSSACFG;
+	return _viaIR ? CodegenBackend::YulIR : CodegenBackend::Legacy;
+}
+
+void CompilerStack::setCodegenBackend(CodegenBackend _codegenBackend)
+{
+	solAssert(m_stackState < ParsedAndImported, "Must set the code generation backend before parsing.");
+	m_codegenBackend = _codegenBackend;
 }
 
 void CompilerStack::setExperimental(bool _experimental)
 {
 	solAssert(m_stackState < ParsedAndImported, "Must set experimental before parsing.");
 	m_experimental = _experimental;
-}
-
-void CompilerStack::setViaSSACFG(bool _viaSSACFG)
-{
-	solAssert(m_stackState < CompilationSuccessful, "Must set SSA CFG codegen before compilation.");
-	m_viaSSACFG = _viaSSACFG;
 }
 
 void CompilerStack::setEVMVersion(langutil::EVMVersion _version)
@@ -315,8 +317,7 @@ void CompilerStack::reset(bool _keepSettings)
 	{
 		m_importRemapper.clear();
 		m_libraries.clear();
-		m_viaIR = false;
-		m_viaSSACFG = false;
+		m_codegenBackend = CodegenBackend::Legacy;
 		m_evmVersion = langutil::EVMVersion();
 		m_modelCheckerSettings = ModelCheckerSettings{};
 		m_selectedContracts.clear();
@@ -735,7 +736,7 @@ bool CompilerStack::compile(State _stopAfter)
 {
 	m_stopAfter = _stopAfter;
 
-	solAssert(!m_viaSSACFG || m_experimental, "SSA CFG code generation is an experimental feature. It requires experimental mode to be enabled.");
+	solAssert(!viaSSACFG() || m_experimental, "SSA CFG code generation is an experimental feature. It requires experimental mode to be enabled.");
 
 	if (m_stackState < AnalysisSuccessful)
 		if (!parseAndAnalyze(_stopAfter))
@@ -762,11 +763,11 @@ bool CompilerStack::compile(State _stopAfter)
 							continue;
 						requiresFullCompilation = true;
 
-						if (pipelineConfig.needIR(m_viaIR))
-							generateIR(*contract, pipelineConfig.needIRCodegenOnly(m_viaIR));
+						if (pipelineConfig.needIR(viaIR()))
+							generateIR(*contract, pipelineConfig.needIRCodegenOnly(viaIR()));
 						if (pipelineConfig.needBytecode())
 						{
-							if (m_viaIR)
+							if (viaIR())
 								generateEVMFromIR(*contract);
 							else
 								compileContract(*contract, otherCompilers);
@@ -880,7 +881,7 @@ Json CompilerStack::generatedSources(std::string const& _contractName, bool _run
 	if (c.runtimeGeneratedYulUtilityCode.has_value())
 	{
 		solAssert(c.generatedYulUtilityCode.has_value() == c.runtimeGeneratedYulUtilityCode.has_value());
-		solAssert(!m_viaIR);
+		solAssert(!viaIR());
 		std::string source =
 			_runtime ?
 			*c.runtimeGeneratedYulUtilityCode :
@@ -1218,7 +1219,7 @@ std::string const& CompilerStack::metadata(Contract const& _contract) const
 {
 	solAssert(m_stackState >= AnalysisSuccessful, "Analysis was not successful.");
 	solAssert(_contract.contract);
-	return _contract.metadata.init([&]{ return createMetadata(_contract, m_viaIR); });
+	return _contract.metadata.init([&]{ return createMetadata(_contract, viaIR()); });
 }
 
 CharStream const& CompilerStack::charStream(std::string const& _sourceName) const
@@ -1484,7 +1485,7 @@ void CompilerStack::compileContract(
 	std::map<ContractDefinition const*, std::shared_ptr<Compiler const>>& _otherCompilers
 )
 {
-	solAssert(!m_viaIR, "");
+	solAssert(!viaIR(), "");
 	solAssert(m_stackState >= AnalysisSuccessful, "");
 
 	if (_otherCompilers.count(&_contract))
@@ -1504,7 +1505,7 @@ void CompilerStack::compileContract(
 		m_optimiserSettings
 	);
 
-	solAssert(!m_viaIR, "");
+	solAssert(!viaIR(), "");
 	bytes cborEncodedMetadata = createCBORMetadata(compiledContract, /* _forIR */ false);
 
 	// Run optimiser and compile the contract.
@@ -1564,7 +1565,7 @@ void CompilerStack::generateIR(ContractDefinition const& _contract, bool _unopti
 	YulStack stack = loadGeneratedIR(*compiledContract.yulIR);
 	if (!_unoptimizedOnly)
 	{
-		stack.optimize(m_viaSSACFG);
+		stack.optimize(viaSSACFG());
 		compiledContract.yulIROptimized = stack.print();
 	}
 }
@@ -1587,7 +1588,7 @@ void CompilerStack::generateEVMFromIR(ContractDefinition const& _contract)
 
 	std::string deployedName = IRNames::deployedObject(_contract);
 	solAssert(!deployedName.empty(), "");
-	tie(compiledContract.evmAssembly, compiledContract.evmRuntimeAssembly) = stack.assembleEVMWithDeployed(deployedName, m_viaSSACFG);
+	tie(compiledContract.evmAssembly, compiledContract.evmRuntimeAssembly) = stack.assembleEVMWithDeployed(deployedName, viaSSACFG());
 
 	if (stack.hasErrors())
 	{
@@ -1744,8 +1745,8 @@ std::string CompilerStack::createMetadata(Contract const& _contract, bool _forIR
 	meta["settings"]["evmVersion"] = m_evmVersion.name();
 	if (m_experimental)
 		meta["settings"]["experimental"] = m_experimental;
-	if (m_viaSSACFG)
-		meta["settings"]["viaSSACFG"] = m_viaSSACFG;
+	if (viaSSACFG())
+		meta["settings"]["viaSSACFG"] = true;
 	meta["settings"]["compilationTarget"][_contract.contract->sourceUnitName()] =
 		*_contract.contract->annotation().canonicalName;
 
@@ -1863,7 +1864,7 @@ bytes CompilerStack::createCBORMetadata(Contract const& _contract, bool _forIR) 
 	if (usesExperimentalSyntax && !onlySafeExperimentalFeatures)
 		solAssert(m_experimental, "Experimental mode not enabled");
 
-	std::string meta = (_forIR == m_viaIR ? metadata(_contract) : createMetadata(_contract, _forIR));
+	std::string meta = (_forIR == viaIR() ? metadata(_contract) : createMetadata(_contract, _forIR));
 
 	MetadataCBOREncoder encoder;
 

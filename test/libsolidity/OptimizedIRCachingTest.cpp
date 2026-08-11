@@ -32,7 +32,7 @@ void OptimizedIRCachingTest::setupCompiler(CompilerStack& _compiler)
 {
 	AnalysisFramework::setupCompiler(_compiler);
 	_compiler.setOptimiserSettings(true);
-	_compiler.setViaIR(true);
+	_compiler.setCodegenBackend(CompilerStack::CodegenBackend::YulIR);
 }
 
 TestCase::TestResult OptimizedIRCachingTest::run(std::ostream& _stream, std::string const& _linePrefix, bool _formatted)

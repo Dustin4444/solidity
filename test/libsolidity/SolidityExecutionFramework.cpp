@@ -59,8 +59,7 @@ bytes SolidityExecutionFramework::multiSourceCompileContract(
 	m_compiler.setRevertStringBehaviour(m_revertStrings);
 	m_compiler.setEVMVersion(m_evmVersion);
 	m_compiler.setOptimiserSettings(m_optimiserSettings);
-	m_compiler.setViaIR(m_compileViaYul);
-	m_compiler.setViaSSACFG(m_compileViaSSACFG);
+	m_compiler.setCodegenBackend(CompilerStack::codegenBackendFromFlags(m_compileViaYul, m_compileViaSSACFG));
 	m_compiler.setRevertStringBehaviour(m_revertStrings);
 	if (!m_appendCBORMetadata) {
 		m_compiler.setMetadataFormat(CompilerStack::MetadataFormat::NoMetadata);

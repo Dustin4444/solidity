@@ -76,7 +76,11 @@ void SyntaxTest::setupCompiler(CompilerStack& _compiler)
 		OptimiserSettings::full() :
 		OptimiserSettings::minimal()
 	);
-	_compiler.setViaIR(m_compileViaYul == "true");
+	_compiler.setCodegenBackend(
+		m_compileViaYul == "true" ?
+		CompilerStack::CodegenBackend::YulIR :
+		CompilerStack::CodegenBackend::Legacy
+	);
 	_compiler.setExperimental(m_experimental);
 	_compiler.setMetadataFormat(CompilerStack::MetadataFormat::NoMetadata);
 	_compiler.setMetadataHash(CompilerStack::MetadataHash::None);

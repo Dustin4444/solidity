@@ -49,7 +49,7 @@ void MemoryGuardTest::setupCompiler(CompilerStack& _compiler)
 {
 	AnalysisFramework::setupCompiler(_compiler);
 
-	_compiler.setViaIR(true);
+	_compiler.setCodegenBackend(CompilerStack::CodegenBackend::YulIR);
 	_compiler.setOptimiserSettings(OptimiserSettings::none());
 }
 
