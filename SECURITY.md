@@ -12,6 +12,17 @@ Only bugs that have a demonstrable security impact on smart contracts are in sco
 For example, a Solidity program whose optimization is incorrect (e.g., leads to an incorrect output) qualifies as a security bug.
 Please note that the [rules][2] of the [Ethereum bounty program][1] have precedence over this security policy.
 
+## Before You Report
+
+Please check that what you found is not
+- intentional,
+- documented,
+- explicitly not guaranteed by the language,
+- contained in the [summary of known security vulnerabilities][3], or
+- already reported in the [public issue tracker][4].
+
+Furthermore, please check whether it is one of the [frequently reported non-bugs][5] and, if it resembles one of them, explain in your report why you still consider it a compiler bug.
+
 ## Supported Versions
 
 As a general rule, only the latest release gets security updates.
@@ -49,4 +60,5 @@ The Solidity team maintains the following JSON-formatted lists of patched securi
 [1]: https://bounty.ethereum.org/
 [2]: https://bounty.ethereum.org/#rules
 [3]: https://docs.soliditylang.org/en/develop/bugs.html
-[4]: https://github.com/argotorg/solidity/blob/develop/docs/bugs_by_version.json
+[4]: https://github.com/argotorg/solidity/issues
+[5]: https://docs.soliditylang.org/en/develop/frequently-reported-non-bugs.html
