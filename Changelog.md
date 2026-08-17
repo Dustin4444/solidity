@@ -50,9 +50,6 @@ Language Features:
 * Name Resolver: Warn about identifiers selected for future promotion to Solidity or Yul keywords (`at`, `error`, `layout`, `leave`, `super`, `transient`, `this`).
 * Yul Analyzer: Warn about identifiers selected for future promotion to Yul keywords and reserved identifiers (`basefee`, `blobbasefee`, `blobhash`, `clz`, `leave`, `memoryguard`, `mcopy`, `prevrandao`, `tload`, `tstore`).
 
-Important Bugfixes:
-* Yul Optimizer: Fix `UnusedStoreEliminator` incorrectly removing `returndatacopy` operations when the length comes from a stale `returndatasize()` call that was invalidated by subsequent call opcodes.
-
 Compiler Features:
 * Commandline Interface: Disallow selecting the deprecated assembly input mode that was only accessible via `--assemble` instead of treating it as equivalent to `--strict-assembly`.
 * Commandline Interface: Introduce `--experimental` flag required for enabling the experimental mode.
