@@ -36,11 +36,11 @@
 // i\l\
 // [v1, v2]\l\
 // \l\
-// [v1]\l\
+// [v2, v1]\l\
 // h\l\
-// []\l\
+// [v2]\l\
 // \l\
-// OUT: []\l\
+// OUT: [v2]\l\
 // "];
 // Block0_0Exit [label="Terminated"];
 // Block0_0 -> Block0_0Exit;

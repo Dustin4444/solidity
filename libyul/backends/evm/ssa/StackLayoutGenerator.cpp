@@ -18,6 +18,8 @@
 
 #include <libyul/backends/evm/ssa/StackLayoutGenerator.h>
 
+#include <libyul/backends/evm/ssa/stack/InstructionStackIn.h>
+
 #include <libyul/backends/evm/ssa/JunkAdmittingBlocksFinder.h>
 #include <libyul/backends/evm/ssa/PhiInverse.h>
 #include <libyul/backends/evm/ssa/ShuffleTrace.h>
@@ -27,12 +29,10 @@
 #include <libsolutil/Visitor.h>
 
 #include <range/v3/algorithm/count.hpp>
-#include <range/v3/algorithm/none_of.hpp>
 #include <range/v3/algorithm/replace.hpp>
-#include <range/v3/view/transform.hpp>
 #include <range/v3/to_container.hpp>
+#include <range/v3/view/transform.hpp>
 
-#include <boost/container/flat_map.hpp>
 #include <queue>
 
 using namespace solidity::yul::ssa;
@@ -272,7 +272,6 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 
 	StackData currentStackData = blockLayout.stackIn;
 	Stack stack(currentStackData);
-	bool const junkCanBeAdded = m_junkAdmittingBlocksFinder->allowsAdditionOfJunk(_blockId);
 
 	blockLayout.operationShuffles.reserve(block.instructions.size());
 	m_cfg.forEachOperation(block, [&](InstId const _instId, SSACFG::Inst const& _inst) {
@@ -299,17 +298,8 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 			// Values that are dead before the operation are left on the stack; the shuffle to the
 			// optimal target pops them as surplus as needed
 			StackSlotLiveness const opLiveOutSlots = toStackSlotLiveness(m_cfg, opLiveOutWithoutOutputs);
-			auto [target, plannedSpillSet] = findOptimalTarget(
-				stack.data(),
-				requiredStackTop,
-				opLiveOutSlots,
-				junkCanBeAdded,
-				m_hasFunctionReturnLabel,
-				m_spillSet,
-				m_spillingAllowed
-			);
+			auto const target = stack::buildInstructionStackIn(stack.data(), requiredStackTop, opLiveOutSlots, m_spillSet);
 			auto const spillCountBefore = m_spillSet.numSpilled();
-			m_spillSet = std::move(plannedSpillSet);
 			auto shuffleResult = shuffleWithSpillDiscovery(currentStackData, target, m_spillSet);
 			yulAssert(shuffleResult.status == StackShufflerResult::Status::Admissible);
 			yulAssert(m_spillingAllowed || m_spillSet.numSpilled() == spillCountBefore, "Spilling not allowed, stack too deep.");
@@ -353,17 +343,8 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				{
 					auto const condition = Slot::makeValue(m_cfg, _cJump.condition);
 					StackSlotLiveness const blockLiveOutSlots = toStackSlotLiveness(m_cfg, blockLiveOut);
-					auto [target, plannedSpillSet] = findOptimalTarget(
-						stack.data(),
-						{condition},
-						blockLiveOutSlots,
-						false,
-						m_hasFunctionReturnLabel,
-						m_spillSet,
-						m_spillingAllowed
-					);
+					auto const target = stack::buildInstructionStackIn(stack.data(), {condition}, blockLiveOutSlots, m_spillSet);
 					auto const spillCountBefore = m_spillSet.numSpilled();
-					m_spillSet = std::move(plannedSpillSet);
 					auto shuffleResult = shuffleWithSpillDiscovery(currentStackData, target, m_spillSet);
 					yulAssert(shuffleResult.status == StackShufflerResult::Status::Admissible);
 					yulAssert(m_spillingAllowed || m_spillSet.numSpilled() == spillCountBefore, "Spilling not allowed, stack too deep.");

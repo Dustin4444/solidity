@@ -54,7 +54,7 @@ contract C {
 // gas irOptimized: 604108
 // gas legacy: 644983
 // gas legacyOptimized: 598016
-// gas ssaCFGOptimized: 602576
+// gas ssaCFGOptimized: 602578
 // fillArray()
 // gas irOptimized: 5782148
 // gas legacy: 6044562
@@ -64,17 +64,17 @@ contract C {
 // gas irOptimized: 604108
 // gas legacy: 644983
 // gas legacyOptimized: 598016
-// gas ssaCFGOptimized: 602576
+// gas ssaCFGOptimized: 602578
 // partialAssignArray()
 // gas irOptimized: 1067376
 // gas legacy: 1177356
 // gas legacyOptimized: 1068067
-// gas ssaCFGOptimized: 1067374
+// gas ssaCFGOptimized: 1067379
 // x() -> 11, 22, 33, 44, 55, 66, 77, 88, 99, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // gas irOptimized: 604108
 // gas legacy: 644983
 // gas legacyOptimized: 598016
-// gas ssaCFGOptimized: 602576
+// gas ssaCFGOptimized: 602578
 // clearArray()
 // gas irOptimized: 580378
 // gas legacy: 582973
@@ -84,4 +84,4 @@ contract C {
 // gas irOptimized: 604108
 // gas legacy: 644983
 // gas legacyOptimized: 598016
-// gas ssaCFGOptimized: 602576
+// gas ssaCFGOptimized: 602578

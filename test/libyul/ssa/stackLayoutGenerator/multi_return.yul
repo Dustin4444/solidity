@@ -23,19 +23,19 @@
 // pair\l\
 // [v2, v3]\l\
 // \l\
-// [v2, v3, FunctionCallReturnLabel[1], v2]\l\
+// [v3, FunctionCallReturnLabel[1], v2]\l\
 // pair\l\
-// [v2, v3, v5, v6]\l\
+// [v3, v5, v6]\l\
 // \l\
-// [v2, v3, v6, v5]\l\
+// [v3, v6, v5]\l\
 // add\l\
-// [v2, v3, v7]\l\
+// [v3, v7]\l\
 // \l\
-// [v2, v7, v3]\l\
+// [v7, v3]\l\
 // sstore\l\
-// [v2]\l\
+// []\l\
 // \l\
-// OUT: [v2]\l\
+// OUT: []\l\
 // "];
 // Block0_0Exit [label="MainExit"];
 // Block0_0 -> Block0_0Exit;

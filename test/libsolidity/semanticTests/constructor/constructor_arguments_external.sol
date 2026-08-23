@@ -15,7 +15,6 @@ contract Main {
         return flag;
     }
 }
-// ====
 // ----
 // constructor(): "abc", true
 // gas irOptimized: 80174
@@ -24,7 +23,7 @@ contract Main {
 // gas legacy code: 58200
 // gas legacyOptimized: 80132
 // gas legacyOptimized code: 22800
-// gas ssaCFGOptimized: 80062
-// gas ssaCFGOptimized code: 22600
+// gas ssaCFGOptimized: 80078
+// gas ssaCFGOptimized code: 22800
 // getFlag() -> true
 // getName() -> "abc"

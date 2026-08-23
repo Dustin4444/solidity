@@ -44,7 +44,7 @@ contract c {
 // gas irOptimized: 118581
 // gas legacy: 119144
 // gas legacyOptimized: 118618
-// gas ssaCFGOptimized: 118555
+// gas ssaCFGOptimized: 118557
 // retrieve(uint256): 7 -> 1, 3, 4, 2
 // retrieve(uint256): 8 -> 1, 3, 4, 2
 // copy(uint256,uint256): 0, 7 -> true

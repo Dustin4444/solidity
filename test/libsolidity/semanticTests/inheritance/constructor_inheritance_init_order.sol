@@ -16,6 +16,6 @@ contract B is A {
 // constructor() ->
 // gas irOptimized: 99436
 // gas irOptimized code: 20200
-// gas ssaCFGOptimized: 99321
-// gas ssaCFGOptimized code: 18600
+// gas ssaCFGOptimized: 99337
+// gas ssaCFGOptimized code: 18800
 // y() -> 42

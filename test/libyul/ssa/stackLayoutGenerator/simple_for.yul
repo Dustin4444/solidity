@@ -50,11 +50,11 @@
 // Block0_4 [label="\
 // IN: [phi1, JUNK]\l\
 // \l\
-// [phi1, JUNK, lit20, phi1]\l\
+// [phi1, lit20, phi1]\l\
 // mstore\l\
-// [phi1, JUNK]\l\
+// [phi1]\l\
 // \l\
-// OUT: [phi1, JUNK]\l\
+// OUT: [phi1]\l\
 // "];
 // Block0_4Exit [label="MainExit"];
 // Block0_4 -> Block0_4Exit;

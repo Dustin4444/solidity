@@ -101,28 +101,28 @@ contract C {
 // gas irOptimized: 113169
 // gas legacy: 120742
 // gas legacyOptimized: 112518
-// gas ssaCFGOptimized: 113252
+// gas ssaCFGOptimized: 113260
 // destArray() -> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // gas irOptimized: 113078
 // gas legacy: 120738
 // gas legacyOptimized: 112505
-// gas ssaCFGOptimized: 113161
+// gas ssaCFGOptimized: 113169
 // fillBoundaryArray()
 // gas irOptimized: 912522
 // gas legacy: 930728
 // gas legacyOptimized: 916628
-// gas ssaCFGOptimized: 915317
+// gas ssaCFGOptimized: 915267
 // canaryValue() -> 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 // boundaryArray() -> 1, 2, 3, 4, true, 6, 7, 8, 9, true, 11, 12, 13, 14, true, 16, 17, 18, 19, true, 21, 22, 23, 24, true, 26, 27, 28, 29, true, 31, 32, 33, 34, true, 36, 37, 38, 39, true, 41, 42, 43, 44, true, 46, 47, 48, 49, true
 // gas irOptimized: 113169
 // gas legacy: 120742
 // gas legacyOptimized: 112518
-// gas ssaCFGOptimized: 113252
+// gas ssaCFGOptimized: 113260
 // destArray() -> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // gas irOptimized: 113078
 // gas legacy: 120738
 // gas legacyOptimized: 112505
-// gas ssaCFGOptimized: 113161
+// gas ssaCFGOptimized: 113169
 // copyFromBoundary()
 // gas irOptimized: 994579
 // gas legacy: 1023407
@@ -133,28 +133,28 @@ contract C {
 // gas irOptimized: 113169
 // gas legacy: 120742
 // gas legacyOptimized: 112518
-// gas ssaCFGOptimized: 113252
+// gas ssaCFGOptimized: 113260
 // destArray() -> 1, 2, 3, 4, true, 6, 7, 8, 9, true, 11, 12, 13, 14, true, 16, 17, 18, 19, true, 21, 22, 23, 24, true, 26, 27, 28, 29, true, 31, 32, 33, 34, true, 36, 37, 38, 39, true, 41, 42, 43, 44, true, 46, 47, 48, 49, true
 // gas irOptimized: 113078
 // gas legacy: 120738
 // gas legacyOptimized: 112505
-// gas ssaCFGOptimized: 113161
+// gas ssaCFGOptimized: 113169
 // fillDestArray()
 // gas irOptimized: 200426
 // gas legacy: 218746
 // gas legacyOptimized: 204648
-// gas ssaCFGOptimized: 203221
+// gas ssaCFGOptimized: 203171
 // canaryValue() -> 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 // boundaryArray() -> 1, 2, 3, 4, true, 6, 7, 8, 9, true, 11, 12, 13, 14, true, 16, 17, 18, 19, true, 21, 22, 23, 24, true, 26, 27, 28, 29, true, 31, 32, 33, 34, true, 36, 37, 38, 39, true, 41, 42, 43, 44, true, 46, 47, 48, 49, true
 // gas irOptimized: 113169
 // gas legacy: 120742
 // gas legacyOptimized: 112518
-// gas ssaCFGOptimized: 113252
+// gas ssaCFGOptimized: 113260
 // destArray() -> 51, 52, 53, 54, true, 56, 57, 58, 59, true, 61, 62, 63, 64, true, 66, 67, 68, 69, true, 71, 72, 73, 74, true, 76, 77, 78, 79, true, 81, 82, 83, 84, true, 86, 87, 88, 89, true, 91, 92, 93, 94, true, 96, 97, 98, 99, true
 // gas irOptimized: 113078
 // gas legacy: 120738
 // gas legacyOptimized: 112505
-// gas ssaCFGOptimized: 113161
+// gas ssaCFGOptimized: 113169
 // copyToBoundary()
 // gas irOptimized: 282623
 // gas legacy: 311362
@@ -165,12 +165,12 @@ contract C {
 // gas irOptimized: 113169
 // gas legacy: 120742
 // gas legacyOptimized: 112518
-// gas ssaCFGOptimized: 113252
+// gas ssaCFGOptimized: 113260
 // destArray() -> 51, 52, 53, 54, true, 56, 57, 58, 59, true, 61, 62, 63, 64, true, 66, 67, 68, 69, true, 71, 72, 73, 74, true, 76, 77, 78, 79, true, 81, 82, 83, 84, true, 86, 87, 88, 89, true, 91, 92, 93, 94, true, 96, 97, 98, 99, true
 // gas irOptimized: 113078
 // gas legacy: 120738
 // gas legacyOptimized: 112505
-// gas ssaCFGOptimized: 113161
+// gas ssaCFGOptimized: 113169
 // deleteBoundaryArray()
 // gas irOptimized: 177968
 // gas legacy: 180995
@@ -181,9 +181,9 @@ contract C {
 // gas irOptimized: 113169
 // gas legacy: 120742
 // gas legacyOptimized: 112518
-// gas ssaCFGOptimized: 113252
+// gas ssaCFGOptimized: 113260
 // destArray() -> 51, 52, 53, 54, true, 56, 57, 58, 59, true, 61, 62, 63, 64, true, 66, 67, 68, 69, true, 71, 72, 73, 74, true, 76, 77, 78, 79, true, 81, 82, 83, 84, true, 86, 87, 88, 89, true, 91, 92, 93, 94, true, 96, 97, 98, 99, true
 // gas irOptimized: 113078
 // gas legacy: 120738
 // gas legacyOptimized: 112505
-// gas ssaCFGOptimized: 113161
+// gas ssaCFGOptimized: 113169

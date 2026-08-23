@@ -38,11 +38,11 @@ contract c {
 // gas irOptimized: 4560468
 // gas legacy: 4536539
 // gas legacyOptimized: 4456732
-// gas ssaCFGOptimized: 4558509
+// gas ssaCFGOptimized: 4558546
 // storageEmpty -> 1
 // clear() -> 0, 0
 // gas irOptimized: 4488719
 // gas legacy: 4407759
 // gas legacyOptimized: 4385068
-// gas ssaCFGOptimized: 4488486
+// gas ssaCFGOptimized: 4488492
 // storageEmpty -> 1
