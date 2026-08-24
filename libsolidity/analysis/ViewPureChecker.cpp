@@ -139,12 +139,10 @@ bool ViewPureChecker::check()
 	return !m_errors;
 }
 
-std::vector<ContractDefinition const*> const& ViewPureChecker::currentDerivedContracts()
+std::span<ContractDefinition const* const> ViewPureChecker::currentDerivedContracts()
 {
-	static std::vector<ContractDefinition const*> const noContracts;
-
 	if (!m_currentFunction || !m_currentFunction->annotation().contract)
-		return noContracts;
+		return {};
 	return m_derivedContracts[m_currentFunction->annotation().contract];
 }
 

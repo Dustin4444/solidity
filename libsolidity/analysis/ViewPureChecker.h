@@ -25,6 +25,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <span>
 #include <vector>
 
 namespace solidity::langutil
@@ -82,7 +83,7 @@ private:
 	MutabilityAndLocation const& modifierMutability(ModifierDefinition const& _modifier);
 
 	/// @returns the contracts @a m_currentFunction can be inherited into, empty if it is not a member of a contract.
-	std::vector<ContractDefinition const*> const& currentDerivedContracts();
+	std::span<ContractDefinition const* const> currentDerivedContracts();
 
 	std::vector<std::shared_ptr<ASTNode>> const& m_ast;
 	langutil::ErrorReporter& m_errorReporter;
